@@ -1651,24 +1651,69 @@ class AssetDatabase {
     findAsset(query) {
         const lowerQuery = query.toLowerCase();
         
-        // Direct match first
+        // Extract potential asset words from query (ignore common words)
+        const words = lowerQuery.split(/\s+/).filter(word => 
+            word.length >= 2 && 
+            !['the', 'of', 'and', 'or', 'for', 'to', 'in', 'on', 'at', 'by', 'with', 'from', 'analysis', 'comprehensive', 'provide', 'including', 'technical', 'indicators', 'price', 'targets', 'risk', 'assessment'].includes(word)
+        );
+        
+        // EXACT match first (higher priority) - check individual words too
         for (const [name, data] of this.assets) {
-            if (data.aliases.some(alias => lowerQuery.includes(alias))) {
-                return {
-                    name,
-                    category: data.category,
-                    displayName: data.displayName,
-                    confidence: 1.0
-                };
+            for (const alias of data.aliases) {
+                // Check for exact word match in full query
+                const regex = new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+                if (regex.test(query)) {
+                    console.log(`[ASSET MATCH] Found exact word match: "${alias}" -> ${name}`);
+                    return {
+                        name,
+                        category: data.category,
+                        displayName: data.displayName,
+                        confidence: 1.0,
+                        matchedAlias: alias
+                    };
+                }
+                
+                // Check if any extracted words match aliases exactly
+                if (words.includes(alias)) {
+                    console.log(`[ASSET MATCH] Found exact word match in extracted words: "${alias}" -> ${name}`);
+                    return {
+                        name,
+                        category: data.category,
+                        displayName: data.displayName,
+                        confidence: 1.0,
+                        matchedAlias: alias
+                    };
+                }
             }
         }
 
-        // Fuzzy matching for partial matches
+        // CONTAINS match (medium priority) - but only for short queries to avoid false matches
+        if (lowerQuery.length <= 50) {
+            for (const [name, data] of this.assets) {
+                if (data.aliases.some(alias => lowerQuery.includes(alias))) {
+                    console.log(`[ASSET MATCH] Found contains match: ${name}`);
+                    return {
+                        name,
+                        category: data.category,
+                        displayName: data.displayName,
+                        confidence: 0.9
+                    };
+                }
+            }
+        }
+
+        // Skip fuzzy matching for very long queries to avoid false positives
+        if (lowerQuery.length > 100) {
+            console.log(`[ASSET MATCH] Skipping fuzzy match for long query: "${query}"`);
+            return null;
+        }
+
+        // Fuzzy matching for partial matches (lowest priority) - only for shorter queries
         const fuzzyMatches = [];
         for (const [name, data] of this.assets) {
             for (const alias of data.aliases) {
                 const similarity = this.calculateSimilarity(lowerQuery, alias);
-                if (similarity > 0.6) {
+                if (similarity > 0.8) { // Even higher threshold to reduce false matches
                     fuzzyMatches.push({
                         name,
                         category: data.category,
@@ -1680,12 +1725,15 @@ class AssetDatabase {
             }
         }
 
-        // Return best fuzzy match
+        // Return best fuzzy match only if confidence is high enough
         if (fuzzyMatches.length > 0) {
             fuzzyMatches.sort((a, b) => b.confidence - a.confidence);
-            return fuzzyMatches[0];
+            const bestMatch = fuzzyMatches[0];
+            console.log(`[ASSET MATCH] Found fuzzy match: "${bestMatch.matchedAlias}" -> ${bestMatch.name} (${(bestMatch.confidence * 100).toFixed(1)}%)`);
+            return bestMatch;
         }
 
+        console.log(`[ASSET MATCH] No match found for: "${query}"`);
         return null;
     }
 
@@ -1839,7 +1887,7 @@ class EnhancedQueryAnalyzer {
         // 3. If no general pattern found, try to find specific assets
         if (!analysis.topic) {
             const assetMatch = this.assetDB.findAsset(message);
-            if (assetMatch && assetMatch.confidence > 0.6) {  // Lowered from 0.7 to 0.6 for better fuzzy matching
+            if (assetMatch && assetMatch.confidence > 0.85) {  // Only accept high-confidence matches to avoid false positives
                 analysis.topic = assetMatch.displayName;
                 analysis.type = 'asset';
                 analysis.confidence = assetMatch.confidence;
