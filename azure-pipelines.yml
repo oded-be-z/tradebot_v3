@@ -1,0 +1,26 @@
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '22.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install
+    npm start &
+    sleep 5  # Wait briefly to ensure the app starts
+  displayName: 'npm install and start'
+  env:
+    PERPLEXITY_API_KEY: $(PERPLEXITY_API_KEY)
+    PORT: $(PORT)
+    NODE_ENV: $(NODE_ENV)
+
+- script: |
+    echo "Pipeline completed successfully! Artifacts ready for Azure App Service deployment."
+  displayName: 'Finish: Log pipeline completion'
+  condition: succeeded()
