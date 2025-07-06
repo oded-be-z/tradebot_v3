@@ -23,6 +23,17 @@ steps:
     POLYGON_API_KEY: $(POLYGON_API_KEY)
 
 - script: |
+    BUILD_STATUS=$(if [ "$(Build.Status)" == "Succeeded" ]; then echo "Succeeded"; else echo "Failed"; fi)
+    curl -s -X POST "https://api.telegram.org/bot$(TELEGRAM_BOT_TOKEN)/sendMessage" \
+      -d chat_id=$(TELEGRAM_CHAT_ID) \
+      -d text="Build Status: $BUILD_STATUS%0AProject: $(System.TeamProject)%0ABuild: $(Build.BuildNumber)%0ATriggered by: $(Build.RequestedFor)%0AURL: $(Build.BuildUri)"
+  displayName: 'Send Telegram Notification'
+  env:
+    TELEGRAM_BOT_TOKEN: $(TELEGRAM_BOT_TOKEN)
+    TELEGRAM_CHAT_ID: $(TELEGRAM_CHAT_ID)
+  condition: always()
+
+- script: |
     echo "Pipeline completed successfully! Artifacts ready for Azure App Service deployment."
   displayName: 'Finish: Log pipeline completion'
   condition: succeeded()
