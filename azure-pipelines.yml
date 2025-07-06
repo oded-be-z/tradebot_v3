@@ -25,17 +25,20 @@ steps:
     ALPHA_VANTAGE_API_KEY: $(ALPHA_VANTAGE_API_KEY)
     POLYGON_API_KEY: $(POLYGON_API_KEY)
 
-- script: |
-    BUILD_STATUS=$(if [ "$(Build.Status)" == "Succeeded" ]; then echo "Succeeded"; else echo "Failed"; fi)
-    DEPLOY_TIME=$(date +"%Y-%m-%d %H:%M:%S")
-    COMMIT_AUTHOR=$(git log --format='%an' -n 1)
-    COMMIT_MESSAGE=$(git log --format='%B' -n 1 | tr -d '\n"\\`')
-    MSG="Azure deploy finished!\n\nDeploy details:\nBuild Status: $BUILD_STATUS\nPipeline: $(Build.DefinitionName)\nBranch: $(Build.SourceBranchName)\nDeploy Time: $DEPLOY_TIME\nCommit Author: $COMMIT_AUTHOR\nCommit Message: $COMMIT_MESSAGE\nTriggered by: $(Build.RequestedFor)\nURL: $(Build.BuildUri)"
-    curl -s -X POST \
-      -H 'Content-Type: application/json' \
-      -d "{\"chat_id\": \"$(TELEGRAM_CHAT_ID)\", \"text\": \"$MSG\"}" \
-      "https://api.telegram.org/bot$(TELEGRAM_BOT_TOKEN)/sendMessage"
-  displayName: 'Send Telegram Notification'
+- task: Bash@3
+  displayName: 'Sending Telegram Notification'
+  inputs:
+    targetType: 'inline'
+    script: |
+      BUILD_STATUS=$(if [ "$(Build.Status)" == "Succeeded" ]; then echo "Succeeded"; else echo "Failed"; fi)
+      DEPLOY_TIME=$(date +"%Y-%m-%d %H:%M:%S")
+      COMMIT_AUTHOR=$(git log --format='%an' -n 1)
+      COMMIT_MESSAGE=$(git log --format='%B' -n 1 | tr -d '\n"\\`')
+      MSG="Azure deploy finished!\n\nDeploy details:\nBuild Status: $BUILD_STATUS\nPipeline: $(Build.DefinitionName)\nBranch: $(Build.SourceBranchName)\nDeploy Time: $DEPLOY_TIME\nCommit Author: $COMMIT_AUTHOR\nCommit Message: $COMMIT_MESSAGE\nTriggered by: $(Build.RequestedFor)\nURL: $(Build.BuildUri)"
+      curl -s -X POST \
+        -H 'Content-Type: application/json' \
+        -d "{\"chat_id\": \"$(TELEGRAM_CHAT_ID)\", \"text\": \"$MSG\"}" \
+        https://api.telegram.org/bot$(TELEGRAM_BOT_TOKEN)/sendMessage
   env:
     TELEGRAM_BOT_TOKEN: $(TELEGRAM_BOT_TOKEN)
     TELEGRAM_CHAT_ID: $(TELEGRAM_CHAT_ID)
