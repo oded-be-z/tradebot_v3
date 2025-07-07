@@ -62,60 +62,118 @@
         /* Layout */
         .app-container {
             display: flex;
+            flex-direction: column;
             height: 100vh;
             position: relative;
         }
 
-        /* Sidebar */
-        .sidebar {
-            width: 320px;
+        /* Desktop Market Header */
+        .desktop-market-header {
             background: var(--secondary-dark);
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            transition: transform 0.3s ease;
-        }
-
-        .sidebar-header {
-            padding: 24px;
             border-bottom: 1px solid var(--border-color);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            z-index: 100;
         }
 
-        .logo {
+        .desktop-market-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .logo-compact {
             display: flex;
             align-items: center;
             gap: 12px;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 700;
             color: var(--primary-gold);
         }
 
         .logo-icon {
-            width: 40px;
-            height: 40px;
+            width: 32px;
+            height: 32px;
             background: linear-gradient(135deg, var(--primary-gold), #ffed4e);
-            border-radius: 10px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+            font-size: 18px;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
         }
 
-        /* Market Overview */
-        .market-overview {
-            padding: 20px;
+        .market-ticker {
             flex: 1;
-            overflow-y: auto;
+            margin: 0 24px;
+            overflow: hidden;
+            height: 32px;
+            display: flex;
+            align-items: center;
         }
 
-        .market-section-title {
+        .market-ticker-content {
+            display: flex;
+            gap: 24px;
+            animation: tickerScroll 30s linear infinite;
+            white-space: nowrap;
+        }
+
+        @keyframes tickerScroll {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
+        .ticker-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             font-size: 14px;
-            font-weight: 600;
             color: var(--text-secondary);
-            margin-bottom: 16px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+        }
+
+        .ticker-symbol {
+            color: var(--primary-gold);
+            font-weight: 600;
+        }
+
+        .ticker-price {
+            color: var(--text-primary);
+        }
+
+        .ticker-change {
+            font-size: 12px;
+        }
+
+        .ticker-change.positive {
+            color: var(--success);
+        }
+
+        .ticker-change.negative {
+            color: var(--danger);
+        }
+
+        .market-toggle-desktop {
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .market-toggle-desktop:hover {
+            background: var(--primary-gold);
+            color: var(--primary-dark);
         }
 
         .market-card {
@@ -228,6 +286,7 @@
             display: flex;
             flex-direction: column;
             background: var(--primary-dark);
+            width: 100%;
         }
 
         /* Chat Header */
@@ -276,12 +335,17 @@
             50% { opacity: 0.5; transform: scale(1.2); }
         }
 
-        /* Chat Container */
+        /* Chat Container - FORCE SCROLLABLE OVERRIDE */
         .chat-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 32px;
-            scroll-behavior: smooth;
+            flex: 1 !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            padding: 32px !important;
+            padding-bottom: 140px !important; /* Account for input area + disclaimer bar */
+            scroll-behavior: smooth !important;
+            height: calc(100vh - 80px) !important; /* Full height minus header */
+            max-height: calc(100vh - 80px) !important;
+            position: relative !important;
         }
 
         .chat-container::-webkit-scrollbar {
@@ -465,10 +529,581 @@
             position: relative;
         }
 
+        /* Enhanced Bot Response Styling */
+        .bot-response-section {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            border-left: 4px solid var(--primary-gold);
+        }
+
+        .bot-response-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            color: var(--primary-gold);
+            font-size: 16px;
+        }
+
+        .bot-response-content {
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        .bot-response-content ul {
+            margin: 12px 0;
+            padding-left: 20px;
+        }
+
+        .bot-response-content li {
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        .bot-response-content li::marker {
+            color: var(--primary-gold);
+        }
+
+        .highlight-metric {
+            background: rgba(255, 215, 0, 0.15);
+            color: var(--primary-gold);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .positive-metric {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .negative-metric {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .info-callout {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 16px 0;
+            border-left: 4px solid var(--info);
+        }
+
+        .warning-callout {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 16px 0;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .success-callout {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 16px 0;
+            border-left: 4px solid var(--success);
+        }
+
+        /* Key Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .metric-card {
+            background: var(--secondary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            border-color: var(--primary-gold);
+            transform: translateY(-2px);
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary-gold);
+        }
+
+        /* Action Items */
+        .action-items {
+            background: rgba(34, 197, 94, 0.05);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+
+        .action-items-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .action-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+        }
+
+        .action-item-icon {
+            color: var(--success);
+            font-weight: bold;
+            margin-top: 2px;
+        }
+
+        .action-item-text {
+            color: var(--text-primary);
+            flex: 1;
+        }
+
         .message.user .message-content {
             background: linear-gradient(135deg, var(--primary-gold), #ffed4e);
             color: var(--primary-dark);
             border: none;
+        }
+
+        /* Mobile-Optimized Message Enhancements */
+        @media (max-width: 768px) {
+            .message {
+                margin-bottom: 16px;
+            }
+
+            .message-wrapper {
+                max-width: 85%;
+                gap: 8px;
+            }
+
+            .message-avatar {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+                border-radius: 50%;
+            }
+
+            .message-content {
+                padding: 12px 16px;
+                border-radius: 18px;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+        }
+
+        /* Follow-up Questions */
+        .follow-up-container {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+        }
+
+        .follow-up-prompt {
+            font-size: 13px;
+            color: var(--info);
+            margin-bottom: 8px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .follow-up-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .follow-up-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        .follow-up-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: var(--info);
+            transform: translateY(-1px);
+        }
+
+        .follow-up-btn:active {
+            transform: translateY(0);
+            background: var(--info);
+            color: white;
+        }
+
+        /* Quick Action Chips for Mobile */
+        .quick-actions-mobile {
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            left: 16px;
+            right: 16px;
+            z-index: 100;
+        }
+
+        .quick-action-chips {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 8px 4px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .quick-action-chips::-webkit-scrollbar {
+            display: none;
+        }
+
+        .chip-button {
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            min-width: 44px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chip-button:hover {
+            background: var(--border-color);
+            border-color: var(--primary-gold);
+        }
+
+        .chip-button.active {
+            background: var(--primary-gold);
+            color: var(--primary-dark);
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .quick-actions-mobile {
+                display: block;
+            }
+
+            /* Adjust input area to account for quick actions */
+            .input-area {
+                margin-bottom: 0; /* Remove conflicting margin */
+            }
+        }
+
+        /* Sliding Market Panel for Mobile */
+        .market-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--secondary-dark);
+            border-top: 1px solid var(--border-color);
+            border-radius: 16px 16px 0 0;
+            transform: translateY(calc(100% - 60px));
+            transition: transform 0.3s ease;
+            z-index: 150;
+            display: none;
+            max-height: 80vh;
+            overflow: hidden;
+        }
+
+        .market-panel.active {
+            transform: translateY(0);
+        }
+
+        .market-panel-handle {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background: var(--tertiary-dark);
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .market-panel-handle::before {
+            content: '';
+            width: 40px;
+            height: 4px;
+            background: var(--text-secondary);
+            border-radius: 2px;
+            position: absolute;
+            top: 12px;
+        }
+
+        .market-panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .market-panel-content {
+            padding: 20px;
+            overflow-y: auto;
+            max-height: calc(80vh - 60px);
+        }
+
+        .market-panel-section {
+            margin-bottom: 24px;
+        }
+
+        .market-panel-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .market-panel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+        }
+
+        .compact-market-card {
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .compact-market-card:hover {
+            border-color: var(--primary-gold);
+            transform: translateY(-2px);
+        }
+
+        .compact-market-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .compact-market-symbol {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary-gold);
+        }
+
+        .compact-market-name {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .compact-market-price {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .compact-market-change {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .compact-market-change.positive {
+            color: var(--success);
+        }
+
+        .compact-market-change.negative {
+            color: var(--danger);
+        }
+
+        @media (max-width: 768px) {
+            .market-panel {
+                display: block;
+            }
+
+            .compact-market-card {
+                min-height: 80px;
+            }
+        }
+
+        /* Market Panel Toggle Button */
+        .market-toggle-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 48px;
+            height: 48px;
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 160;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .market-toggle-btn:hover {
+            background: var(--primary-gold);
+            color: var(--primary-dark);
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 768px) {
+            .market-toggle-btn {
+                display: flex;
+            }
+        }
+
+        /* Bottom Navigation for Mobile */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--secondary-dark);
+            border-top: 1px solid var(--border-color);
+            display: none;
+            z-index: 90;
+            height: 60px;
+        }
+
+        .bottom-nav-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            height: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 60px;
+            border-radius: 8px;
+        }
+
+        .bottom-nav-item:hover {
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .bottom-nav-item.active {
+            background: rgba(255, 215, 0, 0.2);
+        }
+
+        .bottom-nav-icon {
+            font-size: 20px;
+            margin-bottom: 2px;
+        }
+
+        .bottom-nav-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .bottom-nav-item.active .bottom-nav-label {
+            color: var(--primary-gold);
+        }
+
+        @media (max-width: 768px) {
+            .bottom-nav {
+                display: block;
+            }
+
+            /* Adjust input area position for mobile with bottom nav */
+            .input-area {
+                bottom: 120px; /* Above bottom nav (60px) + disclaimer (56px mobile) + spacing */
+            }
+
+            /* Adjust chat container for both input area and bottom nav */
+            .chat-container {
+                padding-bottom: 180px !important; /* Account for input area + bottom nav + disclaimer */
+            }
+
+            .fab {
+                bottom: 220px;
+            }
+
+            .fab-menu {
+                bottom: 220px;
+            }
+
+            .market-toggle-btn {
+                bottom: 170px;
+            }
+
+            .quick-actions-mobile {
+                bottom: 180px;
+            }
+        }
+
+        /* Hide bottom nav when market panel is open */
+        .market-panel.active ~ .bottom-nav {
+            transform: translateY(100%);
         }
 
         /* Chart Container - IMPROVED */
@@ -890,11 +1525,19 @@
             background: rgba(255, 215, 0, 0.05);
         }
 
-        /* Input Area */
+        /* Input Area - FORCE CLEAN AND SIMPLE OVERRIDE */
         .input-area {
-            background: var(--secondary-dark);
-            border-top: 1px solid var(--border-color);
-            padding: 24px 32px;
+            background: var(--secondary-dark) !important;
+            border-top: 1px solid var(--border-color) !important;
+            padding: 12px 16px !important;
+            position: fixed !important;
+            bottom: 48px !important; /* Above disclaimer bar */
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 1001 !important; /* Above disclaimer */
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            backdrop-filter: none !important;
         }
 
         .input-container {
@@ -909,72 +1552,78 @@
         }
 
         .input-group {
-            flex: 1;
-            position: relative;
+            flex: 1 !important;
+            position: relative !important;
+            background: var(--tertiary-dark) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 20px !important;
+            padding: 2px !important;
+            transition: all 0.2s ease !important;
+            box-shadow: none !important;
+        }
+
+        .input-group:focus-within {
+            border-color: var(--primary-gold) !important;
+            box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.1) !important;
+            transform: none !important;
+            background: var(--tertiary-dark) !important;
         }
 
         .chat-input {
-            width: 100%;
-            background: var(--tertiary-dark);
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            padding: 16px 20px;
-            padding-right: 120px;
-            font-size: 15px;
-            color: var(--text-primary);
-            transition: all 0.3s ease;
-            resize: none;
-            min-height: 56px;
-            max-height: 120px;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .chat-input:focus {
+            flex: 1;
+            background: transparent;
+            border: none;
             outline: none;
-            border-color: var(--primary-gold);
-            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+            color: var(--text-primary);
+            font-size: 16px;
+            padding: 12px 16px;
+            resize: none;
+            max-height: 120px;
+            min-height: 20px;
+            line-height: 1.5;
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
         }
 
         .chat-input::placeholder {
             color: var(--text-secondary);
+            font-weight: 400;
+            font-size: 16px;
         }
 
         .input-actions {
-            position: absolute;
-            right: 8px;
-            bottom: 8px;
             display: flex;
-            gap: 8px;
+            gap: 4px;
+            align-items: flex-end;
+            padding: 4px;
         }
 
         .input-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 18px;
+            background: var(--border-color);
+            color: var(--text-primary);
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            cursor: pointer;
+            font-size: 16px;
             transition: all 0.3s ease;
-            font-size: 20px;
+            position: relative;
+            border: none;
+            font-weight: 400;
         }
 
-        .file-upload-btn {
-            background: var(--tertiary-dark);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-        }
-
-        .file-upload-btn:hover {
-            background: var(--border-color);
-            color: var(--text-primary);
+        .input-btn:hover {
+            background: var(--primary-gold);
+            color: var(--primary-dark);
+            transform: scale(1.05);
         }
 
         .file-upload-btn.has-files {
             background: var(--success);
             color: white;
-            position: relative;
         }
 
         .file-count-badge {
@@ -990,48 +1639,80 @@
         }
 
         .send-btn {
-            background: linear-gradient(135deg, var(--primary-gold), #ffed4e);
+            background: var(--primary-gold);
             color: var(--primary-dark);
         }
 
         .send-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.3);
+            background: #ffed4e;
+            transform: scale(1.1) rotate(15deg);
         }
 
         .send-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            transform: none;
         }
 
-        /* Typing Indicator */
+        /* Modern Loading Indicator */
         .typing-indicator {
             display: none;
-            padding: 0 32px;
+            padding: 16px 32px;
             margin-bottom: 16px;
         }
 
         .typing-indicator.active {
-            display: block;
+            display: flex;
+            justify-content: flex-start;
             animation: fadeIn 0.3s ease;
         }
 
         .typing-bubble {
             background: var(--tertiary-dark);
             border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 12px 20px;
-            display: inline-flex;
+            border-radius: 18px;
+            padding: 12px 16px;
+            display: flex;
             align-items: center;
             gap: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .ai-avatar {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #5865f2, #7289da);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: white;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .typing-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-right: 8px;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
         }
 
         .typing-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--text-secondary);
+            width: 6px;
+            height: 6px;
+            background: #5865f2;
             border-radius: 50%;
             animation: typingDot 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
         }
 
         .typing-dot:nth-child(2) {
@@ -1043,8 +1724,14 @@
         }
 
         @keyframes typingDot {
-            0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
-            30% { opacity: 1; transform: scale(1); }
+            0%, 60%, 100% { 
+                opacity: 0.3; 
+                transform: translateY(0);
+            }
+            30% { 
+                opacity: 1; 
+                transform: translateY(-4px);
+            }
         }
 
         /* File Upload Area */
@@ -1132,49 +1819,243 @@
             cursor: pointer;
         }
 
-        /* Responsive Design */
+        /* Mobile-First Responsive Design */
         @media (max-width: 768px) {
-            .sidebar {
-                position: fixed;
-                left: 0;
-                top: 0;
-                bottom: 0;
-                transform: translateX(-100%);
-                z-index: 999;
+            /* Hide desktop header on mobile */
+            .desktop-market-header {
+                display: none;
             }
 
-            .sidebar.active {
-                transform: translateX(0);
-            }
-
-            .mobile-menu-toggle {
-                display: block;
-            }
-
+            /* Compact header for mobile */
             .chat-header {
-                padding-left: 60px;
+                padding: 12px 16px;
+                border-bottom: 1px solid var(--border-color);
             }
 
+            .chat-title {
+                font-size: 18px;
+            }
+
+            .status-badge {
+                font-size: 12px;
+            }
+
+            .chat-header-right {
+                display: none; /* Hide "Powered by" text on mobile */
+            }
+
+            /* Mobile-optimized chat container - FORCE SCROLLABLE */
             .chat-container {
-                padding: 20px;
+                padding: 16px 12px !important;
+                padding-bottom: 200px !important; /* Account for input area + disclaimer + bottom nav */
+                height: calc(100vh - 80px) !important; /* Account for header only */
+                max-height: calc(100vh - 80px) !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                position: relative !important;
             }
 
+            /* Responsive welcome screen */
             .welcome-title {
-                font-size: 36px;
+                font-size: 28px;
+                margin-bottom: 12px;
+            }
+
+            .welcome-subtitle {
+                font-size: 16px;
+                margin-bottom: 24px;
             }
 
             .feature-grid {
                 grid-template-columns: 1fr;
+                gap: 16px;
+                margin-bottom: 32px;
             }
 
+            .feature-card {
+                padding: 16px;
+            }
+
+            /* Compact quick actions */
             .quick-actions {
-                flex-direction: column;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                justify-content: center;
             }
 
             .quick-action-btn {
-                width: 100%;
+                padding: 8px 12px;
+                font-size: 13px;
+                border-radius: 20px;
+                min-width: 44px; /* Touch-friendly minimum */
+                height: 44px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                white-space: nowrap;
+                flex: 1 1 auto;
+                max-width: 140px;
+            }
+
+            /* Mobile input area - FORCE CLEAN OVERRIDE */
+            .input-area {
+                padding: 12px 16px !important;
+                background: var(--secondary-dark) !important;
+                border-top: 1px solid var(--border-color) !important;
+                bottom: 108px !important; /* Above bottom nav (60px) + disclaimer (48px) */
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                backdrop-filter: none !important;
+            }
+
+            .input-wrapper {
+                max-width: none;
+            }
+
+            .chat-input {
+                font-size: 16px; /* Prevent zoom on iOS */
+                padding: 12px 16px;
+                border-radius: 24px;
+                font-weight: 400;
+                min-height: 20px;
+            }
+
+            .input-actions {
+                gap: 8px;
+            }
+
+            .input-btn {
+                width: 48px;
+                height: 48px;
+                border-radius: 24px;
+                font-size: 18px;
+            }
+
+            /* Hide mobile menu toggle since sidebar is hidden */
+            .mobile-menu-toggle {
+                display: none;
             }
         }
+
+        /* Tablet styles */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .sidebar {
+                width: 280px;
+            }
+
+            .feature-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Large desktop */
+        @media (min-width: 1025px) {
+            .sidebar {
+                width: 320px;
+            }
+
+            .chat-container {
+                max-width: 800px;
+                margin: 0 auto;
+            }
+        }
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--primary-gold), #ffed4e);
+            border: none;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: var(--primary-dark);
+            transition: all 0.3s ease;
+            z-index: 200;
+        }
+
+        .fab:hover {
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.6);
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        .fab.hidden {
+            transform: translateY(100px);
+            opacity: 0;
+        }
+
+        /* Compact Action Menu */
+        .fab-menu {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 199;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .fab-menu.active {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .fab-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 28px;
+            padding: 8px 16px 8px 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            min-height: 44px;
+        }
+
+        .fab-menu-item:hover {
+            background: var(--border-color);
+            border-color: var(--primary-gold);
+            transform: translateX(-4px);
+        }
+
+        .fab-menu-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--primary-gold);
+            color: var(--primary-dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .fab-menu-text {
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+
 
         /* Loading States */
         .loading {
@@ -1187,8 +2068,149 @@
             animation: spin 1s linear infinite;
         }
 
+        /* MODERN CHAT INPUT - COMPLETE REPLACEMENT */
+        .modern-input-area {
+            position: fixed !important;
+            bottom: 48px !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 1002 !important;
+            background: transparent !important;
+            padding: 16px 20px !important;
+        }
+        
+        .modern-input-container {
+            max-width: 1000px !important;
+            margin: 0 auto !important;
+        }
+        
+        .modern-input-field {
+            background: #36393f !important;
+            border: 2px solid #40444b !important;
+            border-radius: 24px !important;
+            padding: 4px !important;
+            display: flex !important;
+            align-items: flex-end !important;
+            transition: all 0.2s ease !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        }
+        
+        .modern-input-field:focus-within {
+            border-color: #5865f2 !important;
+            box-shadow: 0 0 0 1px #5865f2, 0 4px 12px rgba(88,101,242,0.2) !important;
+        }
+        
+        .modern-chat-input {
+            flex: 1 !important;
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            color: #dcddde !important;
+            font-size: 16px !important;
+            padding: 12px 16px !important;
+            resize: none !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            line-height: 1.4 !important;
+            max-height: 144px !important;
+            min-height: 20px !important;
+        }
+        
+        .modern-chat-input::placeholder {
+            color: #72767d !important;
+            font-weight: 400 !important;
+        }
+        
+        .modern-input-actions {
+            display: flex !important;
+            gap: 8px !important;
+            padding: 8px !important;
+            align-items: center !important;
+        }
+        
+        .modern-btn {
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 16px !important;
+            border: none !important;
+            background: #4f545c !important;
+            color: #b9bbbe !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            position: relative !important;
+        }
+        
+        .modern-btn:hover {
+            background: #5865f2 !important;
+            color: white !important;
+            transform: scale(1.05) !important;
+        }
+        
+        .modern-btn.send-btn {
+            background: #5865f2 !important;
+            color: white !important;
+        }
+        
+        .modern-btn.send-btn:hover {
+            background: #4752c4 !important;
+            transform: scale(1.1) !important;
+        }
+        
+        .modern-btn:disabled {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+        }
+
+        body .chat-container {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            max-height: calc(100vh - 80px) !important;
+            position: relative !important;
+        }
+
+        body .main-content {
+            display: flex !important;
+            flex-direction: column !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+
+        /* Compact Mode Adjustments */
+        @media (max-width: 768px) {
+            .fab {
+                bottom: 140px;
+                right: 16px;
+                width: 48px;
+                height: 48px;
+                font-size: 20px;
+            }
+
+            .fab-menu {
+                bottom: 140px;
+                right: 16px;
+            }
+
+            .fab-menu-item {
+                padding: 6px 12px 6px 8px;
+                border-radius: 24px;
+            }
+
+            .fab-menu-icon {
+                width: 24px;
+                height: 24px;
+                font-size: 12px;
+            }
+
+            .fab-menu-text {
+                font-size: 12px;
+            }
         }
 
         /* Error States */
@@ -1229,30 +2251,21 @@
             </svg>
         </button>
 
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
+        <!-- Desktop Market Overview - Compact Header -->
+        <div class="desktop-market-header" id="desktop-market-header">
+            <div class="desktop-market-content">
+                <div class="logo-compact">
                     <div class="logo-icon">📊</div>
                     <span>FinanceBot Pro</span>
                 </div>
-            </div>
-            
-            <div class="market-overview">
-                <h3 class="market-section-title">Live Markets</h3>
-                <div id="market-cards">
-                    <!-- Market cards will be dynamically inserted here -->
+                <div class="market-ticker" id="market-ticker">
+                    <!-- Live market data will scroll here -->
                 </div>
-                
-                <h3 class="market-section-title" style="margin-top: 32px;">Your Watchlist</h3>
-                <div id="watchlist-cards">
-                    <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
-                        <p>No items in watchlist</p>
-                        <p style="font-size: 12px; margin-top: 8px;">Ask me about any asset to add it!</p>
-                    </div>
+                <div class="market-toggle-desktop" onclick="toggleDesktopMarkets()">
+                    <span>📊</span> Markets
                 </div>
             </div>
-        </aside>
+        </div>
 
         <!-- Main Content -->
         <main class="main-content">
@@ -1336,46 +2349,158 @@
                 </div>
             </div>
 
-            <!-- Typing Indicator -->
-            <div class="typing-indicator" id="typing-indicator">
-                <div class="typing-bubble">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
+                <!-- Modern Typing Indicator -->
+    <div class="typing-indicator" id="typing-indicator">
+        <div class="typing-bubble">
+            <div class="ai-avatar">🤖</div>
+            <span class="typing-text">Max is thinking</span>
+            <div class="typing-dots">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+    </div>
+
+            <!-- Mobile Quick Actions -->
+            <div class="quick-actions-mobile" id="quick-actions-mobile">
+                <div class="quick-action-chips" id="quick-action-chips">
+                    <button class="chip-button" onclick="sendQuickMessage('What are the best stocks to buy now?')">
+                        <span>📈</span> Top Stocks
+                    </button>
+                    <button class="chip-button" onclick="sendQuickMessage('Show me Bitcoin price analysis')">
+                        <span>₿</span> Bitcoin
+                    </button>
+                    <button class="chip-button" onclick="sendQuickMessage('Portfolio diversification tips')">
+                        <span>📊</span> Portfolio
+                    </button>
+                    <button class="chip-button" onclick="sendQuickMessage('Market news and trends today')">
+                        <span>📰</span> News
+                    </button>
+                    <button class="chip-button" onclick="promptFileUpload()">
+                        <span>📁</span> Upload
+                    </button>
                 </div>
             </div>
 
-            <!-- Input Area -->
-            <div class="input-area">
-                <div class="input-container">
+            <!-- Modern Input Area -->
+            <div class="modern-input-area">
+                <div class="modern-input-container">
                     <div class="file-upload-area" id="file-upload-area">
                         <div class="uploaded-files" id="uploaded-files"></div>
                     </div>
                     
-                    <div class="input-wrapper">
-                        <div class="input-group">
-                            <textarea 
-                                id="chat-input" 
-                                class="chat-input" 
-                                placeholder="Ask me about stocks, crypto, forex, or upload your portfolio CSV..."
-                                onkeydown="handleKeyDown(event)"
-                                oninput="autoResize(this)"
-                            ></textarea>
-                            <div class="input-actions">
-                                <input type="file" id="file-input" accept=".csv" multiple style="display: none;">
-                                <button class="input-btn file-upload-btn" id="file-upload-btn" onclick="document.getElementById('file-input').click()">
-                                    📎
-                                    <span class="file-count-badge" id="file-count" style="display: none;">0</span>
-                                </button>
-                                <button class="input-btn send-btn" id="send-btn" onclick="sendMessage()">
-                                    ➤
-                                </button>
-                            </div>
+                    <div class="modern-input-field">
+                        <textarea 
+                            id="chat-input" 
+                            class="modern-chat-input" 
+                            placeholder="Message Max..."
+                            onkeydown="handleKeyDown(event)"
+                            oninput="autoResize(this)"
+                        ></textarea>
+                        <div class="modern-input-actions">
+                            <input type="file" id="file-input" accept=".csv" multiple style="display: none;">
+                            <button class="modern-btn file-btn" id="file-upload-btn" onclick="document.getElementById('file-input').click()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66L9.64 16.2a2 2 0 01-2.83-2.83l8.49-8.49"/>
+                                </svg>
+                                <span class="file-count-badge" id="file-count" style="display: none;">0</span>
+                            </button>
+                            <button class="modern-btn send-btn" id="send-btn" onclick="sendMessage()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
         </main>
+
+        <!-- Floating Action Button -->
+        <button class="fab" id="fab" onclick="toggleFabMenu()">
+            ⚡
+        </button>
+
+        <!-- FAB Menu -->
+        <div class="fab-menu" id="fab-menu">
+            <div class="fab-menu-item" onclick="sendQuickMessage('What are the best investment opportunities today?'); closeFabMenu()">
+                <div class="fab-menu-icon">📈</div>
+                <div class="fab-menu-text">Top Investments</div>
+            </div>
+            <div class="fab-menu-item" onclick="sendQuickMessage('Show me my portfolio performance'); closeFabMenu()">
+                <div class="fab-menu-icon">📊</div>
+                <div class="fab-menu-text">Portfolio Review</div>
+            </div>
+            <div class="fab-menu-item" onclick="sendQuickMessage('Latest market news and analysis'); closeFabMenu()">
+                <div class="fab-menu-icon">📰</div>
+                <div class="fab-menu-text">Market News</div>
+            </div>
+            <div class="fab-menu-item" onclick="promptFileUpload(); closeFabMenu()">
+                <div class="fab-menu-icon">📁</div>
+                <div class="fab-menu-text">Upload CSV</div>
+            </div>
+        </div>
+
+        <!-- Market Panel Toggle Button -->
+        <button class="market-toggle-btn" id="market-toggle-btn" onclick="toggleMarketPanel()">
+            📊
+        </button>
+
+        <!-- Sliding Market Panel -->
+        <div class="market-panel" id="market-panel">
+            <div class="market-panel-handle" onclick="toggleMarketPanel()">
+                <div class="market-panel-title">
+                    <span>📊</span>
+                    <span>Live Markets</span>
+                </div>
+            </div>
+            <div class="market-panel-content">
+                <div class="market-panel-section">
+                    <div class="market-panel-section-title">Trending Stocks</div>
+                    <div class="market-panel-grid" id="mobile-market-stocks">
+                        <!-- Market cards will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div class="market-panel-section">
+                    <div class="market-panel-section-title">Cryptocurrencies</div>
+                    <div class="market-panel-grid" id="mobile-market-crypto">
+                        <!-- Crypto cards will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div class="market-panel-section">
+                    <div class="market-panel-section-title">Your Watchlist</div>
+                    <div class="market-panel-grid" id="mobile-watchlist">
+                        <div style="text-align: center; padding: 20px; color: var(--text-secondary); grid-column: 1 / -1;">
+                            <p>No items in watchlist</p>
+                            <p style="font-size: 12px; margin-top: 8px;">Ask me about any asset to add it!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav" id="bottom-nav">
+            <div class="bottom-nav-content">
+                <div class="bottom-nav-item active" id="nav-chat" onclick="setActiveNav('chat')">
+                    <div class="bottom-nav-icon">💬</div>
+                    <div class="bottom-nav-label">Chat</div>
+                </div>
+                <div class="bottom-nav-item" id="nav-markets" onclick="setActiveNav('markets'); toggleMarketPanel()">
+                    <div class="bottom-nav-icon">📊</div>
+                    <div class="bottom-nav-label">Markets</div>
+                </div>
+                <div class="bottom-nav-item" id="nav-portfolio" onclick="setActiveNav('portfolio'); sendQuickMessage('Show me my portfolio performance')">
+                    <div class="bottom-nav-icon">💼</div>
+                    <div class="bottom-nav-label">Portfolio</div>
+                </div>
+                <div class="bottom-nav-item" id="nav-upload" onclick="setActiveNav('upload'); promptFileUpload()">
+                    <div class="bottom-nav-icon">📁</div>
+                    <div class="bottom-nav-label">Upload</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1387,6 +2512,105 @@
         let currentMarketData = {};
         let watchlist = new Set();
         let activeCharts = []; // Track active Chart.js instances
+
+        // ============ FOLLOW-UP QUESTIONS SYSTEM ============
+        const followUpQuestions = {
+            investment_advice: [
+                "Tell me more about the risk levels",
+                "What's the minimum investment amount?",
+                "Compare this with other options",
+                "Show me historical performance"
+            ],
+            market_analysis: [
+                "Explain this trend in detail",
+                "What are the main risks here?",
+                "When should I consider investing?",
+                "Show me similar opportunities"
+            ],
+            portfolio_review: [
+                "How can I improve my returns?",
+                "What about diversification strategies?",
+                "Show me risk analysis",
+                "Suggest rebalancing options"
+            ],
+            crypto: [
+                "What affects this price movement?",
+                "Is this a good entry point?",
+                "Compare with other cryptocurrencies",
+                "What's the long-term outlook?"
+            ],
+            stocks: [
+                "Analyze the company fundamentals",
+                "What's the technical outlook?",
+                "Any upcoming earnings or events?",
+                "Compare with sector peers"
+            ],
+            general: [
+                "Can you explain this simply?",
+                "What would you recommend for a beginner?",
+                "Are there any alternatives?",
+                "What should I watch out for?"
+            ]
+        };
+
+        // ============ CONVERSATIONAL PERSONALITY ============
+        const conversationalResponses = {
+            greetings: [
+                "Great question! Let me dive into that for you.",
+                "I'm excited to help you with this!",
+                "Excellent timing on this question!",
+                "I've got some interesting insights for you!",
+                "Let's explore this together!"
+            ],
+            encouragement: [
+                "You're asking all the right questions!",
+                "This is a smart approach to investing.",
+                "I can see you're thinking strategically.",
+                "Great way to stay informed!",
+                "This shows good financial planning."
+            ],
+            transitions: [
+                "Here's what I found for you:",
+                "Based on my analysis:",
+                "Let me break this down:",
+                "From what I'm seeing:",
+                "Here's the interesting part:"
+            ],
+            closings: [
+                "Hope this helps guide your decision!",
+                "Feel free to ask if you need more details!",
+                "I'm here whenever you need more insights!",
+                "Let me know if you'd like to explore this further!",
+                "Happy to dive deeper into any aspect!"
+            ]
+        };
+
+        function getRandomResponse(category) {
+            const responses = conversationalResponses[category];
+            return responses[Math.floor(Math.random() * responses.length)];
+        }
+
+        function detectQueryCategory(message) {
+            const lowerMsg = message.toLowerCase();
+            
+            if (lowerMsg.includes('portfolio') || lowerMsg.includes('balance') || lowerMsg.includes('diversif')) {
+                return 'portfolio_review';
+            }
+            if (lowerMsg.includes('bitcoin') || lowerMsg.includes('crypto') || lowerMsg.includes('ethereum') || lowerMsg.includes('btc') || lowerMsg.includes('eth')) {
+                return 'crypto';
+            }
+            if (lowerMsg.includes('stock') || lowerMsg.includes('aapl') || lowerMsg.includes('tesla') || lowerMsg.includes('company')) {
+                return 'stocks';
+            }
+            if (lowerMsg.includes('invest') || lowerMsg.includes('buy') || lowerMsg.includes('recommendation')) {
+                return 'investment_advice';
+            }
+            if (lowerMsg.includes('market') || lowerMsg.includes('trend') || lowerMsg.includes('analysis') || lowerMsg.includes('price')) {
+                return 'market_analysis';
+            }
+            
+            return 'general';
+        }
 
         // ============ INITIALIZATION ============
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1425,7 +2649,7 @@
                 
                 if (result.success && result.data) {
                     currentMarketData = result.data;
-                    renderMarketCards(result.data);
+                    updateMarketTicker();
                     console.log('✅ Real market data loaded successfully');
                 } else {
                     throw new Error(result.error || 'Failed to fetch market data');
@@ -1454,63 +2678,11 @@
                 };
                 
                 currentMarketData = fallbackData;
-                renderMarketCards(fallbackData);
+                updateMarketTicker();
             }
         }
 
-        function renderMarketCards(data) {
-            const container = document.getElementById('market-cards');
-            container.innerHTML = '';
-            
-            // Combine all assets
-            const allAssets = [
-                ...data.stocks,
-                ...data.crypto,
-                ...data.commodities
-            ];
-            
-            allAssets.forEach(asset => {
-                const isPositive = asset.change >= 0;
-                const card = createMarketCard(asset, isPositive);
-                container.appendChild(card);
-            });
-        }
 
-        function createMarketCard(asset, isPositive) {
-            const card = document.createElement('div');
-            card.className = 'market-card';
-            card.onclick = () => askAboutAsset(asset);
-            
-            // Generate mini chart data
-            const chartBars = generateMiniChart(asset, isPositive);
-            
-            card.innerHTML = `
-                <div class="market-card-header">
-                    <span class="market-card-name">${asset.name}</span>
-                    <span class="market-card-symbol">${asset.symbol}</span>
-                </div>
-                <div class="market-card-price">$${formatPrice(asset.price)}</div>
-                <div class="market-card-change ${isPositive ? 'positive' : 'negative'}">
-                    <span>${isPositive ? '↗' : '↘'}</span>
-                    <span>${isPositive ? '+' : ''}${asset.change.toFixed(2)} (${isPositive ? '+' : ''}${asset.changePercent.toFixed(2)}%)</span>
-                </div>
-                <div class="market-mini-chart">
-                    ${chartBars}
-                </div>
-            `;
-            
-            return card;
-        }
-
-        function generateMiniChart(asset, isPositive) {
-            let html = '';
-            for (let i = 0; i < 20; i++) {
-                const height = Math.random() * 80 + 20;
-                const barClass = isPositive ? 'positive' : 'negative';
-                html += `<div class="chart-bar ${barClass}" style="height: ${height}%"></div>`;
-            }
-            return html;
-        }
 
         // ============ MESSAGING ============
         async function sendMessage() {
@@ -1526,7 +2698,7 @@
             // Remove welcome screen if present
             const welcomeScreen = document.getElementById('welcome-screen');
             if (welcomeScreen) {
-                welcomeScreen.remove();
+                welcomeScreen.style.display = 'none';
             }
             
             // Add user message
@@ -1570,7 +2742,8 @@
                     const responseData = data.data || {};
                     addStructuredMessage(responseData, {
                         chart: data.chart,
-                        metadata: data.metadata
+                        metadata: data.metadata,
+                        noFollowUp: data.metadata?.conversational || false
                     });
                     
                     // Clear uploaded files if any
@@ -1591,7 +2764,10 @@
             } finally {
                 isTyping = false;
                 document.getElementById('send-btn').disabled = false;
-                input.focus();
+                // Restore input focus
+                setTimeout(() => {
+                    input.focus();
+                }, 100);
             }
         }
 
@@ -1614,8 +2790,17 @@
             contentDiv.className = 'message-content';
             
             if (type === 'bot') {
+                // Enhanced conversational formatting
+                let enhancedContent = content;
+                
+                // Add conversational greeting if it's not already conversational
+                if (!content.toLowerCase().includes('great') && !content.toLowerCase().includes('excited') && 
+                    !content.toLowerCase().includes('happy') && content.length > 100) {
+                    enhancedContent = getRandomResponse('greetings') + ' ' + content;
+                }
+                
                 // Process bot message for formatting
-                contentDiv.innerHTML = formatBotMessage(content);
+                contentDiv.innerHTML = formatBotMessage(enhancedContent);
                 
                 // Add chart if provided
                 if (options.chart) {
@@ -1626,16 +2811,68 @@
                 if (options.metadata && options.metadata.suggestions) {
                     addSuggestions(contentDiv, options.metadata.suggestions);
                 }
+                
+                // Add follow-up questions for bot messages (but not for greetings)
+                if (!options.noFollowUp && !options.metadata?.conversational) {
+                    const category = options.category || detectQueryCategory(conversationHistory[conversationHistory.length - 1]?.content || '');
+                    addFollowUpQuestions(contentDiv, category);
+                }
             } else {
                 contentDiv.textContent = content;
+                // Store user message for context
+                const lastUserMessage = { content: content, timestamp: Date.now() };
+                conversationHistory.push(lastUserMessage);
             }
             
             wrapperDiv.appendChild(contentDiv);
             messageDiv.appendChild(wrapperDiv);
             container.appendChild(messageDiv);
             
+            // Hide welcome screen when first message appears
+            const welcomeScreen = document.getElementById('welcome-screen');
+            if (welcomeScreen) {
+                welcomeScreen.style.display = 'none';
+            }
+            
             // Scroll to bottom
             container.scrollTop = container.scrollHeight;
+        }
+
+        function addFollowUpQuestions(containerDiv, category) {
+            const questions = followUpQuestions[category] || followUpQuestions.general;
+            
+            // Create follow-up container
+            const followUpDiv = document.createElement('div');
+            followUpDiv.className = 'follow-up-container';
+            
+            // Add prompt
+            const promptDiv = document.createElement('div');
+            promptDiv.className = 'follow-up-prompt';
+            promptDiv.innerHTML = '🤔 <span>You might also want to know:</span>';
+            followUpDiv.appendChild(promptDiv);
+            
+            // Add buttons container
+            const buttonsDiv = document.createElement('div');
+            buttonsDiv.className = 'follow-up-buttons';
+            
+            // Add up to 3 follow-up questions
+            questions.slice(0, 3).forEach(question => {
+                const button = document.createElement('button');
+                button.className = 'follow-up-btn';
+                button.textContent = question;
+                button.onclick = () => sendFollowUpQuestion(question);
+                buttonsDiv.appendChild(button);
+            });
+            
+            followUpDiv.appendChild(buttonsDiv);
+            containerDiv.appendChild(followUpDiv);
+        }
+
+        function sendFollowUpQuestion(question) {
+            const input = document.getElementById('chat-input');
+            input.value = question;
+            autoResize(input);
+            sendMessage();
         }
 
         function addStructuredMessage(data, options = {}) {
@@ -1659,6 +2896,13 @@
             // Build structured response
             let html = '';
             
+            // Conversational greeting
+            if (data.greeting) {
+                html += `<div style="background: rgba(34, 197, 94, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid var(--success);">`;
+                html += `<span style="color: var(--success); font-weight: 500;">💬 ${data.greeting}</span>`;
+                html += '</div>';
+            }
+            
             // Title
             if (data.title) {
                 html += `<h3 style="margin-bottom: 12px; color: var(--primary-gold);">${data.title}</h3>`;
@@ -1676,13 +2920,13 @@
             
             // Key metrics (highlighted)
             if (data.keyMetrics && Object.keys(data.keyMetrics).length > 0) {
-                html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px;">';
+                html += '<div class="metrics-grid">';
                 Object.entries(data.keyMetrics).forEach(([key, value]) => {
                     if (value) {
                         html += `
-                            <div style="background: var(--tertiary-dark); padding: 8px; border-radius: 6px; text-align: center; border: 1px solid var(--border-color);">
-                                <div style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase;">${key.replace(/([A-Z])/g, ' $1').trim()}</div>
-                                <div style="font-weight: 600; color: var(--primary-gold);">${value}</div>
+                            <div class="metric-card">
+                                <div class="metric-label">${key.replace(/([A-Z])/g, ' $1').trim()}</div>
+                                <div class="metric-value">${value}</div>
                             </div>
                         `;
                     }
@@ -1694,15 +2938,15 @@
             if (data.sections && data.sections.length > 0) {
                 data.sections.forEach(section => {
                     const sectionIcon = getSectionIcon(section.type);
-                    html += `<div style="margin-bottom: 16px;">`;
-                    html += `<h4 style="color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;"><span>${sectionIcon}</span> ${section.title}</h4>`;
+                    html += `<div class="bot-response-section">`;
+                    html += `<div class="bot-response-header"><span>${sectionIcon}</span> ${section.title}</div>`;
                     
                     if (section.content && section.content.length > 0) {
-                        html += '<ul style="margin-left: 16px; color: var(--text-secondary);">';
+                        html += '<div class="bot-response-content"><ul>';
                         section.content.forEach(item => {
-                            html += `<li style="margin-bottom: 4px;">${formatContent(item)}</li>`;
+                            html += `<li>${formatContent(item)}</li>`;
                         });
-                        html += '</ul>';
+                        html += '</ul></div>';
                     }
                     html += '</div>';
                 });
@@ -1710,11 +2954,21 @@
             
             // Action items (what to do next)
             if (data.actionItems && data.actionItems.length > 0) {
-                html += '<div style="background: rgba(34, 197, 94, 0.1); padding: 12px; border-radius: 8px; margin-top: 16px; border-left: 3px solid var(--success);">';
-                html += '<strong style="color: var(--success);">🎯 Recommended Actions</strong><br>';
+                html += '<div class="action-items">';
+                html += '<div class="action-items-header"><span>🎯</span> Recommended Actions</div>';
                 data.actionItems.slice(0, 3).forEach(action => { // Limit to 3 actions
-                    html += `• ${action}<br>`;
+                    html += `<div class="action-item">
+                        <span class="action-item-icon">→</span>
+                        <span class="action-item-text">${action}</span>
+                    </div>`;
                 });
+                html += '</div>';
+            }
+            
+            // Encouraging closing
+            if (data.encouragement) {
+                html += '<div style="background: rgba(255, 215, 0, 0.1); padding: 10px; border-radius: 8px; margin-top: 16px; border-left: 3px solid var(--primary-gold);">';
+                html += `<span style="color: var(--primary-gold); font-weight: 500;">💡 ${data.encouragement}</span>`;
                 html += '</div>';
             }
             
@@ -1725,9 +2979,21 @@
                 renderChart(contentDiv, options.chart);
             }
             
+            // Add follow-up questions for structured messages (but not for greetings)
+            if (!options.noFollowUp && !options.metadata?.conversational) {
+                const category = options.category || detectQueryCategory(conversationHistory[conversationHistory.length - 1]?.content || '');
+                addFollowUpQuestions(contentDiv, category);
+            }
+            
             wrapperDiv.appendChild(contentDiv);
             messageDiv.appendChild(wrapperDiv);
             container.appendChild(messageDiv);
+            
+            // Hide welcome screen when first message appears
+            const welcomeScreen = document.getElementById('welcome-screen');
+            if (welcomeScreen) {
+                welcomeScreen.style.display = 'none';
+            }
             
             // Scroll to bottom
             container.scrollTop = container.scrollHeight;
@@ -1745,18 +3011,57 @@
         }
 
         function formatContent(content) {
-            // Format prices
-            content = content.replace(/\$[\d,]+\.?\d*/g, '<span style="color: var(--primary-gold); font-weight: 600;">$&</span>');
+            // Format prices with enhanced styling
+            content = content.replace(/\$[\d,]+\.?\d*/g, '<span class="highlight-metric">$&</span>');
             
-            // Format percentages
+            // Format percentages with enhanced styling
             content = content.replace(/([+-]?\d+\.?\d*%)/g, (match) => {
                 const isPositive = match.startsWith('+') || (!match.startsWith('-') && parseFloat(match) > 0);
-                const color = isPositive ? 'var(--success)' : 'var(--danger)';
-                const icon = isPositive ? '📈' : '📉';
-                return `<span style="color: ${color}; font-weight: 600;">${icon} ${match}</span>`;
+                if (isPositive) {
+                    return `<span class="positive-metric">📈 ${match}</span>`;
+                } else {
+                    return `<span class="negative-metric">📉 ${match}</span>`;
+                }
             });
             
             return content;
+        }
+
+        // ============ DESKTOP TICKER FUNCTIONALITY ============
+        function updateMarketTicker() {
+            const ticker = document.getElementById('market-ticker');
+            if (!ticker || !currentMarketData) return;
+            
+            const allAssets = [
+                ...(currentMarketData.stocks || []),
+                ...(currentMarketData.crypto || []),
+                ...(currentMarketData.commodities || [])
+            ];
+            
+            const tickerContent = document.createElement('div');
+            tickerContent.className = 'market-ticker-content';
+            
+            allAssets.forEach(asset => {
+                const isPositive = asset.change >= 0;
+                const tickerItem = document.createElement('div');
+                tickerItem.className = 'ticker-item';
+                tickerItem.innerHTML = `
+                    <span class="ticker-symbol">${asset.symbol}</span>
+                    <span class="ticker-price">$${formatPrice(asset.price)}</span>
+                    <span class="ticker-change ${isPositive ? 'positive' : 'negative'}">
+                        ${isPositive ? '+' : ''}${asset.changePercent.toFixed(2)}%
+                    </span>
+                `;
+                tickerContent.appendChild(tickerItem);
+            });
+            
+            ticker.innerHTML = '';
+            ticker.appendChild(tickerContent);
+        }
+
+        function toggleDesktopMarkets() {
+            // Toggle market panel for desktop
+            toggleMarketPanel();
         }
 
         function formatBotMessage(content) {
@@ -2069,16 +3374,85 @@
             
             // Add to watchlist
             watchlist.add(asset.symbol);
-            updateWatchlist();
+            updateMobileWatchlist();
+        }
+
+        // ============ MARKET PANEL FUNCTIONS ============
+        let marketPanelOpen = false;
+
+        function toggleMarketPanel() {
+            const panel = document.getElementById('market-panel');
+            marketPanelOpen = !marketPanelOpen;
+            
+            if (marketPanelOpen) {
+                panel.classList.add('active');
+                updateMobileMarketData();
+            } else {
+                panel.classList.remove('active');
+            }
+        }
+
+        function updateMobileMarketData() {
+            // Update mobile market data when panel opens
+            const stocksContainer = document.getElementById('mobile-market-stocks');
+            const cryptoContainer = document.getElementById('mobile-market-crypto');
+            
+            stocksContainer.innerHTML = '';
+            cryptoContainer.innerHTML = '';
+            
+            // Render stocks
+            if (currentMarketData.stocks) {
+                currentMarketData.stocks.forEach(asset => {
+                    const card = createCompactMarketCard(asset);
+                    stocksContainer.appendChild(card);
+                });
+            }
+            
+            // Render crypto
+            if (currentMarketData.crypto) {
+                currentMarketData.crypto.forEach(asset => {
+                    const card = createCompactMarketCard(asset);
+                    cryptoContainer.appendChild(card);
+                });
+            }
+            
+            updateMobileWatchlist();
+        }
+
+        function createCompactMarketCard(asset) {
+            const isPositive = asset.change >= 0;
+            const card = document.createElement('div');
+            card.className = 'compact-market-card';
+            card.onclick = () => {
+                askAboutAsset(asset);
+                toggleMarketPanel(); // Close panel after selection
+            };
+            
+            card.innerHTML = `
+                <div class="compact-market-header">
+                    <div>
+                        <div class="compact-market-symbol">${asset.symbol}</div>
+                        <div class="compact-market-name">${asset.name}</div>
+                    </div>
+                </div>
+                <div class="compact-market-price">$${formatPrice(asset.price)}</div>
+                <div class="compact-market-change ${isPositive ? 'positive' : 'negative'}">
+                    <span>${isPositive ? '↗' : '↘'}</span>
+                    <span>${isPositive ? '+' : ''}${asset.change.toFixed(2)} (${isPositive ? '+' : ''}${asset.changePercent.toFixed(2)}%)</span>
+                </div>
+            `;
+            
+            return card;
         }
 
         // ============ WATCHLIST ============
-        function updateWatchlist() {
-            const container = document.getElementById('watchlist-cards');
+
+        function updateMobileWatchlist() {
+            const container = document.getElementById('mobile-watchlist');
             
             if (watchlist.size === 0) {
                 container.innerHTML = `
-                    <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                    <div style="text-align: center; padding: 20px; color: var(--text-secondary); grid-column: 1 / -1;">
                         <p>No items in watchlist</p>
                         <p style="font-size: 12px; margin-top: 8px;">Ask me about any asset to add it!</p>
                     </div>
@@ -2098,8 +3472,7 @@
             watchlist.forEach(symbol => {
                 const asset = allAssets.find(a => a.symbol === symbol);
                 if (asset) {
-                    const isPositive = asset.change >= 0;
-                    const card = createMarketCard(asset, isPositive);
+                    const card = createCompactMarketCard(asset);
                     container.appendChild(card);
                 }
             });
@@ -2129,9 +3502,88 @@
             }
         }
 
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('active');
+
+
+        // ============ FAB MENU FUNCTIONS ============
+        let fabMenuOpen = false;
+
+        function toggleFabMenu() {
+            const fabMenu = document.getElementById('fab-menu');
+            const fab = document.getElementById('fab');
+            
+            fabMenuOpen = !fabMenuOpen;
+            
+            if (fabMenuOpen) {
+                fabMenu.classList.add('active');
+                fab.style.transform = 'rotate(45deg)';
+                fab.innerHTML = '✕';
+            } else {
+                fabMenu.classList.remove('active');
+                fab.style.transform = 'rotate(0deg)';
+                fab.innerHTML = '⚡';
+            }
+        }
+
+        function closeFabMenu() {
+            const fabMenu = document.getElementById('fab-menu');
+            const fab = document.getElementById('fab');
+            
+            fabMenuOpen = false;
+            fabMenu.classList.remove('active');
+            fab.style.transform = 'rotate(0deg)';
+            fab.innerHTML = '⚡';
+        }
+
+        // Close FAB menu when clicking outside
+        document.addEventListener('click', (event) => {
+            const fab = document.getElementById('fab');
+            const fabMenu = document.getElementById('fab-menu');
+            
+            if (fabMenuOpen && !fab.contains(event.target) && !fabMenu.contains(event.target)) {
+                closeFabMenu();
+            }
+        });
+
+        // Auto-hide FAB when scrolling up on mobile
+        let lastScrollTop = 0;
+        const fab = document.getElementById('fab');
+
+        window.addEventListener('scroll', () => {
+            if (window.innerWidth <= 768) {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                
+                if (scrollTop > lastScrollTop && scrollTop > 100) {
+                    // Scrolling down
+                    fab.classList.add('hidden');
+                    closeFabMenu();
+                } else {
+                    // Scrolling up
+                    fab.classList.remove('hidden');
+                }
+                
+                                 lastScrollTop = scrollTop;
+             }
+         });
+
+        // ============ BOTTOM NAVIGATION ============
+        function setActiveNav(navType) {
+            // Remove active class from all nav items
+            document.querySelectorAll('.bottom-nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Add active class to clicked item
+            document.getElementById(`nav-${navType}`).classList.add('active');
+            
+            // Close market panel if it's open (except for markets nav)
+            if (navType !== 'markets' && marketPanelOpen) {
+                toggleMarketPanel();
+            }
+            
+            // Close FAB menu if it's open
+            if (fabMenuOpen) {
+                closeFabMenu();
+            }
         }
 
         function addSuggestions(container, suggestions) {
@@ -2406,6 +3858,141 @@
                 modal.classList.remove('active');
             }
         });
+    </script>
+    
+    <!-- CRITICAL OVERRIDE - FORCE CLEAN UI AND SCROLLING -->
+    <script>
+        // Force clean UI and enable scrolling - IMMEDIATE APPLICATION
+        function forceCleanUI() {
+            // Create and inject critical override styles
+            const forceStyles = document.createElement('style');
+            forceStyles.id = 'force-clean-styles';
+                         forceStyles.textContent = `
+                 .modern-input-area {
+                     position: fixed !important;
+                     bottom: 48px !important;
+                     left: 0 !important;
+                     right: 0 !important;
+                     z-index: 1002 !important;
+                     background: transparent !important;
+                     padding: 16px 20px !important;
+                 }
+                 .modern-input-field {
+                     background: #36393f !important;
+                     border: 2px solid #40444b !important;
+                     border-radius: 24px !important;
+                     padding: 4px !important;
+                     display: flex !important;
+                     align-items: flex-end !important;
+                     transition: all 0.2s ease !important;
+                     box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+                 }
+                 .modern-input-field:focus-within {
+                     border-color: #5865f2 !important;
+                     box-shadow: 0 0 0 1px #5865f2, 0 4px 12px rgba(88,101,242,0.2) !important;
+                 }
+                 .modern-chat-input {
+                     flex: 1 !important;
+                     background: transparent !important;
+                     border: none !important;
+                     outline: none !important;
+                     color: #dcddde !important;
+                     font-size: 16px !important;
+                     padding: 12px 16px !important;
+                     resize: none !important;
+                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                     line-height: 1.4 !important;
+                     max-height: 144px !important;
+                     min-height: 20px !important;
+                 }
+                 .modern-chat-input::placeholder {
+                     color: #72767d !important;
+                     font-weight: 400 !important;
+                 }
+                 .modern-btn {
+                     width: 32px !important;
+                     height: 32px !important;
+                     border-radius: 16px !important;
+                     border: none !important;
+                     background: #4f545c !important;
+                     color: #b9bbbe !important;
+                     cursor: pointer !important;
+                     transition: all 0.2s ease !important;
+                 }
+                 .modern-btn:hover {
+                     background: #5865f2 !important;
+                     color: white !important;
+                     transform: scale(1.05) !important;
+                 }
+                 .modern-btn.send-btn {
+                     background: #5865f2 !important;
+                     color: white !important;
+                 }
+                .chat-container { 
+                    overflow-y: auto !important; 
+                    overflow-x: hidden !important;
+                    max-height: calc(100vh - 80px) !important;
+                    position: relative !important;
+                }
+                .main-content {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    height: 100vh !important;
+                    overflow: hidden !important;
+                }
+            `;
+            
+            // Remove any existing force styles and add new ones
+            const existing = document.getElementById('force-clean-styles');
+            if (existing) existing.remove();
+            document.head.appendChild(forceStyles);
+            
+            // Force scroll capability on chat container
+            const chatContainer = document.querySelector('.chat-container');
+            if (chatContainer) {
+                chatContainer.style.setProperty('overflow-y', 'auto', 'important');
+                chatContainer.style.setProperty('overflow-x', 'hidden', 'important');
+                chatContainer.style.setProperty('max-height', 'calc(100vh - 80px)', 'important');
+                chatContainer.style.setProperty('position', 'relative', 'important');
+            }
+            
+            // Force main content to be flex container
+            const mainContent = document.querySelector('.main-content');
+            if (mainContent) {
+                mainContent.style.setProperty('display', 'flex', 'important');
+                mainContent.style.setProperty('flex-direction', 'column', 'important');
+                mainContent.style.setProperty('height', '100vh', 'important');
+                mainContent.style.setProperty('overflow', 'hidden', 'important');
+            }
+        }
+        
+        // Apply immediately
+        forceCleanUI();
+        
+        // Re-apply on DOM ready and after any page changes
+        document.addEventListener('DOMContentLoaded', forceCleanUI);
+        
+        // Monitor for any style changes and re-apply
+        const observer = new MutationObserver(function(mutations) {
+            let shouldReapply = false;
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    shouldReapply = true;
+                }
+            });
+            if (shouldReapply) {
+                setTimeout(forceCleanUI, 100);
+            }
+        });
+        
+        // Start observing
+        if (document.body) {
+            observer.observe(document.body, {
+                attributes: true,
+                childList: true,
+                subtree: true
+            });
+        }
     </script>
 </body>
 </html>
