@@ -1,0 +1,77 @@
+# ================================================================
+# FINANCEBOT PRO v4.0 - ENVIRONMENT CONFIGURATION
+# ================================================================
+# 
+# Copy this file to .env and fill in your actual API keys
+# Command: cp .env.example .env
+#
+
+# ================================================================
+# REQUIRED API KEYS
+# ================================================================
+
+# Perplexity AI API Key (REQUIRED)
+# Used for: AI-powered financial analysis and market insights
+# Get your key from: https://www.perplexity.ai/
+# Free tier available, paid plans for higher usage
+PERPLEXITY_API_KEY=your_perplexity_api_key_here
+
+# ================================================================
+# OPTIONAL API KEYS (Enhance functionality but not required)
+# ================================================================
+
+# Alpha Vantage API Key (OPTIONAL)
+# Used for: Enhanced market data, historical prices, financial statements
+# Get your key from: https://www.alphavantage.co/
+# Free tier: 5 requests per minute, 500 requests per day
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+
+# Polygon.io API Key (OPTIONAL)
+# Used for: Real-time market data, advanced charting, premium features
+# Get your key from: https://polygon.io/
+# Paid service with free tier available
+POLYGON_API_KEY=your_polygon_key_here
+
+# ================================================================
+# SERVER CONFIGURATION
+# ================================================================
+
+# Port number for the server (default: 3000)
+PORT=3000
+
+# Node environment (development, production, test)
+NODE_ENV=development
+
+# ================================================================
+# CORS CONFIGURATION (Production only)
+# ================================================================
+
+# Allowed origins for CORS (comma-separated for production)
+# Example: ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+# Leave empty for development (will use localhost)
+ALLOWED_ORIGINS=
+
+# ================================================================
+# OPTIONAL ADVANCED SETTINGS
+# ================================================================
+
+# Session timeout in minutes (default: 30)
+SESSION_TIMEOUT=30
+
+# Cache TTL in minutes (default: 5)
+CACHE_TTL=5
+
+# Max file upload size in MB (default: 10)
+MAX_UPLOAD_SIZE=10
+
+# ================================================================
+# SECURITY NOTES
+# ================================================================
+#
+# 1. NEVER commit the actual .env file to version control
+# 2. Keep your API keys secure and don't share them
+# 3. Rotate API keys regularly for security
+# 4. Use environment-specific configuration for different deployments
+# 5. Monitor API usage to avoid unexpected charges
+#
+# ================================================================

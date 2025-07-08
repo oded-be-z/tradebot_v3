@@ -1,0 +1,409 @@
+// server.js - PHASE 1 TASK 1.2: SECURE API KEY MANAGEMENT
+// ================================================================
+
+const express = require('express');
+const cors = require('cors');
+const axios = require('axios');
+const dotenv = require('dotenv');
+const path = require('path');
+const multer = require('multer');
+const Papa = require('papaparse');
+const fs = require('fs').promises;
+
+// Load environment variables FIRST
+console.log('📁 Loading environment variables from .env file...');
+dotenv.config();
+
+// ================================================================
+// CRITICAL SECURITY FIX: REMOVE HARDCODED API KEYS
+// ================================================================
+
+/*
+ * SECURITY VULNERABILITY FIXED:
+ * Previous code had hardcoded API keys as fallbacks:
+ * 
+ * ❌ OLD (INSECURE):
+ * const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY || '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';
+ * const ALPHA_VANTAGE_KEY = process.env.ALPHA_VANTAGE_API_KEY || 'B58FO0S9C7CCIMTP';
+ * const POLYGON_KEY = process.env.POLYGON_API_KEY || 'MmyRvqA3zwfQ7vyQTl74alYoRnDgypDo';
+ * 
+ * ✅ NEW (SECURE):
+ * API keys must come from environment variables ONLY
+ */
+
+// SECURE API KEY LOADING - NO FALLBACKS
+const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY;
+const ALPHA_VANTAGE_KEY = process.env.ALPHA_VANTAGE_API_KEY;
+const POLYGON_KEY = process.env.POLYGON_API_KEY;
+
+// ================================================================
+// STARTUP VALIDATION - ENFORCE REQUIRED API KEYS
+// ================================================================
+
+const requiredEnvVars = {
+    PERPLEXITY_API_KEY: 'Perplexity API key for AI analysis',
+    // Optional but recommended
+    ALPHA_VANTAGE_API_KEY: 'Alpha Vantage API key for market data (optional)',
+    POLYGON_API_KEY: 'Polygon.io API key for market data (optional)'
+};
+
+// Check required keys and exit if missing
+if (!PERPLEXITY_KEY) {
+    console.error('\n❌ ERROR: Missing required environment variable PERPLEXITY_API_KEY');
+    console.error('│');
+    console.error('│ Please create a .env file with your API keys. See .env.example for reference.');
+    console.error('│');
+    console.error('│ To fix this:');
+    console.error('│ 1. Copy .env.example to .env: cp .env.example .env');
+    console.error('│ 2. Edit .env and add your Perplexity API key');
+    console.error('│ 3. Get API key from: https://www.perplexity.ai/');
+    console.error('│');
+    console.error('└─ Server startup failed due to missing required API key\n');
+    process.exit(1);
+}
+
+// Warn about optional keys (non-blocking)
+if (!ALPHA_VANTAGE_KEY) {
+    console.warn('⚠️  WARNING: ALPHA_VANTAGE_API_KEY not set. Some market data features may be limited.');
+    console.warn('   Get one free at: https://www.alphavantage.co/');
+}
+
+if (!POLYGON_KEY) {
+    console.warn('⚠️  WARNING: POLYGON_API_KEY not set. Advanced market data features disabled.');
+    console.warn('   Get one at: https://polygon.io/');
+}
+
+// Success message for properly configured environment
+console.log('✅ Environment Check:', {
+    NODE_ENV: process.env.NODE_ENV || 'development',
+    PORT: process.env.PORT || 3000,
+    PERPLEXITY_KEY_EXISTS: !!PERPLEXITY_KEY,
+    ALPHA_VANTAGE_KEY_EXISTS: !!ALPHA_VANTAGE_KEY,
+    POLYGON_KEY_EXISTS: !!POLYGON_KEY,
+    timestamp: new Date().toISOString()
+});
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// ================================================================
+// PRODUCTION MIDDLEWARE & SECURITY
+// ================================================================
+
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+
+// Security headers
+app.use(helmet({
+    contentSecurityPolicy: false  // Disabled for local development
+}));
+
+// CORS configuration
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+        ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['https://yourdomain.com'])
+        : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    credentials: true
+}));
+
+// Enhanced rate limiting with environment-based configuration
+const chatLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: process.env.NODE_ENV === 'production' ? 100 : 200, // Stricter in production
+    message: {
+        success: false,
+        error: 'Too many requests, please try again later.',
+        retryAfter: '15 minutes'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const uploadLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: process.env.NODE_ENV === 'production' ? 5 : 10, // Stricter in production
+    message: {
+        success: false,
+        error: 'Upload limit reached, please try again later.',
+        retryAfter: '1 hour'
+    }
+});
+
+// Apply rate limiting
+app.use('/api/chat', chatLimiter);
+app.use('/api/upload', uploadLimiter);
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ================================================================
+// API KEY VALIDATION MIDDLEWARE
+// ================================================================
+
+// Middleware to validate API keys before processing requests
+const validateApiKeys = (req, res, next) => {
+    // Check if we have the required API key for AI analysis
+    if (!PERPLEXITY_KEY) {
+        return res.status(500).json({
+            success: false,
+            error: 'Service configuration error. Please contact administrator.',
+            code: 'MISSING_API_KEY'
+        });
+    }
+    next();
+};
+
+// Apply API key validation to routes that need it
+app.use('/api/chat', validateApiKeys);
+app.use('/api/analyze', validateApiKeys);
+
+// ================================================================
+// ENHANCED PERPLEXITY CLIENT WITH PROPER ERROR HANDLING
+// ================================================================
+
+class EnhancedPerplexityClient {
+    constructor() {
+        if (!PERPLEXITY_KEY) {
+            throw new Error('Perplexity API key not configured');
+        }
+        
+        this.apiKey = PERPLEXITY_KEY;
+        this.baseURL = 'https://api.perplexity.ai';
+        this.maxRetries = 3;
+        this.retryDelay = 1000; // 1 second
+    }
+
+    async makeRequest(messages, options = {}) {
+        let lastError;
+        
+        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+            try {
+                const response = await axios.post(`${this.baseURL}/chat/completions`, {
+                    model: options.model || 'llama-3.1-sonar-small-128k-online',
+                    messages: messages,
+                    max_tokens: options.maxTokens || 1500,
+                    temperature: options.temperature || 0.2,
+                    return_citations: true,
+                    return_images: false,
+                    return_related_questions: true,
+                    search_domain_filter: ["perplexity.ai"],
+                    search_recency_filter: options.searchRecency || "month"
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 30000 // 30 second timeout
+                });
+
+                return response.data;
+                
+            } catch (error) {
+                lastError = error;
+                console.warn(`[Perplexity] Attempt ${attempt}/${this.maxRetries} failed:`, error.message);
+                
+                // Don't retry on authentication errors
+                if (error.response?.status === 401) {
+                    throw new Error('Invalid Perplexity API key');
+                }
+                
+                // Don't retry on rate limit errors (let them bubble up)
+                if (error.response?.status === 429) {
+                    throw new Error('Rate limit exceeded. Please try again later.');
+                }
+                
+                // Wait before retrying (unless last attempt)
+                if (attempt < this.maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
+                }
+            }
+        }
+        
+        // All retries failed
+        throw new Error(`Perplexity API failed after ${this.maxRetries} attempts: ${lastError.message}`);
+    }
+
+    async getFinancialAnalysis(topic, options = {}) {
+        const systemPrompt = `You are Max, a friendly and knowledgeable financial data analyst.
+
+PERSONALITY GUIDELINES:
+- Be conversational and approachable, like talking to a knowledgeable friend
+- Start responses with a warm acknowledgment
+- Use simple language to explain complex concepts
+- Show enthusiasm about helping
+- Be professional but not stiff
+
+CRITICAL RESTRICTIONS - NEVER VIOLATE THESE:
+- NEVER provide buy, sell, or hold recommendations
+- NEVER suggest trading strategies or timing
+- NEVER use terms like "should buy/sell", "good investment", "bad investment"
+- NEVER give price targets or predictions
+- Focus ONLY on presenting factual data and educational information
+
+RESPONSE STRUCTURE:
+1. Start with a friendly greeting acknowledging their question
+2. Present current market data and trends
+3. Provide educational context about the asset/market
+4. Include relevant charts or data visualizations when applicable
+5. End with follow-up questions to keep the conversation going
+
+If asked directly for advice, respond with:
+"I provide market data and educational information to help you make informed decisions. For personalized investment advice, please consult with a qualified financial advisor."
+
+Please provide a comprehensive analysis of: ${topic}`;
+
+        const messages = [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: topic }
+        ];
+
+        return await this.makeRequest(messages, options);
+    }
+}
+
+// Initialize Perplexity client with proper error handling
+let perplexityClient;
+try {
+    perplexityClient = new EnhancedPerplexityClient();
+    console.log('✅ Perplexity AI client initialized successfully');
+} catch (error) {
+    console.error('❌ Failed to initialize Perplexity client:', error.message);
+    process.exit(1);
+}
+
+// ================================================================
+// HEALTH CHECK ENDPOINT WITH SECURITY STATUS
+// ================================================================
+
+app.get('/api/health', (req, res) => {
+    const healthData = {
+        status: 'OK',
+        message: 'FinanceBot Pro - Production Ready v4.0',
+        timestamp: new Date().toISOString(),
+        version: '4.0.0',
+        environment: process.env.NODE_ENV || 'development',
+        
+        // Security status (without exposing actual keys)
+        security: {
+            perplexityConfigured: !!PERPLEXITY_KEY,
+            alphaVantageConfigured: !!ALPHA_VANTAGE_KEY,
+            polygonConfigured: !!POLYGON_KEY,
+            corsEnabled: true,
+            rateLimitingEnabled: true,
+            securityHeadersEnabled: true
+        },
+        
+        // Service capabilities
+        capabilities: {
+            aiAnalysis: !!PERPLEXITY_KEY,
+            marketData: !!ALPHA_VANTAGE_KEY || !!POLYGON_KEY,
+            portfolioAnalysis: true,
+            chartGeneration: true,
+            fileUpload: true
+        }
+    };
+    
+    res.json(healthData);
+});
+
+// ================================================================
+// REST OF SERVER IMPLEMENTATION
+// ================================================================
+
+// Static files
+app.use(express.static('public'));
+
+// Root route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Chat endpoint with enhanced error handling
+app.post('/api/chat', async (req, res) => {
+    try {
+        const { message, sessionId } = req.body;
+        
+        if (!message || typeof message !== 'string' || message.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Please provide a valid message'
+            });
+        }
+
+        // Get financial analysis using secure Perplexity client
+        const analysis = await perplexityClient.getFinancialAnalysis(message.trim());
+        
+        res.json({
+            success: true,
+            analysis: analysis,
+            sessionId: sessionId,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('[Chat API Error]:', error.message);
+        
+        // Return user-friendly error messages
+        let errorMessage = 'I apologize, but I encountered an issue processing your request. Please try again.';
+        let statusCode = 500;
+        
+        if (error.message.includes('Rate limit')) {
+            errorMessage = 'I\'m getting a lot of requests right now. Please wait a moment and try again.';
+            statusCode = 429;
+        } else if (error.message.includes('Invalid') && error.message.includes('API key')) {
+            errorMessage = 'Service configuration issue. Please contact support.';
+            statusCode = 503;
+        }
+        
+        res.status(statusCode).json({
+            success: false,
+            error: errorMessage,
+            code: error.code || 'ANALYSIS_ERROR'
+        });
+    }
+});
+
+// Start server
+app.listen(PORT, () => {
+    console.log('\n🚀 FinanceBot Pro v4.0 Server Started Successfully!');
+    console.log('│');
+    console.log(`│ 🌐 Server running on: http://localhost:${PORT}`);
+    console.log(`│ 🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`│ 🔐 Security: Enabled (no hardcoded API keys)`);
+    console.log(`│ 🤖 AI Analysis: ${PERPLEXITY_KEY ? 'Ready' : 'Disabled'}`);
+    console.log(`│ 📊 Market Data: ${(ALPHA_VANTAGE_KEY || POLYGON_KEY) ? 'Enhanced' : 'Basic'}`);
+    console.log('│');
+    console.log('└─ Ready to serve financial analysis requests!\n');
+});
+
+// ================================================================
+// GRACEFUL SHUTDOWN HANDLING
+// ================================================================
+
+process.on('SIGTERM', () => {
+    console.log('🔄 Received SIGTERM. Gracefully shutting down...');
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('\n🔄 Received SIGINT. Gracefully shutting down...');
+    process.exit(0);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+    console.error('💥 Uncaught Exception:', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+});
+
+// ================================================================
+// EXPORT FOR TESTING
+// ================================================================
+
+module.exports = app;

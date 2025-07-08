@@ -1,39 +1,49 @@
-# 🚀 FinanceBot Pro v4.1 - PRODUCTION DEPLOYMENT
+# 🚀 FinanceBot Pro v4.0 - Secure Production Ready
 
-## 🎉 **REAL MARKET DATA INTEGRATION COMPLETE!**
+## 🔐 **SECURITY FIRST - NO HARDCODED API KEYS**
 
-This is the **production-ready** version of FinanceBot Pro with **REAL market data** integration. The bot now shows live prices from Yahoo Finance instead of fake hardcoded data.
+This version implements **enterprise-grade security** with proper environment variable management. All API keys are now loaded securely from environment variables with **no hardcoded fallbacks**.
 
-### ✅ **What's Fixed:**
-- **✅ REAL market data** from Yahoo Finance API
-- **✅ Live price updates** every 30 seconds
-- **✅ Real historical charts** for technical analysis
-- **✅ Enhanced Perplexity integration** with live price overlays
-- **✅ Production-grade security** and error handling
-- **✅ Built-in API key fallbacks** for reliability
+### ✅ **Security Improvements:**
+- **🔐 SECURE API key management** - No hardcoded fallbacks
+- **🚫 Trading advice filtering** - All recommendations blocked
+- **📝 Educational disclaimers** - Added to all responses  
+- **💬 Conversational interface** - Friendly Max personality
+- **🗃️ Session management** - TTL, LRU eviction, cleanup
+- **✅ Startup validation** - Server refuses to start without API keys
 
 ---
 
-## 🚀 **Quick Start (Windows)**
+## ⚡ **Quick Start Guide**
 
-### Option 1: Simple Start
+### 1. Install Dependencies
 ```bash
-# Double-click this file:
-start-with-env.bat
-```
-
-### Option 2: Manual Start
-```bash
-# Install dependencies
 npm install
-
-# Start server
-node server.js
 ```
 
-### Option 3: PowerShell
-```powershell
-.\start-with-env.bat
+### 2. Configure API Keys (REQUIRED)
+Copy the example environment file and add your API keys:
+```bash
+cp .env.example .env
+```
+
+### 3. Edit Your Environment File
+Open `.env` in your text editor and add your API keys:
+
+```bash
+# REQUIRED - Get from https://www.perplexity.ai/
+PERPLEXITY_API_KEY=your_actual_perplexity_key_here
+
+# OPTIONAL - Get from https://www.alphavantage.co/
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+
+# OPTIONAL - Get from https://polygon.io/
+POLYGON_API_KEY=your_polygon_key_here
+```
+
+### 4. Start the Server
+```bash
+npm start
 ```
 
 The server will start on **http://localhost:3000**
@@ -64,123 +74,170 @@ The server will start on **http://localhost:3000**
 
 ---
 
-## 🔧 **API Integration Status**
+## 🔑 **API Key Setup Instructions**
 
-| Service | Status | Purpose |
-|---------|--------|---------|
-| **Yahoo Finance** | ✅ Active | Real-time stock/crypto prices |
-| **Perplexity AI** | ✅ Active | Financial analysis & insights |
-| **Alpha Vantage** | ✅ Backup | Historical data fallback |
-| **Polygon.io** | ✅ Ready | Future enhancements |
+### **PERPLEXITY API KEY** (Required)
+1. Visit [Perplexity AI](https://www.perplexity.ai/)
+2. Sign up for an account
+3. Navigate to API settings
+4. Generate your API key
+5. Add it to your `.env` file
 
-### 🔑 **API Keys Configured**
-All API keys are **built-in with fallbacks** - no manual configuration needed!
+**Free Tier:** Available with limitations  
+**Paid Plans:** Higher rate limits and priority access
 
----
+### **ALPHA VANTAGE API KEY** (Optional)
+1. Visit [Alpha Vantage](https://www.alphavantage.co/)
+2. Sign up for a free account
+3. Get your API key from the dashboard
+4. Add it to your `.env` file
 
-## 📈 **Production Features**
+**Free Tier:** 5 requests/minute, 500 requests/day  
+**Paid Plans:** Higher rate limits available
 
-### 🛡️ **Security & Performance**
-- **Rate limiting**: 50 requests per 15 minutes
-- **Input validation**: XSS protection
-- **Error handling**: Production-grade
-- **Caching system**: 5-minute TTL for optimal performance
-- **Graceful shutdown**: Proper resource cleanup
+### **POLYGON API KEY** (Optional)
+1. Visit [Polygon.io](https://polygon.io/)
+2. Sign up for an account
+3. Choose your plan (free tier available)
+4. Get your API key
+5. Add it to your `.env` file
 
-### 📊 **Monitoring**
-- **Health endpoint**: `/api/health`
-- **Metrics endpoint**: `/api/metrics` 
-- **Comprehensive logging**: All requests tracked
-- **Memory management**: Automatic cleanup
-
-### 🎨 **User Experience**
-- **Structured responses**: Clear, actionable insights
-- **Real-time charts**: Interactive Chart.js integration
-- **Smart formatting**: Price/percentage highlighting
-- **Mobile responsive**: Works on all devices
+**Free Tier:** Limited requests  
+**Paid Plans:** Real-time data and higher limits
 
 ---
 
-## 🐳 **Deployment Options**
+## 🛡️ **Security Features**
 
-### Local Development
-```bash
-node server.js
-```
+✅ **No Hardcoded API Keys** - All keys loaded from environment variables  
+✅ **Startup Validation** - Server refuses to start without required keys  
+✅ **Rate Limiting** - Built-in protection against API abuse  
+✅ **CORS Protection** - Configurable for production environments  
+✅ **Security Headers** - Helmet.js for enhanced security  
+✅ **Input Validation** - All user inputs properly validated  
+✅ **Error Handling** - User-friendly error messages, no sensitive data exposed  
 
-### Docker Deployment
-```bash
-docker-compose up -d
-```
+## ✅ **Features**
 
-### Production Server
-```bash
-# Install PM2 for production
-npm install -g pm2
+### ✅ **AI-Powered Analysis**
+- Real-time financial analysis using Perplexity AI
+- Conversational interface with friendly responses
+- Educational focus (no trading advice)
+- Context-aware responses
 
-# Start with PM2
-pm2 start server.js --name "financebot-pro"
+### ✅ **Market Data Integration**
+- Live market data from multiple sources
+- Historical price charts
+- Portfolio analysis with CSV upload
+- Real-time ticker updates
 
-# Save PM2 configuration
-pm2 save
-pm2 startup
-```
+### ✅ **Enterprise Security**
+- Secure API key management
+- Rate limiting and DDoS protection
+- Input validation and sanitization
+- Error handling without data exposure
+
+### ✅ **User Experience**
+- Mobile-responsive design
+- Fast load times with caching
+- Intuitive chat interface
+- File upload for portfolio analysis
 
 ---
 
-## 🧪 **Testing**
+## 🔍 **Health Check & Testing**
 
-### Manual Testing
-1. Open **http://localhost:3000**
-2. Check sidebar shows **REAL market data** (not fake numbers)
-3. Ask: "Analyze Apple stock"
-4. Verify response includes **live price data**
-5. Upload a CSV portfolio file
-
-### Automated Testing
+### **Check Server Status**
 ```bash
-# Run test suite
+curl http://localhost:3000/api/health
+# or
+npm run health
+```
+
+This will return:
+- ✅ Service status
+- 🔐 Security configuration status
+- 🤖 AI capabilities status
+- 📊 Market data status
+
+### **Test Chat Functionality**
+
+**Quick Single Test:**
+```bash
+npm run test:chat "What is Bitcoin?"
+# or
+node test-chat.js "Analyze Apple stock"
+```
+
+**Full API Test Suite:**
+```bash
+npm run test:api
+# or
+node test/api-test.js
+```
+
+This will test:
+- ✅ Health endpoint
+- ✅ Session management
+- ✅ Chat functionality
+- ✅ Multiple financial queries
+- ✅ Error handling
+
+### **Unit Tests**
+```bash
 npm test
-
-# Run end-to-end tests
-npm run test:e2e
 ```
+
+**Note:** All testing is separate from the main application. When you open `http://localhost:3000`, you'll get a clean chat interface without any test buttons.
 
 ---
 
-## 🔍 **Troubleshooting**
+## 🔧 **Configuration Options**
 
-### Market Data Not Loading
-- Check console for "📊 Fetching REAL market data..."
-- Verify Yahoo Finance API is accessible
-- Look for fallback data message
+### **Environment Variables**
 
-### Chat Not Working
-- Verify Perplexity API key in environment
-- Check server logs for connection errors
-- Try a simple query like "Hello"
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PERPLEXITY_API_KEY` | ✅ Yes | None | Perplexity AI API key |
+| `ALPHA_VANTAGE_API_KEY` | ❌ No | None | Alpha Vantage API key |
+| `POLYGON_API_KEY` | ❌ No | None | Polygon.io API key |
+| `PORT` | ❌ No | 3000 | Server port |
+| `NODE_ENV` | ❌ No | development | Environment mode |
+| `ALLOWED_ORIGINS` | ❌ No | localhost | CORS origins (production) |
 
-### Performance Issues
-- Check `/api/metrics` endpoint
-- Monitor cache hit rates
-- Verify memory usage
+### **Production Deployment**
+
+For production deployment, ensure you:
+
+1. Set `NODE_ENV=production`
+2. Configure `ALLOWED_ORIGINS` for your domain
+3. Use HTTPS for all API endpoints
+4. Implement proper logging and monitoring
+5. Regular security updates
 
 ---
 
-## 📋 **File Structure**
+## 🛠️ **Development**
 
+### **Project Structure**
 ```
-FinanceBot-Pro-PRODUCTION-v4.1/
-├── server.js                 # Main server with real data integration
-├── package.json              # Dependencies and scripts
-├── start-with-env.bat        # Windows startup script
-├── public/                   # Frontend files with real data UI
-│   ├── index.html           # Updated with live market data
-│   └── assets/              # CSS, JS, images
-├── test/                    # Test files
-├── Dockerfile               # Container deployment
-├── docker-compose.yml       # Multi-service deployment
-└── README-PRODUCTION.md     # This file
+financebot-pro/
+├── server.js              # Main server file (SECURE)
+├── public/                 # Frontend files
+│   ├── index.html         # Main interface
+│   └── assets/            # CSS, JS, images
+├── .env.example           # Environment template
+├── .env                   # Your actual config (DO NOT COMMIT)
+├── package.json           # Dependencies
+└── README.md              # This file
+```
+
+### **Scripts**
+```bash
+npm start          # Start production server
+npm run dev        # Start development server with nodemon
+npm test           # Run tests
+npm run lint       # Check code quality
 ```
 
 ---
@@ -217,19 +274,20 @@ FinanceBot-Pro-PRODUCTION-v4.1/
 
 ---
 
-## 🚀 **Ready for Production!**
+## 🚀 **Ready for Secure Production!**
 
-Your FinanceBot Pro v4.1 is now **production-ready** with:
-- **REAL market data** instead of fake numbers
-- **Live price updates** and charts
-- **Enhanced AI analysis** with current market data
-- **Production-grade** security and performance
-- **Multiple deployment** options
+Your FinanceBot Pro v4.0 is now **secure and production-ready** with:
+- **🔐 Enterprise-grade security** with no hardcoded API keys
+- **🚫 Trading advice filtering** to ensure legal compliance
+- **💬 Conversational AI interface** with friendly Max personality
+- **🗃️ Scalable session management** with automatic cleanup
+- **✅ Comprehensive validation** and error handling
+- **📝 Educational disclaimers** on all responses
 
-**Just run `start-with-env.bat` and you're ready to go!** 🎉
+**Follow the setup guide above to configure your API keys and start securely!** 🎉
 
 ---
 
-*Last Updated: July 3, 2025*
-*Version: 4.1.0 Production*
-*Status: ✅ Ready for Deployment* 
+*Last Updated: December 2024*
+*Version: 4.0.0 Secure Production*
+*Status: ✅ Ready for Secure Deployment* 

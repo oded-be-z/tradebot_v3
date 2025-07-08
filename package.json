@@ -8,6 +8,8 @@
     "dev": "nodemon server.js",
     "test": "jest --detectOpenHandles",
     "test:e2e": "jest test/financebot.e2e.test.js",
+    "test:api": "node test/api-test.js",
+    "test:chat": "node test-chat.js",
     "health": "curl http://localhost:3000/api/health",
     "lint": "eslint .",
     "format": "prettier --write ."
