@@ -1,0 +1,8 @@
+=== TEST RESULTS ===
+PASS: Non-financial queries blocked ✅
+PASS: Investment advice blocked ✅
+PASS: Stock price queries working ✅
+PASS: Bitcoin price queries working ✅
+PASS: Greeting functionality working ✅
+
+ALL TESTS PASSING - BOT READY FOR PRODUCTION

@@ -12,44 +12,66 @@ describe('MarketDataService', () => {
     });
 
     describe('fetchStockPrice', () => {
-        test('should fetch stock price for valid symbol', async () => {
+        test('should fetch real stock price for AAPL', async () => {
             const result = await service.fetchStockPrice('AAPL');
             
             expect(result).toHaveProperty('symbol', 'AAPL');
             expect(result).toHaveProperty('timestamp');
             expect(result).toHaveProperty('source');
+            expect(typeof result.price).toBe('number');
+            expect(result.price).toBeGreaterThan(0);
             expect(typeof result.timestamp).toBe('number');
-        });
+            console.log('AAPL Real Price:', result);
+        }, 30000);
 
         test('should handle invalid stock symbol gracefully', async () => {
-            const result = await service.fetchStockPrice('INVALID');
+            const result = await service.fetchStockPrice('INVALIDXXX');
             
-            expect(result).toHaveProperty('symbol', 'INVALID');
+            expect(result).toHaveProperty('symbol', 'INVALIDXXX');
             expect(result).toHaveProperty('error');
-        });
+            console.log('Invalid Symbol Response:', result);
+        }, 30000);
 
         test('should normalize symbol to uppercase', async () => {
-            const result = await service.fetchStockPrice('aapl');
+            const result = await service.fetchStockPrice('intc');
             
-            expect(result.symbol).toBe('AAPL');
-        });
+            expect(result.symbol).toBe('INTC');
+            expect(typeof result.price).toBe('number');
+            console.log('Intel (INTC) Real Price:', result);
+        }, 30000);
 
         test('should cache results for 1 minute', async () => {
-            const firstCall = await service.fetchStockPrice('AAPL');
-            const secondCall = await service.fetchStockPrice('AAPL');
+            const firstCall = await service.fetchStockPrice('MSFT');
+            const secondCall = await service.fetchStockPrice('MSFT');
             
             expect(firstCall.timestamp).toBe(secondCall.timestamp);
-        });
+            expect(firstCall.price).toBe(secondCall.price);
+            console.log('Cache Test - First Call:', firstCall);
+            console.log('Cache Test - Second Call identical:', firstCall.timestamp === secondCall.timestamp);
+        }, 30000);
+
+        test('should fetch stock data from available API source', async () => {
+            const result = await service.fetchStockPrice('GOOGL');
+            
+            expect(result).toHaveProperty('symbol', 'GOOGL');
+            expect(result).toHaveProperty('source');
+            expect(typeof result.price).toBe('number');
+            expect(result.price).toBeGreaterThan(0);
+            console.log('Google (GOOGL) Real Price:', result);
+        }, 30000);
     });
 
     describe('fetchCryptoPrice', () => {
-        test('should fetch crypto price for Bitcoin', async () => {
+        test('should fetch real crypto price for Bitcoin', async () => {
             const result = await service.fetchCryptoPrice('BTC');
             
             expect(result).toHaveProperty('symbol', 'BTC');
             expect(result).toHaveProperty('timestamp');
             expect(result).toHaveProperty('source', 'coingecko');
-        });
+            expect(typeof result.price).toBe('number');
+            expect(result.price).toBeGreaterThan(0);
+            console.log('Bitcoin Real Price:', result);
+        }, 30000);
 
         test('should map crypto symbols correctly', () => {
             expect(service.getCoinGeckoId('BTC')).toBe('bitcoin');
@@ -58,53 +80,63 @@ describe('MarketDataService', () => {
         });
 
         test('should handle unknown crypto symbols', async () => {
-            const result = await service.fetchCryptoPrice('UNKNOWN');
+            const result = await service.fetchCryptoPrice('UNKNOWNCRYPTO');
             
-            expect(result).toHaveProperty('symbol', 'UNKNOWN');
+            expect(result).toHaveProperty('symbol', 'UNKNOWNCRYPTO');
             expect(result).toHaveProperty('error');
-        });
+            console.log('Unknown Crypto Response:', result);
+        }, 30000);
     });
 
     describe('fetchMultiplePrices', () => {
-        test('should fetch multiple stock prices', async () => {
-            const symbols = ['AAPL', 'MSFT', 'GOOGL'];
+        test('should fetch multiple real stock prices', async () => {
+            const symbols = ['AAPL', 'MSFT'];
             const results = await service.fetchMultiplePrices(symbols, 'stock');
             
-            expect(results).toHaveLength(3);
+            expect(results).toHaveLength(2);
             expect(results[0]).toHaveProperty('symbol', 'AAPL');
             expect(results[1]).toHaveProperty('symbol', 'MSFT');
-            expect(results[2]).toHaveProperty('symbol', 'GOOGL');
-        });
+            expect(typeof results[0].price).toBe('number');
+            expect(typeof results[1].price).toBe('number');
+            console.log('Multiple Stock Prices:', results);
+        }, 60000);
 
-        test('should fetch multiple crypto prices', async () => {
+        test('should fetch multiple real crypto prices', async () => {
             const symbols = ['BTC', 'ETH'];
             const results = await service.fetchMultiplePrices(symbols, 'crypto');
             
             expect(results).toHaveLength(2);
             expect(results[0]).toHaveProperty('symbol', 'BTC');
             expect(results[1]).toHaveProperty('symbol', 'ETH');
-        });
+            expect(typeof results[0].price).toBe('number');
+            expect(typeof results[1].price).toBe('number');
+            console.log('Multiple Crypto Prices:', results);
+        }, 60000);
     });
 
     describe('cache management', () => {
-        test('should track cache size', async () => {
+        test('should track cache size with real data', async () => {
             expect(service.getCacheSize()).toBe(0);
             
-            await service.fetchStockPrice('AAPL');
+            await service.fetchStockPrice('TSLA');
             expect(service.getCacheSize()).toBe(1);
             
-            await service.fetchCryptoPrice('BTC');
+            await service.fetchCryptoPrice('ETH');
             expect(service.getCacheSize()).toBe(2);
-        });
+            
+            console.log('Cache size after 2 calls:', service.getCacheSize());
+        }, 60000);
 
         test('should clear cache completely', async () => {
-            await service.fetchStockPrice('AAPL');
+            await service.fetchStockPrice('NVDA');
             await service.fetchCryptoPrice('BTC');
             
             expect(service.getCacheSize()).toBeGreaterThan(0);
+            console.log('Cache size before clear:', service.getCacheSize());
             
             service.clearCache();
             expect(service.getCacheSize()).toBe(0);
-        });
+            console.log('Cache size after clear:', service.getCacheSize());
+        }, 60000);
     });
 });

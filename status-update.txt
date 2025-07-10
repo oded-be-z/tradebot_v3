@@ -1,0 +1,4 @@
+=== CURRENT STATUS ===
+WORKING: Non-financial queries blocked, intent classifier running
+BROKEN: Greeting not updating, missing disclaimers, Bitcoin price wrong
+NEXT: Restart server, add disclaimers, fix Bitcoin price
