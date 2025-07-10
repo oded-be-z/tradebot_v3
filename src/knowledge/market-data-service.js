@@ -1,0 +1,126 @@
+const axios = require('axios');
+
+class MarketDataService {
+    constructor() {
+        this.cache = new Map();
+        this.CACHE_DURATION = 60000; // 1 minute
+    }
+
+    async fetchStockPrice(symbol) {
+        const cacheKey = `stock:${symbol.toUpperCase()}`;
+        const cached = this.cache.get(cacheKey);
+        
+        if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+            return cached.data;
+        }
+
+        try {
+            // Using Alpha Vantage free tier or similar service
+            const response = await axios.get(`https://api.polygon.io/v2/aggs/ticker/${symbol}/prev`, {
+                params: {
+                    apikey: process.env.POLYGON_API_KEY || 'demo'
+                }
+            });
+
+            const data = {
+                symbol: symbol.toUpperCase(),
+                price: response.data.results?.[0]?.c || null,
+                timestamp: Date.now(),
+                source: 'polygon'
+            };
+
+            this.cache.set(cacheKey, {
+                data,
+                timestamp: Date.now()
+            });
+
+            return data;
+        } catch (error) {
+            console.error(`Error fetching stock price for ${symbol}:`, error.message);
+            return {
+                symbol: symbol.toUpperCase(),
+                price: null,
+                error: 'Unable to fetch current price',
+                timestamp: Date.now()
+            };
+        }
+    }
+
+    async fetchCryptoPrice(symbol) {
+        const cacheKey = `crypto:${symbol.toUpperCase()}`;
+        const cached = this.cache.get(cacheKey);
+        
+        if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+            return cached.data;
+        }
+
+        try {
+            // Using CoinGecko free API
+            const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price`, {
+                params: {
+                    ids: this.getCoinGeckoId(symbol),
+                    vs_currencies: 'usd',
+                    include_last_updated_at: true
+                }
+            });
+
+            const coinId = this.getCoinGeckoId(symbol);
+            const coinData = response.data[coinId];
+
+            const data = {
+                symbol: symbol.toUpperCase(),
+                price: coinData?.usd || null,
+                timestamp: Date.now(),
+                source: 'coingecko'
+            };
+
+            this.cache.set(cacheKey, {
+                data,
+                timestamp: Date.now()
+            });
+
+            return data;
+        } catch (error) {
+            console.error(`Error fetching crypto price for ${symbol}:`, error.message);
+            return {
+                symbol: symbol.toUpperCase(),
+                price: null,
+                error: 'Unable to fetch current price',
+                timestamp: Date.now()
+            };
+        }
+    }
+
+    getCoinGeckoId(symbol) {
+        const symbolMap = {
+            'BTC': 'bitcoin',
+            'ETH': 'ethereum',
+            'ADA': 'cardano',
+            'DOT': 'polkadot',
+            'SOL': 'solana',
+            'MATIC': 'polygon',
+            'AVAX': 'avalanche-2',
+            'LINK': 'chainlink',
+            'UNI': 'uniswap',
+            'AAVE': 'aave'
+        };
+        return symbolMap[symbol.toUpperCase()] || symbol.toLowerCase();
+    }
+
+    async fetchMultiplePrices(symbols, type = 'stock') {
+        const promises = symbols.map(symbol => 
+            type === 'crypto' ? this.fetchCryptoPrice(symbol) : this.fetchStockPrice(symbol)
+        );
+        return Promise.all(promises);
+    }
+
+    clearCache() {
+        this.cache.clear();
+    }
+
+    getCacheSize() {
+        return this.cache.size;
+    }
+}
+
+module.exports = MarketDataService;
