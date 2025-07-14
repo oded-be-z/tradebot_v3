@@ -5,8 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FinanceBot Pro - Your AI Financial Advisor</title>
     
-    <!-- Chart.js Library -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <!-- Chart.js Libraries - Loaded on demand for better performance -->
+    <script>
+        // Lazy load Chart.js libraries only when needed
+        let chartLibrariesLoaded = false;
+        
+        async function loadChartLibraries() {
+            if (chartLibrariesLoaded) return;
+            
+            const scripts = [
+                'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js',
+                'https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1/dist/chartjs-chart-financial.min.js',
+                'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js'
+            ];
+            
+            for (const src of scripts) {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            }
+            
+            chartLibrariesLoaded = true;
+        }
+    </script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -333,6 +358,54 @@
             animation: chartFadeIn 0.5s ease;
         }
 
+        /* Mini Chart - Inline */
+        .mini-chart-container {
+            background: rgba(26, 31, 46, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 12px 0;
+            position: relative;
+            backdrop-filter: blur(10px);
+            display: inline-block;
+            width: 300px;
+            height: 150px;
+        }
+
+        .mini-chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .chart-symbol {
+            font-weight: 700;
+            font-size: 14px;
+            color: #00D4FF;
+        }
+
+        .chart-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: #FFFFFF;
+        }
+
+        .chart-change {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .chart-change.positive { color: #00FF88; }
+        .chart-change.negative { color: #FF3366; }
+
+        .chart-source {
+            position: absolute;
+            bottom: 4px;
+            right: 8px;
+            font-size: 9px;
+            color: #5a6270;
+            opacity: 0.7;
+        }
+
         @keyframes chartFadeIn {
             from { opacity: 0; transform: scale(0.95); }
             to { opacity: 1; transform: scale(1); }
@@ -387,7 +460,7 @@
             color: var(--primary-blue);
         }
 
-        /* Enhanced Typing Indicator with Spinner */
+        /* Enhanced Typing Indicator with Multiple States */
         .typing-indicator {
             display: none;
             padding: 16px;
@@ -408,6 +481,24 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .typing-bubble::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
         }
 
         .ai-avatar {
@@ -421,15 +512,19 @@
             font-size: 14px;
             font-weight: 600;
             color: white;
+            position: relative;
+            z-index: 2;
         }
 
         .typing-text {
             color: var(--text-secondary);
             font-size: 14px;
             margin-right: 8px;
+            position: relative;
+            z-index: 2;
         }
 
-        /* New Spinner Animation */
+        /* Enhanced Spinner Animation */
         .typing-spinner {
             width: 20px;
             height: 20px;
@@ -437,10 +532,189 @@
             border-top-color: var(--primary-blue);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
+            position: relative;
+            z-index: 2;
         }
 
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+
+        /* Portfolio Analysis Loading Indicator */
+        .portfolio-loading {
+            display: none;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .portfolio-loading.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .portfolio-loading-content {
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .portfolio-loading-icon {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(0, 212, 255, 0.2);
+            border-top-color: var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .portfolio-loading-text {
+            color: var(--text-primary);
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .portfolio-loading-subtext {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .portfolio-progress {
+            width: 100%;
+            height: 4px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .portfolio-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-blue), #0066CC);
+            border-radius: 2px;
+            animation: progress 3s ease-in-out infinite;
+            width: 0%;
+        }
+
+        @keyframes progress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+
+        /* Chart Generation Loading */
+        .chart-loading {
+            display: none;
+            padding: 20px;
+            background: var(--secondary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin: 16px 0;
+            text-align: center;
+        }
+
+        .chart-loading.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .chart-loading-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chart-loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(0, 212, 255, 0.2);
+            border-top-color: var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .chart-loading-text {
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* API Call Loading States */
+        .api-loading {
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .api-loading.active {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .api-loading-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-top-color: var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        .api-loading-text {
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Loading Dots Animation */
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+
+        /* Pulse Animation for Loading States */
+        .pulse-loading {
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { 
+                box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4);
+                border-color: rgba(0, 212, 255, 0.3);
+            }
+            50% { 
+                box-shadow: 0 0 0 8px rgba(0, 212, 255, 0);
+                border-color: var(--primary-blue);
+            }
         }
 
         /* Input Area */
@@ -474,6 +748,11 @@
         .modern-input-field:focus-within {
             border-color: var(--primary-blue);
             box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.1);
+        }
+
+        .modern-input-field.loading {
+            border-color: var(--primary-blue);
+            animation: pulse-glow 2s infinite;
         }
 
         .modern-chat-input {
@@ -539,6 +818,26 @@
         .modern-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        .modern-btn:active {
+            transform: scale(0.95);
+        }
+
+        .modern-btn.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .modern-btn.loading::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
         }
 
         /* File Input Hidden */
@@ -627,6 +926,52 @@
                 max-height: 250px !important;
             }
         }
+
+        /* Professional Chart */
+        .professional-chart {
+            background: #1E222D;
+            border: 1px solid #2A2E39;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .chart-title .symbol {
+            font-weight: 700;
+            color: #D1D4DC;
+            margin-right: 12px;
+        }
+
+        .chart-title .price {
+            font-size: 20px;
+            font-weight: 700;
+            color: #FFFFFF;
+            margin-right: 8px;
+        }
+
+        .chart-title .change {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .chart-title .change.positive {
+            color: #00D9FF;
+        }
+
+        .chart-title .change.negative {
+            color: #FF3B69;
+        }
+
+        .time-range {
+            color: #848E9C;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -677,9 +1022,35 @@
             <div class="typing-indicator" id="typing-indicator">
                 <div class="typing-bubble">
                     <div class="ai-avatar">M</div>
-                    <span class="typing-text">Max is analyzing</span>
+                    <span class="typing-text" id="typing-text">Max is thinking...</span>
                     <div class="typing-spinner"></div>
                 </div>
+            </div>
+
+            <!-- Portfolio Analysis Loading -->
+            <div class="portfolio-loading" id="portfolio-loading">
+                <div class="portfolio-loading-content">
+                    <div class="portfolio-loading-icon"></div>
+                    <div class="portfolio-loading-text">Analyzing your portfolio</div>
+                    <div class="portfolio-loading-subtext">Processing holdings, calculating risk metrics, and generating insights...</div>
+                    <div class="portfolio-progress">
+                        <div class="portfolio-progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Generation Loading -->
+            <div class="chart-loading" id="chart-loading">
+                <div class="chart-loading-content">
+                    <div class="chart-loading-spinner"></div>
+                    <div class="chart-loading-text">Generating chart with real-time data...</div>
+                </div>
+            </div>
+
+            <!-- API Call Loading (Top-right corner) -->
+            <div class="api-loading" id="api-loading">
+                <div class="api-loading-spinner"></div>
+                <div class="api-loading-text" id="api-loading-text">Fetching data...</div>
             </div>
 
             <!-- Modern Input Area -->
@@ -754,10 +1125,22 @@
             }
             
             addMessage(message, 'user');
-            showTypingIndicator();
+            
+            // Show appropriate loading indicator based on message type
+            if (message.toLowerCase().includes('chart') || message.toLowerCase().includes('graph')) {
+                showChartLoadingIndicator();
+            } else {
+                showTypingIndicator('Max is analyzing your query');
+            }
+            
+            showApiLoadingIndicator('Fetching market data');
             
             isTyping = true;
-            document.getElementById('send-btn').disabled = true;
+            const sendBtn = document.getElementById('send-btn');
+            const inputField = document.querySelector('.modern-input-field');
+            sendBtn.disabled = true;
+            sendBtn.classList.add('loading');
+            inputField.classList.add('loading');
             
             fetch('/api/chat', {
                 method: 'POST',
@@ -775,23 +1158,29 @@
                 return response.json();
             })
             .then(data => {
-                hideTypingIndicator();
+                hideAllLoadingIndicators();
                 
                 if (data.success) {
                     addBotMessage(data.data, {
                         chart: data.chart,
-                        metadata: data.metadata
+                        miniChart: data.miniChart,
+                        metadata: data.metadata,
+                        realMarketData: data.realMarketData
                     });
                 }
             })
             .catch(error => {
                 console.error('Chat error:', error);
-                hideTypingIndicator();
+                hideAllLoadingIndicators();
                 addMessage('Connection lost. Markets are volatile, try again.', 'bot');
             })
             .finally(() => {
                 isTyping = false;
-                document.getElementById('send-btn').disabled = false;
+                const sendBtn = document.getElementById('send-btn');
+                const inputField = document.querySelector('.modern-input-field');
+                sendBtn.disabled = false;
+                sendBtn.classList.remove('loading');
+                inputField.classList.remove('loading');
                 document.getElementById('chat-input').focus();
             });
         }
@@ -815,7 +1204,14 @@
             }
 
             addMessage(`Uploading portfolio: ${file.name}`, 'user');
-            showTypingIndicator();
+            
+            // Show portfolio loading indicator
+            showPortfolioLoadingIndicator();
+            showApiLoadingIndicator('Uploading portfolio data');
+
+            const uploadBtn = document.getElementById('upload-btn');
+            uploadBtn.classList.add('loading');
+            uploadBtn.disabled = true;
 
             const formData = new FormData();
             formData.append('file', file);
@@ -827,8 +1223,12 @@
             })
             .then(response => response.json())
             .then(data => {
-                hideTypingIndicator();
+                hideAllLoadingIndicators();
                 indicator.classList.remove('active');
+                
+                const uploadBtn = document.getElementById('upload-btn');
+                uploadBtn.classList.remove('loading');
+                uploadBtn.disabled = false;
 
                 if (data.success) {
                     uploadedPortfolio = data.portfolio;
@@ -847,8 +1247,13 @@
             })
             .catch(error => {
                 console.error('Upload error:', error);
-                hideTypingIndicator();
+                hideAllLoadingIndicators();
                 indicator.classList.remove('active');
+                
+                const uploadBtn = document.getElementById('upload-btn');
+                uploadBtn.classList.remove('loading');
+                uploadBtn.disabled = false;
+                
                 addMessage('Sorry, I encountered an error uploading your portfolio. Please try again.', 'bot');
             });
 
@@ -915,15 +1320,26 @@
                 contentDiv.appendChild(statsDiv);
             }
             
+            if (data.tableData) {
+                renderTable(contentDiv, data.tableData);
+            }
+            
             if (shouldShowChart(content)) {
-                const chartData = generatePriceChart(extractSymbol(content));
-                if (chartData) {
-                    renderChart(contentDiv, chartData);
-                }
+                const symbol = extractSymbol(content);
+                const chartType = getChartType(content);
+                generatePriceChart(symbol, chartType).then(chartData => {
+                    if (chartData) {
+                        renderChart(contentDiv, chartData);
+                    }
+                });
             }
             
             if (options.chart || data.chart) {
                 renderChart(contentDiv, options.chart || data.chart);
+            }
+            
+            if (options.miniChart || data.miniChart) {
+                renderMiniChart(contentDiv, options.miniChart || data.miniChart, options.realMarketData);
             }
             
             wrapperDiv.appendChild(contentDiv);
@@ -941,21 +1357,76 @@
             
             let formatted = contentStr.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
             
-            // Enhanced dollar amount formatting with better color
-            formatted = formatted.replace(/\$[\d,]+\.?\d*/g, '<span style="color: #00D4FF; font-weight: 700;">$&</span>');
-            
-            // Enhanced percentage formatting with arrows
-            formatted = formatted.replace(/([+-]?\d+\.?\d*%)/g, (match) => {
-                const value = parseFloat(match);
-                const isPositive = value >= 0 || (!match.startsWith('-') && value >= 0);
-                const color = isPositive ? '#00FF88' : '#FF3366';
-                const arrow = isPositive ? '↑' : '↓';
-                return `<span style="color: ${color}; font-weight: 700;">${match} ${arrow}</span>`;
+            // Enhanced dollar amount formatting with proper number formatting
+            formatted = formatted.replace(/\$[\d,]+\.?\d*/g, (match) => {
+                const cleanValue = match.replace(/[$,]/g, '');
+                const numValue = parseFloat(cleanValue);
+                if (!isNaN(numValue)) {
+                    const formattedValue = numValue.toLocaleString('en-US', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                    });
+                    return `<span style="color: #00D4FF; font-weight: 700;">$${formattedValue}</span>`;
+                }
+                return `<span style="color: #00D4FF; font-weight: 700;">${match}</span>`;
             });
             
-            // Enhanced ticker formatting
-            formatted = formatted.replace(/\b([A-Z]{2,5})\b/g, '<span style="color: #00D4FF; font-weight: 700;">$1</span>');
+            // Enhanced percentage formatting with arrows and better detection
+            formatted = formatted.replace(/([+-]?\d+\.?\d*%)/g, (match) => {
+                const value = parseFloat(match);
+                const isPositive = value > 0;
+                const isNegative = value < 0;
+                const color = isPositive ? '#00FF88' : isNegative ? '#FF3366' : '#8B92A3';
+                const arrow = isPositive ? '▲' : isNegative ? '▼' : '−';
+                const formattedPercent = isPositive ? `+${match}` : match;
+                return `<span style="color: ${color}; font-weight: 700;">${formattedPercent} ${arrow}</span>`;
+            });
             
+            // Enhanced ticker formatting - only format standalone tickers
+            formatted = formatted.replace(/\b([A-Z]{2,5})\b(?![^<]*>)/g, (match, ticker) => {
+                // Don't format if it's part of a longer word or inside HTML tags
+                const commonWords = ['USD', 'EUR', 'API', 'CSV', 'PDF', 'AI', 'ML', 'CEO', 'IPO', 'ETF'];
+                if (commonWords.includes(ticker)) {
+                    return match;
+                }
+                return `<span style="color: #00D4FF; font-weight: 700;">${ticker}</span>`;
+            });
+            
+            // Format large numbers (millions/billions)
+            formatted = formatted.replace(/\b(\d+(?:,\d{3})*(?:\.\d+)?)\s*(million|billion|trillion|M|B|T)\b/gi, (match, number, unit) => {
+                const cleanNumber = number.replace(/,/g, '');
+                const numValue = parseFloat(cleanNumber);
+                let multiplier = 1;
+                let suffix = '';
+                
+                switch(unit.toLowerCase()) {
+                    case 'million':
+                    case 'm':
+                        multiplier = 1000000;
+                        suffix = 'M';
+                        break;
+                    case 'billion':
+                    case 'b':
+                        multiplier = 1000000000;
+                        suffix = 'B';
+                        break;
+                    case 'trillion':
+                    case 't':
+                        multiplier = 1000000000000;
+                        suffix = 'T';
+                        break;
+                }
+                
+                const actualValue = numValue * multiplier;
+                const formattedValue = actualValue.toLocaleString('en-US', { 
+                    minimumFractionDigits: 0, 
+                    maximumFractionDigits: 2 
+                });
+                
+                return `<span style="color: #00D4FF; font-weight: 700;">$${formattedValue}</span>`;
+            });
+            
+            // Add line breaks
             formatted = formatted.replace(/\n/g, '<br>');
             
             return formatted;
@@ -992,10 +1463,74 @@
                 const arrow = stats.dayChange >= 0 ? '↑' : '↓';
                 statsGrid.innerHTML += `
                     <div class="stat-item">
-                        <div class="stat-label">Day Change</div>
+                        <div class="stat-label">Performance</div>
                         <div class="stat-value" style="color: ${changeColor}">
                             ${stats.dayChange >= 0 ? '+' : ''}${stats.dayChange.toFixed(2)}% ${arrow}
                         </div>
+                    </div>
+                `;
+            }
+            
+            if (stats.diversificationScore !== undefined) {
+                const scoreColor = stats.diversificationScore >= 70 ? '#00FF88' : stats.diversificationScore >= 50 ? '#FFD700' : '#FF3366';
+                statsGrid.innerHTML += `
+                    <div class="stat-item">
+                        <div class="stat-label">Diversification</div>
+                        <div class="stat-value" style="color: ${scoreColor}">
+                            ${stats.diversificationScore}%
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (stats.riskAssessment !== undefined) {
+                const riskColor = stats.riskAssessment === 'Conservative' ? '#00FF88' : 
+                                 stats.riskAssessment === 'Moderate' ? '#FFD700' : '#FF3366';
+                statsGrid.innerHTML += `
+                    <div class="stat-item">
+                        <div class="stat-label">Risk Level</div>
+                        <div class="stat-value" style="color: ${riskColor}">
+                            ${stats.riskAssessment}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (stats.riskLevel !== undefined) {
+                const riskColor = stats.riskLevel === 'LOW' ? '#00FF88' : stats.riskLevel === 'MEDIUM' ? '#FFD700' : '#FF3366';
+                statsGrid.innerHTML += `
+                    <div class="stat-item">
+                        <div class="stat-label">Risk Level</div>
+                        <div class="stat-value" style="color: ${riskColor}">
+                            ${stats.riskLevel}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (stats.sharpeRatio !== undefined) {
+                statsGrid.innerHTML += `
+                    <div class="stat-item">
+                        <div class="stat-label">Sharpe Ratio</div>
+                        <div class="stat-value">${stats.sharpeRatio}</div>
+                    </div>
+                `;
+            }
+            
+            if (stats.beta !== undefined) {
+                statsGrid.innerHTML += `
+                    <div class="stat-item">
+                        <div class="stat-label">Beta</div>
+                        <div class="stat-value">${stats.beta}</div>
+                    </div>
+                `;
+            }
+            
+            if (stats.valueAtRisk !== undefined && stats.valueAtRisk.daily) {
+                statsGrid.innerHTML += `
+                    <div class="stat-item">
+                        <div class="stat-label">VaR (Daily)</div>
+                        <div class="stat-value" style="color: #FF9500;">$${Number(stats.valueAtRisk.daily).toLocaleString()}</div>
                     </div>
                 `;
             }
@@ -1004,14 +1539,159 @@
             return statsDiv;
         }
 
+        // After createPortfolioStatsDiv:
+        function formatTableCell(value, columnType) {
+            const strValue = String(value);
+            
+            // Format currency values
+            if (columnType === 'currency' || strValue.startsWith('$')) {
+                const numValue = parseFloat(strValue.replace(/[$,]/g, ''));
+                if (!isNaN(numValue)) {
+                    return `$${numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                }
+            }
+            
+            // Format percentage with trend indicators
+            if (columnType === 'percentage' || strValue.includes('%')) {
+                const numValue = parseFloat(strValue.replace('%', ''));
+                if (!isNaN(numValue)) {
+                    const arrow = numValue > 0 ? '▲' : numValue < 0 ? '▼' : '−';
+                    const color = numValue > 0 ? '#00FF88' : numValue < 0 ? '#FF3366' : '#8B92A3';
+                    return {
+                        html: `<span style="color: ${color}; font-weight: 600;">${numValue > 0 ? '+' : ''}${numValue.toFixed(2)}% ${arrow}</span>`,
+                        isHtml: true
+                    };
+                }
+            }
+            
+            // Format large numbers
+            if (columnType === 'number' && !isNaN(value)) {
+                const numValue = parseFloat(value);
+                if (numValue >= 1000000) {
+                    return `${(numValue / 1000000).toFixed(2)}M`;
+                } else if (numValue >= 1000) {
+                    return `${(numValue / 1000).toFixed(2)}K`;
+                }
+                return numValue.toLocaleString();
+            }
+            
+            return value;
+        }
+        
+        function renderTable(container, tableData) {
+            if (!tableData || !tableData.headers || !tableData.rows) return;
+            
+            // Determine column types
+            const columnTypes = tableData.columnTypes || [];
+            
+            const table = document.createElement('table');
+            table.style.cssText = `
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 16px;
+                font-size: 14px;
+                background: rgba(10,14,39,0.6);
+            `;
+            
+            // Enhanced header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            headerRow.style.background = 'rgba(0,212,255,0.1)';
+            
+            tableData.headers.forEach((header, index) => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                th.style.cssText = `
+                    padding: 12px 16px;
+                    border-bottom: 2px solid #00D4FF;
+                    text-align: left;
+                    font-weight: 600;
+                    color: #00D4FF;
+                    text-transform: uppercase;
+                    font-size: 12px;
+                    letter-spacing: 0.5px;
+                `;
+                if (columnTypes[index] === 'currency' || columnTypes[index] === 'percentage' || columnTypes[index] === 'number') {
+                    th.style.textAlign = 'right';
+                }
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            // Enhanced body with formatted cells
+            const tbody = document.createElement('tbody');
+            tableData.rows.forEach((row, rowIndex) => {
+                const tr = document.createElement('tr');
+                tr.style.cssText = `
+                    transition: background 0.2s;
+                    cursor: pointer;
+                `;
+                tr.onmouseover = () => tr.style.background = 'rgba(0,212,255,0.05)';
+                tr.onmouseout = () => tr.style.background = 'transparent';
+                
+                row.forEach((cell, cellIndex) => {
+                    const td = document.createElement('td');
+                    const formatted = formatTableCell(cell, columnTypes[cellIndex]);
+                    
+                    if (formatted.isHtml) {
+                        td.innerHTML = formatted.html;
+                    } else {
+                        td.textContent = formatted;
+                    }
+                    
+                    td.style.cssText = `
+                        padding: 12px 16px;
+                        border-bottom: 1px solid rgba(42,49,66,0.5);
+                        color: #E0E0E0;
+                    `;
+                    
+                    if (columnTypes[cellIndex] === 'currency' || columnTypes[cellIndex] === 'percentage' || columnTypes[cellIndex] === 'number') {
+                        td.style.textAlign = 'right';
+                    }
+                    
+                    // Highlight first column (usually symbol/name)
+                    if (cellIndex === 0) {
+                        td.style.fontWeight = '600';
+                        td.style.color = '#00D4FF';
+                    }
+                    
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            
+            // Professional container
+            const tableContainer = document.createElement('div');
+            tableContainer.style.cssText = `
+                overflow-x: auto;
+                margin: 24px 0;
+                border-radius: 12px;
+                border: 1px solid #2a3142;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                background: rgba(10,14,39,0.4);
+            `;
+            tableContainer.appendChild(table);
+            container.appendChild(tableContainer);
+        }
+
         // Chart functions
         function shouldShowChart(content) {
             if (!content) return false;
             const contentStr = String(content);
-            const triggers = ['price', '%', 'trading', 'climbed', 'fell', 'rose', 'dropped', 'chart'];
+            const triggers = ['price', '%', 'trading', 'climbed', 'fell', 'rose', 'dropped', 'chart', 'graph', 'plot', 'visualize', 'trend', 'candlestick', 'candle', 'ohlc'];
             const hasPrice = contentStr.includes('$');
             const hasTrigger = triggers.some(t => contentStr.toLowerCase().includes(t));
-            return hasPrice && hasTrigger;
+            return hasPrice || hasTrigger;
+        }
+        
+        function getChartType(content) {
+            const contentStr = String(content).toLowerCase();
+            if (contentStr.includes('candlestick') || contentStr.includes('candle') || contentStr.includes('ohlc')) {
+                return 'candlestick';
+            }
+            return 'line';
         }
 
         function extractSymbol(content) {
@@ -1020,52 +1700,239 @@
             return match ? match[1] : 'STOCK';
         }
 
-        function generatePriceChart(symbol) {
-            const labels = [];
-            const data = [];
-            let price = 100 + Math.random() * 100;
-            const trend = Math.random() > 0.5 ? 1 : -1;
+        function generatePriceChart(symbol, chartType = 'line') {
+            showChartLoadingIndicator();
+            showApiLoadingIndicator(`Fetching ${symbol} data...`);
             
-            for (let i = 29; i >= 0; i--) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-                
-                const volatility = Math.random() * 5;
-                const trendFactor = trend * (Math.random() * 2);
-                price += trendFactor + (Math.random() - 0.5) * volatility;
-                price = Math.max(price, 50);
-                data.push(Math.round(price * 100) / 100);
+            return fetch(`/api/historical-data?symbol=${symbol}&days=30`)
+                .then(res => res.json())
+                .then(response => {
+                    hideChartLoadingIndicator();
+                    hideApiLoadingIndicator();
+                    
+                    if (!response.success || !response.data || response.data.length === 0) {
+                        console.error('No historical data available');
+                        return null;
+                    }
+                    const historical = response.data;
+                    const latest = historical[historical.length - 1];
+                    const changePercent = ((latest.close - historical[0].close) / historical[0].close) * 100;
+                    
+                    if (chartType === 'candlestick') {
+                        return generateCandlestickChart(symbol, historical, changePercent);
+                    } else {
+                        return {
+                            type: 'line',
+                            title: `${symbol} · Real-time · $${latest.close.toFixed(2)}`,
+                            data: {
+                                labels: historical.map(d => new Date(d.date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric' })),
+                                datasets: [{
+                                    label: `${symbol} ($${latest.close.toFixed(2)})`,
+                                    data: historical.map(d => d.close),
+                                    borderColor: changePercent >= 0 ? '#00FF88' : '#FF3366',
+                                    backgroundColor: changePercent >= 0 ? 'rgba(0,255,136,0.1)' : 'rgba(255,51,102,0.1)',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    fill: true,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 6,
+                                    pointHoverBackgroundColor: changePercent >= 0 ? '#00FF88' : '#FF3366',
+                                    pointHoverBorderColor: '#FFFFFF',
+                                    pointHoverBorderWidth: 2
+                                }]
+                            }
+                        };
+                    }
+                })
+                .catch(error => {
+                    console.error('Historical data fetch error:', error);
+                    hideChartLoadingIndicator();
+                    hideApiLoadingIndicator();
+                    return null;
+                });
+        }
+        
+        function calculateMovingAverage(data, period) {
+            const result = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) {
+                    result.push(null);
+                } else {
+                    const sum = data.slice(i - period + 1, i + 1).reduce((acc, d) => acc + d.close, 0);
+                    result.push({
+                        x: new Date(data[i].date).getTime(),
+                        y: sum / period
+                    });
+                }
             }
+            return result;
+        }
+        
+        function generateCandlestickChart(symbol, historical, changePercent) {
+            const latest = historical[historical.length - 1];
             
-            const changePercent = ((data[data.length - 1] - data[0]) / data[0] * 100).toFixed(2);
-            const isPositive = changePercent >= 0;
+            // Calculate moving averages
+            const ma7 = calculateMovingAverage(historical, 7);
+            const ma20 = calculateMovingAverage(historical, 20);
+            
+            // Prepare volume data
+            const volumeData = historical.map(d => ({
+                x: new Date(d.date).getTime(),
+                y: d.volume
+            }));
             
             return {
-                type: 'line',
-                title: `${symbol} · 30D · ${isPositive ? '+' : ''}${changePercent}%`,
+                type: 'candlestick',
+                title: `${symbol} · Candlestick Chart · $${latest.close.toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`,
                 data: {
-                    labels: labels,
-                    datasets: [{
-                        label: symbol,
-                        data: data,
-                        borderColor: isPositive ? '#00FF88' : '#FF3366',
-                        backgroundColor: isPositive ? 'rgba(0,255,136,0.1)' : 'rgba(255,51,102,0.1)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: true,
-                        pointRadius: 0,
-                        pointHoverRadius: 5,
-                        pointHoverBackgroundColor: isPositive ? '#00FF88' : '#FF3366',
-                        pointHoverBorderColor: '#FFFFFF',
-                        pointHoverBorderWidth: 2
-                    }]
+                    datasets: [
+                        {
+                            label: symbol,
+                            data: historical.map(d => ({
+                                x: new Date(d.date).getTime(),
+                                o: d.open,
+                                h: d.high,
+                                l: d.low,
+                                c: d.close
+                            })),
+                            color: {
+                                up: '#00FF88',
+                                down: '#FF3366',
+                                unchanged: '#999'
+                            },
+                            borderColor: {
+                                up: '#00FF88',
+                                down: '#FF3366',
+                                unchanged: '#999'
+                            }
+                        },
+                        {
+                            label: 'MA7',
+                            type: 'line',
+                            data: ma7,
+                            borderColor: '#00D4FF',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'MA20',
+                            type: 'line',
+                            data: ma20,
+                            borderColor: '#FF9500',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                displayFormats: {
+                                    day: 'MMM dd'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255,255,255,0.1)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#8B92A3',
+                                font: { size: 11 }
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255,255,255,0.1)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#8B92A3',
+                                font: { size: 11 },
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#8B92A3',
+                                font: { size: 11 },
+                                filter: function(item) {
+                                    // Only show MA indicators in legend
+                                    return item.text !== symbol;
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.9)',
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#00D4FF',
+                            borderColor: '#00D4FF',
+                            borderWidth: 1,
+                            cornerRadius: 4,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return [
+                                        'Open: $' + point.o.toFixed(2),
+                                        'High: $' + point.h.toFixed(2),
+                                        'Low: $' + point.l.toFixed(2),
+                                        'Close: $' + point.c.toFixed(2)
+                                    ];
+                                }
+                            }
+                        }
+                    }
                 }
             };
         }
 
-        function renderChart(container, chartData) {
-            if (!chartData || !chartData.data) return;
+        function getLast7Days() {
+            const days = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                days.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+            }
+            return days;
+        }
+
+        async function renderChart(container, chartData) {
+            if (!chartData) return;
+            
+            // Handle base64 image charts from server-side rendering
+            if (chartData.type === 'image' && chartData.imageUrl) {
+                console.log('[ChartRenderer] Rendering server-generated chart image');
+                renderImageChart(container, chartData);
+                return;
+            }
+            
+            // Handle ASCII fallback charts
+            if (chartData.type === 'ascii' && chartData.content) {
+                console.log('[ChartRenderer] Rendering ASCII fallback chart');
+                renderAsciiChart(container, chartData);
+                return;
+            }
+            
+            // Legacy: Handle Chart.js config objects (fallback)
+            if (!chartData.data) return;
+            
+            // Load Chart.js libraries if not already loaded
+            await loadChartLibraries();
             
             const chartContainer = document.createElement('div');
             chartContainer.className = 'chart-container';
@@ -1083,16 +1950,86 @@
             
             try {
                 const ctx = canvas.getContext('2d');
-                const chart = new Chart(ctx, {
-                    type: chartData.type || 'line',
-                    data: chartData.data,
-                    options: {
+                // Use chart options from server, or fallback to defaults
+                let chartOptions = chartData.options || {};
+                
+                // For pie charts, enforce no axes and use server options
+                if (chartData.type === 'pie') {
+                    chartOptions = {
+                        ...chartOptions,
+                        scales: { x: { display: false }, y: { display: false } },
+                        responsive: false,
+                        maintainAspectRatio: false
+                    };
+                } else if (chartData.type === 'candlestick') {
+                    // Use candlestick-specific options
+                    chartOptions = chartData.options || {
                         responsive: true,
                         maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'day',
+                                    displayFormats: {
+                                        day: 'MMM dd'
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: '#8B92A3',
+                                    font: { size: 11 }
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: '#8B92A3',
+                                    font: { size: 11 },
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(2);
+                                    }
+                                }
+                            }
                         },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.9)',
+                                titleColor: '#FFFFFF',
+                                bodyColor: '#00D4FF',
+                                borderColor: '#00D4FF',
+                                borderWidth: 1,
+                                cornerRadius: 4,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        const point = context.raw;
+                                        return [
+                                            'Open: $' + point.o.toFixed(2),
+                                            'High: $' + point.h.toFixed(2),
+                                            'Low: $' + point.l.toFixed(2),
+                                            'Close: $' + point.c.toFixed(2)
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    };
+                } else {
+                    // Default options for line/bar charts
+                    chartOptions = {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
                         plugins: {
                             legend: { display: false },
                             tooltip: {
@@ -1113,27 +2050,22 @@
                         },
                         scales: {
                             x: {
-                                ticks: { 
-                                    color: '#8B92A3', 
-                                    maxRotation: 0,
-                                    autoSkip: true,
-                                    maxTicksLimit: 8
-                                },
+                                ticks: { color: '#8B92A3', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
                                 grid: { display: false }
                             },
                             y: {
                                 position: 'right',
-                                ticks: { 
-                                    color: '#8B92A3',
-                                    callback: value => '$' + value.toFixed(0)
-                                },
-                                grid: { 
-                                    color: 'rgba(255,255,255,0.03)',
-                                    drawBorder: false
-                                }
+                                ticks: { color: '#8B92A3', callback: value => '$' + value.toFixed(0) },
+                                grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }
                             }
                         }
-                    }
+                    };
+                }
+                
+                const chart = new Chart(ctx, {
+                    type: chartData.type || 'line',
+                    data: chartData.data,
+                    options: chartOptions
                 });
                 
                 activeCharts.push(chart);
@@ -1146,15 +2078,229 @@
                 console.error('Chart error:', error);
             }
         }
+        
+        // Render server-generated image charts
+        function renderImageChart(container, chartData) {
+            const chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-container';
+            chartContainer.style.textAlign = 'center';
+            
+            if (chartData.title) {
+                const titleDiv = document.createElement('div');
+                titleDiv.style.cssText = 'text-align: center; margin-bottom: 15px; color: #8B92A3; font-weight: 500; font-size: 14px; letter-spacing: 0.5px;';
+                titleDiv.textContent = chartData.title;
+                chartContainer.appendChild(titleDiv);
+            }
+            
+            const img = document.createElement('img');
+            img.src = chartData.imageUrl;
+            img.alt = chartData.title || 'Financial Chart';
+            img.style.cssText = `
+                max-width: 100%;
+                height: auto;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                background: #0A0E27;
+                animation: chartFadeIn 0.5s ease;
+            `;
+            
+            img.onerror = function() {
+                console.error('[ChartRenderer] Failed to load chart image');
+                const errorDiv = document.createElement('div');
+                errorDiv.style.cssText = `
+                    padding: 20px;
+                    background: rgba(255, 51, 102, 0.1);
+                    border: 1px solid rgba(255, 51, 102, 0.3);
+                    border-radius: 8px;
+                    color: #FF3366;
+                    text-align: center;
+                    font-size: 14px;
+                `;
+                errorDiv.textContent = '📊 Chart rendering failed. Please try again.';
+                chartContainer.appendChild(errorDiv);
+            };
+            
+            img.onload = function() {
+                console.log('[ChartRenderer] Chart image loaded successfully');
+            };
+            
+            chartContainer.appendChild(img);
+            container.appendChild(chartContainer);
+        }
+        
+        // Render ASCII fallback charts
+        function renderAsciiChart(container, chartData) {
+            const chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-container ascii-chart';
+            chartContainer.style.cssText = `
+                background: var(--secondary-dark);
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                padding: 16px;
+                margin: 12px 0;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                line-height: 1.4;
+                color: #8B92A3;
+                white-space: pre;
+                overflow-x: auto;
+            `;
+            
+            if (chartData.title) {
+                const titleDiv = document.createElement('div');
+                titleDiv.style.cssText = 'text-align: center; margin-bottom: 15px; color: #00D4FF; font-weight: 600; font-size: 14px; font-family: Inter, sans-serif;';
+                titleDiv.textContent = chartData.title;
+                chartContainer.appendChild(titleDiv);
+            }
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.textContent = chartData.content;
+            chartContainer.appendChild(contentDiv);
+            
+            container.appendChild(chartContainer);
+        }
+
+        // Professional mini chart with TradingView style
+        function renderMiniChart(container, chartData, marketData) {
+            if (!chartData || !chartData.data) return;
+            
+            const chartWrapper = document.createElement('div');
+            chartWrapper.className = 'professional-chart';
+            chartWrapper.innerHTML = `
+                <div class="chart-header">
+                    <div class="chart-title">
+                        <span class="symbol">${marketData?.symbol || 'SYMBOL'}</span>
+                        <span class="price">$${marketData?.price?.toFixed(2) || 'N/A'}</span>
+                        <span class="change ${(marketData?.changePercent || 0) >= 0 ? 'positive' : 'negative'}">
+                            ${(marketData?.changePercent || 0) >= 0 ? '+' : ''}${(marketData?.changePercent || 0).toFixed(2)}%
+                        </span>
+                    </div>
+                    <div class="time-range">1D</div>
+                </div>
+                <canvas id="mini-chart-${Date.now()}" width="400" height="150"></canvas>
+            `;
+            
+            container.appendChild(chartWrapper);
+            
+            // Draw professional chart
+            const canvas = chartWrapper.querySelector('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            const currentPrice = marketData?.price || chartData.data?.datasets?.[0]?.data?.slice(-1)[0] || 100;
+            const isPositive = (marketData?.changePercent || 0) >= 0;
+            
+            try {
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartData.data.labels || ['', '', '', '', '', '', ''],
+                        datasets: [{
+                            data: chartData.data.datasets[0].data || [currentPrice * 0.98, currentPrice * 0.99, currentPrice * 0.97, currentPrice, currentPrice * 1.01, currentPrice * 0.99, currentPrice],
+                            borderColor: isPositive ? '#00D9FF' : '#FF3B69',
+                            backgroundColor: isPositive ? 'rgba(0,217,255,0.1)' : 'rgba(255,59,105,0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: [0, 0, 0, 0, 0, 0, 4], // Only show last point
+                            pointBackgroundColor: isPositive ? '#00D9FF' : '#FF3B69',
+                            pointBorderColor: '#FFFFFF',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: false,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        },
+                        scales: {
+                            x: { 
+                                display: true,
+                                grid: { display: false, color: 'rgba(255,255,255,0.1)' },
+                                ticks: { display: false }
+                            },
+                            y: { 
+                                display: true,
+                                position: 'right',
+                                grid: { display: true, color: 'rgba(255,255,255,0.05)' },
+                                ticks: { 
+                                    display: true,
+                                    color: '#8B92A3',
+                                    font: { size: 10 },
+                                    callback: value => '$' + value.toFixed(0),
+                                    count: 4
+                                }
+                            }
+                        },
+                        layout: {
+                            padding: { top: 20, right: 10, bottom: 10, left: 10 }
+                        }
+                    }
+                });
+                
+                activeCharts.push(chart);
+                
+                if (activeCharts.length > 10) {
+                    const oldChart = activeCharts.shift();
+                    oldChart.destroy();
+                }
+            } catch (error) {
+                console.error('Professional chart error:', error);
+            }
+        }
 
         // UI helpers
-        function showTypingIndicator() {
-            document.getElementById('typing-indicator').classList.add('active');
+        function showTypingIndicator(message = 'Max is thinking...') {
+            const indicator = document.getElementById('typing-indicator');
+            const textElement = document.getElementById('typing-text');
+            if (textElement) {
+                textElement.textContent = message;
+            }
+            indicator.classList.add('active');
             scrollToBottom();
         }
 
         function hideTypingIndicator() {
             document.getElementById('typing-indicator').classList.remove('active');
+        }
+
+        function showPortfolioLoadingIndicator() {
+            document.getElementById('portfolio-loading').classList.add('active');
+            scrollToBottom();
+        }
+
+        function hidePortfolioLoadingIndicator() {
+            document.getElementById('portfolio-loading').classList.remove('active');
+        }
+
+        function showChartLoadingIndicator() {
+            document.getElementById('chart-loading').classList.add('active');
+            scrollToBottom();
+        }
+
+        function hideChartLoadingIndicator() {
+            document.getElementById('chart-loading').classList.remove('active');
+        }
+
+        function showApiLoadingIndicator(message = 'Fetching data...') {
+            const indicator = document.getElementById('api-loading');
+            const textElement = document.getElementById('api-loading-text');
+            if (textElement) {
+                textElement.textContent = message;
+            }
+            indicator.classList.add('active');
+        }
+
+        function hideApiLoadingIndicator() {
+            document.getElementById('api-loading').classList.remove('active');
+        }
+
+        function hideAllLoadingIndicators() {
+            hideTypingIndicator();
+            hidePortfolioLoadingIndicator();
+            hideChartLoadingIndicator();
+            hideApiLoadingIndicator();
         }
 
         function scrollToBottom() {
@@ -1180,12 +2326,61 @@
             }
         }
 
-        // Market ticker with real-time feel
+        // Market ticker with real data
         function updateMarketTicker() {
             const ticker = document.getElementById('market-ticker');
             if (!ticker) return;
             
-            const stocks = [
+            // Show subtle loading for market data
+            showApiLoadingIndicator('Updating market data...');
+            
+            // Fetch real market data from API
+            fetch('/api/market-data')
+                .then(response => response.json())
+                .then(data => {
+                    hideApiLoadingIndicator();
+                    if (data.success && data.prices) {
+                        renderMarketTicker(data.prices);
+                    } else {
+                        console.error('Failed to fetch market data');
+                        renderMarketTicker(getFallbackMarketData());
+                    }
+                })
+                .catch(error => {
+                    console.error('Market data fetch error:', error);
+                    hideApiLoadingIndicator();
+                    renderMarketTicker(getFallbackMarketData());
+                });
+        }
+        
+        function renderMarketTicker(stocks) {
+            const ticker = document.getElementById('market-ticker');
+            if (!ticker) return;
+            
+            const tickerContent = document.createElement('div');
+            tickerContent.className = 'market-ticker-content';
+            
+            [...stocks, ...stocks].forEach(stock => {
+                const item = document.createElement('div');
+                item.className = 'ticker-item';
+                const change = stock.changePercent || stock.change || 0;
+                const arrow = change >= 0 ? '↑' : '↓';
+                item.innerHTML = `
+                    <span class="ticker-symbol">${stock.symbol}</span>
+                    <span class="ticker-price">$${stock.price ? stock.price.toFixed(2) : 'N/A'}</span>
+                    <span class="ticker-change ${change >= 0 ? 'positive' : 'negative'}">
+                        ${change >= 0 ? '+' : ''}${change.toFixed(2)}% ${arrow}
+                    </span>
+                `;
+                tickerContent.appendChild(item);
+            });
+            
+            ticker.innerHTML = '';
+            ticker.appendChild(tickerContent);
+        }
+        
+        function getFallbackMarketData() {
+            return [
                 { symbol: 'AAPL', price: 195.89, change: 2.34 },
                 { symbol: 'GOOGL', price: 156.12, change: -0.87 },
                 { symbol: 'MSFT', price: 428.76, change: 1.43 },
@@ -1194,46 +2389,6 @@
                 { symbol: 'NVDA', price: 879.44, change: 4.21 },
                 { symbol: 'TSLA', price: 246.38, change: -2.11 }
             ];
-            
-            const tickerContent = document.createElement('div');
-            tickerContent.className = 'market-ticker-content';
-            
-            [...stocks, ...stocks].forEach(stock => {
-                const item = document.createElement('div');
-                item.className = 'ticker-item';
-                const arrow = stock.change >= 0 ? '↑' : '↓';
-                item.innerHTML = `
-                    <span class="ticker-symbol">${stock.symbol}</span>
-                    <span class="ticker-price">$${stock.price.toFixed(2)}</span>
-                    <span class="ticker-change ${stock.change >= 0 ? 'positive' : 'negative'}">
-                        ${stock.change >= 0 ? '+' : ''}${stock.change}% ${arrow}
-                    </span>
-                `;
-                tickerContent.appendChild(item);
-            });
-            
-            ticker.innerHTML = '';
-            ticker.appendChild(tickerContent);
-            
-            // Randomly update prices for real-time feel
-            setInterval(() => {
-                const items = ticker.querySelectorAll('.ticker-item');
-                const randomIndex = Math.floor(Math.random() * (items.length / 2));
-                const item = items[randomIndex];
-                if (item) {
-                    const priceEl = item.querySelector('.ticker-price');
-                    const changeEl = item.querySelector('.ticker-change');
-                    const currentPrice = parseFloat(priceEl.textContent.replace('$', ''));
-                    const newChange = (Math.random() - 0.5) * 0.5;
-                    const newPrice = currentPrice + newChange;
-                    
-                    priceEl.textContent = `$${newPrice.toFixed(2)}`;
-                    priceEl.style.animation = 'none';
-                    setTimeout(() => {
-                        priceEl.style.animation = 'pulse 0.5s ease';
-                    }, 10);
-                }
-            }, 3000);
         }
 
         // Initialize the app

@@ -1,4 +1,0 @@
-=== CRITICAL NLP ISSUE FOUND ===
-Bot classifies 'whats up with bitcoin last week?' as NON-FINANCIAL
-This is WRONG - Bitcoin queries should be FINANCIAL
-The intent classifier NLP is too weak and missing crypto terms

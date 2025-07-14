@@ -1,0 +1,42 @@
+2:58:25 PM ℹ️ 🚀 STARTING ULTIMATE 100-TEST VALIDATION SUITE
+2:58:25 PM ℹ️ Session initialized: session_1752494305163_mb6iljgv8
+2:58:25 PM ℹ️ === CATEGORY 1: NON-FINANCIAL REFUSAL TESTS (20) ===
+2:58:25 PM ✅ PASS: NonFin-1: "teach me to make gluten free pizza"
+2:58:25 PM ✅ PASS: NonFin-2: "what is the weather today"
+2:58:25 PM ✅ PASS: NonFin-3: "how do I cook pasta"
+2:58:25 PM ✅ PASS: NonFin-4: "best movies to watch"
+2:58:25 PM ✅ PASS: NonFin-5: "travel destinations in Europe"
+2:58:25 PM ✅ PASS: NonFin-6: "how to fix my car"
+2:58:25 PM ✅ PASS: NonFin-7: "recipe for chocolate cake"
+2:58:25 PM ✅ PASS: NonFin-8: "health and fitness tips"
+2:58:25 PM ✅ PASS: NonFin-9: "programming tutorials"
+2:58:25 PM ✅ PASS: NonFin-10: "sports scores today"
+2:58:25 PM ✅ PASS: NonFin-11: "tell me a joke"
+2:58:25 PM ✅ PASS: NonFin-12: "what is 2+2"
+2:58:25 PM ✅ PASS: NonFin-13: "help me with homework"
+2:58:25 PM ✅ PASS: NonFin-14: "dating advice please"
+2:58:25 PM ✅ PASS: NonFin-15: "how to lose weight"
+2:58:25 PM ✅ PASS: NonFin-16: "best restaurants nearby"
+2:58:25 PM ✅ PASS: NonFin-17: "video game recommendations"
+2:58:25 PM ✅ PASS: NonFin-18: "how to learn guitar"
+2:58:25 PM ✅ PASS: NonFin-19: "fashion trends 2024"
+2:58:25 PM ✅ PASS: NonFin-20: "celebrity gossip news"
+2:58:25 PM ℹ️ === CATEGORY 2: STOCK/CRYPTO ANALYSIS TESTS (20) ===
+2:58:32 PM ✅ PASS: Stock-1: "Bitcoin price analysis"
+2:58:40 PM ✅ PASS: Stock-2: "Apple stock performance"
+2:58:47 PM ✅ PASS: Stock-3: "Tesla earnings outlook"
+2:58:54 PM ✅ PASS: Stock-4: "Ethereum price trends"
+2:59:01 PM ✅ PASS: Stock-5: "Microsoft stock analysis"
+2:59:01 PM ❌ FAIL: Stock-6: "NVIDIA recent performance" - Expected 4 bullets, got 0
+2:59:07 PM ✅ PASS: Stock-7: "Amazon stock outlook"
+2:59:21 PM ✅ PASS: Stock-8: "Dogecoin market trends"
+2:59:28 PM ✅ PASS: Stock-9: "Google stock analysis"
+2:59:35 PM ✅ PASS: Stock-10: "SPY ETF performance"
+2:59:41 PM ✅ PASS: Stock-11: "Meta stock trends"
+2:59:53 PM ✅ PASS: Stock-12: "Cardano price analysis"
+2:59:53 PM ❌ FAIL: Stock-13: "AMD stock performance" - Expected 4 bullets, got 0
+3:00:01 PM ✅ PASS: Stock-14: "Solana crypto trends"
+3:00:01 PM ❌ FAIL: Stock-15: "Netflix stock analysis" - Expected 4 bullets, got 0
+3:00:11 PM ✅ PASS: Stock-16: "Polygon crypto price"
+3:00:18 PM ✅ PASS: Stock-17: "Disney stock outlook"
+3:00:27 PM ✅ PASS: Stock-18: "Chainlink price trends"

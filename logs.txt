@@ -1,0 +1,702 @@
+oded@SIXDEVILS:/mnt/c/Users/oded.be/tradebot_v3$ npm start
+
+> financebot-pro@4.0.0 start
+> node server.js
+
+📁 Loading environment variables from .env file...
+⚠️  WARNING: ALPHA_VANTAGE_API_KEY not set. Some market data features may be limited.
+   Get one free at: https://www.alphavantage.co/
+✅ Environment Check: {
+  NODE_ENV: 'development',
+  PORT: '3000',
+  PERPLEXITY_KEY_EXISTS: true,
+  ALPHA_VANTAGE_KEY_EXISTS: false,
+  POLYGON_KEY_EXISTS: true,
+  timestamp: '2025-07-14T12:34:06.759Z'
+}
+[SessionManager] Initialized with capacity: 1000, TTL: 86400s
+[ChartGenerator] Initialized with server-side rendering capabilities
+✅ Enhanced Perplexity AI client initialized - Configured
+
+🚀 FinanceBot Pro v4.0 Server Started Successfully!
+│
+│ 🌐 Server running on: http://localhost:3000
+│ 🔧 Environment: development
+│ 🔐 Security: Enabled (no hardcoded API keys)
+🔑 Validating Perplexity API key...
+🔑 Validating Perplexity API key...
+❌ Perplexity API validation failed: 401
+   Operating in fallback mode without AI enhancement
+│ 🤖 AI Analysis: Fallback Mode
+│ 💬 Conversational: Enabled
+│ 🛡️  Trading Advice Filter: Active
+│ 📊 Session Manager: Active
+│ 📁 Portfolio Upload: Enabled
+│
+└─ Ready to serve secure financial analysis requests!
+
+[SessionManager] Created session session_1752496464709_9ggsb9q0v (total: 1)
+[QueryAnalyzer] No symbol found in: "hi"
+[QueryAnalyzer] No symbol found in: "hi"
+[QueryAnalyzer] Analysis: {
+  isGreeting: true,
+  needsChart: false,
+  queryType: 'general',
+  topic: null,
+  intent: 'analysis',
+  responseLength: 'medium',
+  conversationalLevel: 'normal',
+  lastTopic: null,
+  contextualQuery: false
+}
+[IntentClassifier] Analyzing: "hi"
+[IntentClassifier] Scores - Financial: 0, Non-Financial: 0, Context: 0
+[IntentClassifier] Classification: {
+  classification: 'greeting',
+  confidence: 0.9,
+  financialScore: 0,
+  nonFinancialScore: 0,
+  details: {
+    stockSymbols: [],
+    cryptoSymbols: [],
+    priceReferences: [],
+    keywordMatches: [],
+    totalWords: 1,
+    isQuestion: false,
+    isGreeting: true,
+    hasFinancialContext: false,
+    hasTemporalContext: false,
+    contextScore: 0
+  }
+}
+[Chat] Greeting detected via intent classifier, sending friendly response
+Polygon failed for AAPL: Request failed with status code 401, trying Yahoo...
+Please consider completing the survey at https://bit.ly/yahoo-finance-api-feedback if you haven't already; for more info see https://github.com/gadicc/node-yahoo-finance2/issues/764#issuecomment-2056623851.  This will only be shown once, but you can suppress this message in future with `yahooFinance.suppressNotices(['yahooSurvey'])`.
+Fetching crumb and cookies from https://finance.yahoo.com/quote/AAPL...
+fetch https://guce.yahoo.com/consent?brandType=nonEu&gcrumb=GiIF8Oo&done=https%3A%2F%2Ffinance.yahoo.com%2Fquote%2FAAPL
+fetch https://consent.yahoo.com/v2/collectConsent?sessionId=3_cc-session_088a8fae-d232-47d7-9dde-5dd50f8dc70a
+fetch https://consent.yahoo.com/v2/collectConsent?sessionId=3_cc-session_088a8fae-d232-47d7-9dde-5dd50f8dc70a
+fetch https://guce.yahoo.com/copyConsent?sessionId=3_cc-session_088a8fae-d232-47d7-9dde-5dd50f8dc70a&lang=he-IL
+Fetching crumb and cookies from https://finance.yahoo.com/quote/AAPL?guccounter=1...
+We expected a redirect to guce.yahoo.com, but got https://finance.yahoo.com/quote/AAPL/
+We'll try to continue anyway - you can safely ignore this if the request succeeds
+Success. Cookie expires on Infinity
+fetch https://query1.finance.yahoo.com/v1/test/getcrumb
+New crumb: qJBCclrCCvS
+Polygon failed for MSFT: Request failed with status code 401, trying Yahoo...
+Polygon failed for GOOGL: Request failed with status code 401, trying Yahoo...
+Polygon failed for TSLA: Request failed with status code 401, trying Yahoo...
+Polygon crypto failed for BTC: Request failed with status code 401, trying CoinGecko...
+[QueryAnalyzer] Crypto symbol match: crypto → CRYPTO
+[QueryAnalyzer] Stock symbol match: AAPL → AAPL
+[QueryAnalyzer] Analysis: {
+  isGreeting: false,
+  needsChart: true,
+  queryType: 'stock',
+  topic: 'AAPL',
+  intent: 'price',
+  responseLength: 'medium',
+  conversationalLevel: 'normal',
+  lastTopic: 'CRYPTO',
+  contextualQuery: false
+}
+[IntentClassifier] Analyzing: "AAPL stock price today?"
+[IntentClassifier] Context boost from history: +3.0 (reduced from 14)
+[IntentClassifier] Natural language pattern matched: stock (+6)
+[IntentClassifier] Scores - Financial: 19, Non-Financial: 0, Context: 14
+[IntentClassifier] Classification: {
+  classification: 'financial',
+  confidence: 0.98,
+  financialScore: 19,
+  nonFinancialScore: 0,
+  details: {
+    stockSymbols: [ 'AAPL' ],
+    cryptoSymbols: [],
+    priceReferences: [],
+    keywordMatches: [
+      'context boost: +3.0',
+      'natural language: stock',
+      'stock',
+      'price',
+      'rice',
+      'today'
+    ],
+    totalWords: 4,
+    isQuestion: true,
+    isGreeting: false,
+    hasFinancialContext: true,
+    hasTemporalContext: false,
+    contextScore: 14
+  }
+}
+[MarketData] Fetching real data for AAPL
+[MarketData] Fetching stock data for AAPL (normalized: AAPL)
+[MarketData] Real data retrieved: {
+  symbol: 'AAPL',
+  price: 211.16,
+  open: 210.565,
+  high: 212.13,
+  low: 209.86,
+  volume: 39765812,
+  previousClose: 212.41,
+  change: -1.25,
+  changePercent: -0.5884845,
+  timestamp: 1752496472610,
+  source: 'yahoo'
+}
+[ChartGenerator] Generating chart for stock: AAPL
+[ChartGenerator] Fetching historical data for AAPL
+[ChartGenerator] Rendering chart to base64 for AAPL
+[ChartGenerator] Chart created successfully for AAPL (53524 chars)
+[ChartGenerator] Generated chart for AAPL
+[ConciseFormatter] Direct formatting for: AAPL stock price today?
+[ResponseFormatter] Applied modern formatting
+[DisclaimerManager] Added 1 disclaimers
+Polygon crypto failed for ETH: Request failed with status code 401, trying CoinGecko...
+[QueryAnalyzer] Stock symbol match: AAPL → AAPL
+[QueryAnalyzer] Fuzzy matched → TSLA
+[QueryAnalyzer] Fuzzy matched → TSLA
+[QueryAnalyzer] Analysis: {
+  isGreeting: false,
+  needsChart: true,
+  queryType: 'stock',
+  topic: 'TSLA',
+  intent: 'analysis',
+  responseLength: 'medium',
+  conversationalLevel: 'normal',
+  lastTopic: 'AAPL',
+  contextualQuery: false
+}
+[IntentClassifier] Analyzing: "Generate TSLA 1-year chart"
+[IntentClassifier] Context boost from history: +3.0 (reduced from 47)
+[IntentClassifier] Scores - Financial: 9, Non-Financial: 0, Context: 47
+[IntentClassifier] Classification: {
+  classification: 'financial',
+  confidence: 0.98,
+  financialScore: 9,
+  nonFinancialScore: 0,
+  details: {
+    stockSymbols: [ 'TSLA' ],
+    cryptoSymbols: [],
+    priceReferences: [ '1' ],
+    keywordMatches: [ 'context boost: +3.0', 'chart' ],
+    totalWords: 4,
+    isQuestion: false,
+    isGreeting: false,
+    hasFinancialContext: false,
+    hasTemporalContext: false,
+    contextScore: 47
+  }
+}
+[MarketData] Fetching real data for TSLA
+[MarketData] Fetching stock data for TSLA (normalized: TSLA)
+Polygon failed for TSLA: Request failed with status code 401, trying Yahoo...
+[MarketData] Real data retrieved: {
+  symbol: 'TSLA',
+  price: 313.51,
+  open: 307.62,
+  high: 314.09,
+  low: 305.66,
+  volume: 79236442,
+  previousClose: 309.87,
+  change: 3.64001,
+  changePercent: 1.17469,
+  timestamp: 1752496597741,
+  source: 'yahoo'
+}
+[ChartGenerator] Generating chart for stock: TSLA
+[ChartGenerator] Fetching historical data for TSLA
+[ChartGenerator] Rendering chart to base64 for TSLA
+[ChartGenerator] Chart created successfully for TSLA (51796 chars)
+[ChartGenerator] Generated chart for TSLA
+[MarketData] Fetching stock data for TSLA (normalized: TSLA)
+[FinancialAnalysis] Got real-time data for TSLA: {
+  symbol: 'TSLA',
+  price: 313.51,
+  open: 307.62,
+  high: 314.09,
+  low: 305.66,
+  volume: 79236442,
+  previousClose: 309.87,
+  change: 3.64001,
+  changePercent: 1.17469,
+  timestamp: 1752496597741,
+  source: 'yahoo'
+}
+[Perplexity] Request 1/1 - Model: sonar-pro
+[Perplexity] Attempt 1/1 failed: {
+  status: 401,
+  statusText: 'Unauthorized',
+  message: 'Request failed with status code 401',
+  data: '<html>\r\n' +
+    '<head><title>401 Authorization Required</title></head>\r\n' +
+    '<body>\r\n' +
+    '<center><h1>401 Authorization Required</h1></center>\r\n' +
+    '<hr><center>openresty/1.27.4</center>\r\n' +
+    `<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'95f11124589a1c13',t:'MTc1MjQ5NjU5OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>\r\n` +
+    '</html>\r\n',
+  code: 'ERR_BAD_REQUEST',
+  errno: undefined
+}
+[Enhanced Perplexity Client] Error: Error: Invalid Perplexity API key
+    at EnhancedPerplexityClient.makeRequest (/mnt/c/Users/oded.be/tradebot_v3/server.js:2554:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async EnhancedPerplexityClient.getFinancialAnalysis (/mnt/c/Users/oded.be/tradebot_v3/server.js:2629:33)
+    at async /mnt/c/Users/oded.be/tradebot_v3/server.js:3262:34
+[Enhanced Perplexity Client] Using fallback mode due to API failure
+[Perplexity] Enhanced response received
+[ResponseFormatter] Applied modern formatting
+[DisclaimerManager] Skipped disclaimers: Already shown in session
+[Portfolio Upload] Processing portfolio.csv for session session_1752496464709_9ggsb9q0v
+[MarketData] Fetching stock data for AAPL (normalized: AAPL)
+[MarketData] Fetching stock data for MSFT (normalized: MSFT)
+[MarketData] Fetching stock data for TSLA (normalized: TSLA)
+Failed to fetch data for AAPL, using fallback
+[MarketData] Fetching stock data for SPY (normalized: SPY)
+Failed to fetch data for MSFT, using fallback
+[MarketData] Fetching stock data for CASH (normalized: CASH)
+Failed to fetch data for TSLA, using fallback
+Polygon failed for AAPL: Request failed with status code 401, trying Yahoo...
+Polygon failed for TSLA: Request failed with status code 401, trying Yahoo...
+Polygon failed for MSFT: Request failed with status code 401, trying Yahoo...
+Failed to fetch data for SPY, using fallback
+Failed to fetch data for CASH, using fallback
+Polygon failed for SPY: Request failed with status code 401, trying Yahoo...
+Polygon failed for CASH: Request failed with status code 401, trying Yahoo...
+[QueryAnalyzer] Stock symbol match: TSLA → TSLA
+[QueryAnalyzer] Fuzzy matched → GC
+[QueryAnalyzer] Analysis: {
+  isGreeting: false,
+  needsChart: false,
+  queryType: 'commodity',
+  topic: 'GC',
+  intent: 'analysis',
+  responseLength: 'medium',
+  conversationalLevel: 'normal',
+  lastTopic: 'TSLA',
+  contextualQuery: false
+}
+[IntentClassifier] Analyzing: "is it good portfolio?"
+[IntentClassifier] Context boost from history: +3.0 (reduced from 51)
+[IntentClassifier] Scores - Financial: 7, Non-Financial: 0, Context: 51
+[IntentClassifier] Classification: {
+  classification: 'financial',
+  confidence: 0.98,
+  financialScore: 7,
+  nonFinancialScore: 0,
+  details: {
+    stockSymbols: [],
+    cryptoSymbols: [],
+    priceReferences: [],
+    keywordMatches: [ 'context boost: +3.0', 'portfolio' ],
+    totalWords: 4,
+    isQuestion: true,
+    isGreeting: false,
+    hasFinancialContext: true,
+    hasTemporalContext: false,
+    contextScore: 51
+  }
+}
+[MarketData] Fetching real data for GC
+[MarketData] Fetching commodity data for GC (normalized: GC)
+[MarketData] Real data retrieved: {
+  symbol: 'GC',
+  price: null,
+  error: "'GC' is not a supported commodity. Available: GOLD, SILVER, OIL, BRENT, WHEAT, CORN, etc.",
+  suggestions: [],
+  timestamp: 1752496646791
+}
+[Perplexity] Request 1/1 - Model: sonar-pro
+[Perplexity] Attempt 1/1 failed: {
+  status: 401,
+  statusText: 'Unauthorized',
+  message: 'Request failed with status code 401',
+  data: '<html>\r\n' +
+    '<head><title>401 Authorization Required</title></head>\r\n' +
+    '<body>\r\n' +
+    '<center><h1>401 Authorization Required</h1></center>\r\n' +
+    '<hr><center>openresty/1.27.4</center>\r\n' +
+    `<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'95f1124cb8e7d37c',t:'MTc1MjQ5NjY0Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>\r\n` +
+    '</html>\r\n',
+  code: 'ERR_BAD_REQUEST',
+  errno: undefined
+}
+[Enhanced Perplexity Client] Error: Error: Invalid Perplexity API key
+    at EnhancedPerplexityClient.makeRequest (/mnt/c/Users/oded.be/tradebot_v3/server.js:2554:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async EnhancedPerplexityClient.getFinancialAnalysis (/mnt/c/Users/oded.be/tradebot_v3/server.js:2629:33)
+    at async /mnt/c/Users/oded.be/tradebot_v3/server.js:3262:34
+[Enhanced Perplexity Client] Using fallback mode due to API failure
+[Perplexity] Enhanced response received
+[ResponseFormatter] Applied modern formatting
+[DisclaimerManager] Skipped disclaimers: Already shown in session
+{
+  "type": 45,
+  "schema": {
+    "title": "YahooNumber",
+    "anyOf": [
+      {
+        "title": "RawNumber",
+        "type": "object",
+        "properties": {
+          "raw": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "raw"
+        ]
+      },
+      {
+        "type": "number"
+      }
+    ]
+  },
+  "path": "/meta/regularMarketPrice",
+  "message": "Expected required property"
+}
+
+    This may happen intermittently and you should catch errors appropriately.
+    However:  1) if this recently started happening on every request for a symbol
+    that used to work, Yahoo may have changed their API.  2) If this happens on
+    every request for a symbol you've never used before, but not for other
+    symbols, you've found an edge-case (OR, we may just be protecting you from
+    "bad" data sometimes stored for e.g. misspelt symbols on Yahoo's side).
+    Please see if anyone has reported this previously:
+
+      https://github.com/gadicc/node-yahoo-finance2/issues?q=is%3Aissue+ChartResultObject
+
+    or open a new issue (and mention the symbol):  yahoo-finance2 v2.13.3
+
+      https://github.com/gadicc/node-yahoo-finance2/issues/new?labels=bug%2C+validation&template=validation.md&title=ChartResultObject
+
+    For information on how to turn off the above logging or skip these errors,
+    see https://github.com/gadicc/node-yahoo-finance2/tree/devel/docs/validation.md.
+
+    At the end of the doc, there's also a section on how to
+    [Help Fix Validation Errors](https://github.com/gadicc/node-yahoo-finance2/blob/devel/docs/validation.md#help-fix)
+    in case you'd like to contribute to the project.  Most of the time, these
+    fixes are very quick and easy; it's just hard for our small core team to keep up,
+    so help is always appreciated!
+
+{
+  "type": 45,
+  "schema": {
+    "title": "YahooNumber",
+    "anyOf": [
+      {
+        "title": "RawNumber",
+        "type": "object",
+        "properties": {
+          "raw": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "raw"
+        ]
+      },
+      {
+        "type": "number"
+      }
+    ]
+  },
+  "path": "/meta/regularMarketPrice",
+  "message": "Expected required property"
+}
+
+    This may happen intermittently and you should catch errors appropriately.
+    However:  1) if this recently started happening on every request for a symbol
+    that used to work, Yahoo may have changed their API.  2) If this happens on
+    every request for a symbol you've never used before, but not for other
+    symbols, you've found an edge-case (OR, we may just be protecting you from
+    "bad" data sometimes stored for e.g. misspelt symbols on Yahoo's side).
+    Please see if anyone has reported this previously:
+
+      https://github.com/gadicc/node-yahoo-finance2/issues?q=is%3Aissue+ChartResultObject
+
+    or open a new issue (and mention the symbol):  yahoo-finance2 v2.13.3
+
+      https://github.com/gadicc/node-yahoo-finance2/issues/new?labels=bug%2C+validation&template=validation.md&title=ChartResultObject
+
+    For information on how to turn off the above logging or skip these errors,
+    see https://github.com/gadicc/node-yahoo-finance2/tree/devel/docs/validation.md.
+
+    At the end of the doc, there's also a section on how to
+    [Help Fix Validation Errors](https://github.com/gadicc/node-yahoo-finance2/blob/devel/docs/validation.md#help-fix)
+    in case you'd like to contribute to the project.  Most of the time, these
+    fixes are very quick and easy; it's just hard for our small core team to keep up,
+    so help is always appreciated!
+
+{
+  "type": 45,
+  "schema": {
+    "title": "YahooNumber",
+    "anyOf": [
+      {
+        "title": "RawNumber",
+        "type": "object",
+        "properties": {
+          "raw": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "raw"
+        ]
+      },
+      {
+        "type": "number"
+      }
+    ]
+  },
+  "path": "/meta/regularMarketPrice",
+  "message": "Expected required property"
+}
+
+    This may happen intermittently and you should catch errors appropriately.
+    However:  1) if this recently started happening on every request for a symbol
+    that used to work, Yahoo may have changed their API.  2) If this happens on
+    every request for a symbol you've never used before, but not for other
+    symbols, you've found an edge-case (OR, we may just be protecting you from
+    "bad" data sometimes stored for e.g. misspelt symbols on Yahoo's side).
+    Please see if anyone has reported this previously:
+
+      https://github.com/gadicc/node-yahoo-finance2/issues?q=is%3Aissue+ChartResultObject
+
+    or open a new issue (and mention the symbol):  yahoo-finance2 v2.13.3
+
+      https://github.com/gadicc/node-yahoo-finance2/issues/new?labels=bug%2C+validation&template=validation.md&title=ChartResultObject
+
+    For information on how to turn off the above logging or skip these errors,
+    see https://github.com/gadicc/node-yahoo-finance2/tree/devel/docs/validation.md.
+
+    At the end of the doc, there's also a section on how to
+    [Help Fix Validation Errors](https://github.com/gadicc/node-yahoo-finance2/blob/devel/docs/validation.md#help-fix)
+    in case you'd like to contribute to the project.  Most of the time, these
+    fixes are very quick and easy; it's just hard for our small core team to keep up,
+    so help is always appreciated!
+
+[MarketData] Historical fetch failed for GC: Failed Yahoo Schema validation
+[QueryAnalyzer] Mapped "sol" → SOL
+[QueryAnalyzer] Comparison query - mapped first symbol "gold" → GC
+[QueryAnalyzer] Analysis: {
+  isGreeting: false,
+  needsChart: true,
+  queryType: 'commodity',
+  topic: 'GC',
+  intent: 'comparison',
+  responseLength: 'medium',
+  conversationalLevel: 'normal',
+  lastTopic: 'SOL',
+  contextualQuery: false
+}
+[IntentClassifier] Analyzing: "gold vs silver pls"
+[IntentClassifier] Context boost from history: +3.0 (reduced from 47)
+[IntentClassifier] Scores - Financial: 11, Non-Financial: 0, Context: 47
+[IntentClassifier] Classification: {
+  classification: 'financial',
+  confidence: 0.92,
+  financialScore: 11,
+  nonFinancialScore: 0,
+  details: {
+    stockSymbols: [],
+    cryptoSymbols: [],
+    priceReferences: [],
+    keywordMatches: [ 'context boost: +3.0', 'gold', 'silver' ],
+    totalWords: 4,
+    isQuestion: false,
+    isGreeting: false,
+    hasFinancialContext: false,
+    hasTemporalContext: false,
+    contextScore: 47
+  }
+}
+[MarketData] Fetching real data for GC
+[MarketData] Fetching commodity data for GC (normalized: GC)
+[MarketData] Real data retrieved: {
+  symbol: 'GC',
+  price: null,
+  error: "'GC' is not a supported commodity. Available: GOLD, SILVER, OIL, BRENT, WHEAT, CORN, etc.",
+  suggestions: [],
+  timestamp: 1752496661248
+}
+[ChartGenerator] Generating chart for commodity: GC
+[ChartGenerator] Generated chart for GC
+[Perplexity] Request 1/1 - Model: sonar-pro
+[Perplexity] Attempt 1/1 failed: {
+  status: 401,
+  statusText: 'Unauthorized',
+  message: 'Request failed with status code 401',
+  data: '<html>\r\n' +
+    '<head><title>401 Authorization Required</title></head>\r\n' +
+    '<body>\r\n' +
+    '<center><h1>401 Authorization Required</h1></center>\r\n' +
+    '<hr><center>openresty/1.27.4</center>\r\n' +
+    `<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'95f112af6842e1f4',t:'MTc1MjQ5NjY2My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>\r\n` +
+    '</html>\r\n',
+  code: 'ERR_BAD_REQUEST',
+  errno: undefined
+}
+[Enhanced Perplexity Client] Error: Error: Invalid Perplexity API key
+    at EnhancedPerplexityClient.makeRequest (/mnt/c/Users/oded.be/tradebot_v3/server.js:2554:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async EnhancedPerplexityClient.getFinancialAnalysis (/mnt/c/Users/oded.be/tradebot_v3/server.js:2629:33)
+    at async /mnt/c/Users/oded.be/tradebot_v3/server.js:3262:34
+[Enhanced Perplexity Client] Using fallback mode due to API failure
+[Perplexity] Enhanced response received
+[ResponseFormatter] Applied modern formatting
+[DisclaimerManager] Skipped disclaimers: Already shown in session
+{
+  "type": 45,
+  "schema": {
+    "title": "YahooNumber",
+    "anyOf": [
+      {
+        "title": "RawNumber",
+        "type": "object",
+        "properties": {
+          "raw": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "raw"
+        ]
+      },
+      {
+        "type": "number"
+      }
+    ]
+  },
+  "path": "/meta/regularMarketPrice",
+  "message": "Expected required property"
+}
+
+    This may happen intermittently and you should catch errors appropriately.
+    However:  1) if this recently started happening on every request for a symbol
+    that used to work, Yahoo may have changed their API.  2) If this happens on
+    every request for a symbol you've never used before, but not for other
+    symbols, you've found an edge-case (OR, we may just be protecting you from
+    "bad" data sometimes stored for e.g. misspelt symbols on Yahoo's side).
+    Please see if anyone has reported this previously:
+
+      https://github.com/gadicc/node-yahoo-finance2/issues?q=is%3Aissue+ChartResultObject
+
+    or open a new issue (and mention the symbol):  yahoo-finance2 v2.13.3
+
+      https://github.com/gadicc/node-yahoo-finance2/issues/new?labels=bug%2C+validation&template=validation.md&title=ChartResultObject
+
+    For information on how to turn off the above logging or skip these errors,
+    see https://github.com/gadicc/node-yahoo-finance2/tree/devel/docs/validation.md.
+
+    At the end of the doc, there's also a section on how to
+    [Help Fix Validation Errors](https://github.com/gadicc/node-yahoo-finance2/blob/devel/docs/validation.md#help-fix)
+    in case you'd like to contribute to the project.  Most of the time, these
+    fixes are very quick and easy; it's just hard for our small core team to keep up,
+    so help is always appreciated!
+
+{
+  "type": 45,
+  "schema": {
+    "title": "YahooNumber",
+    "anyOf": [
+      {
+        "title": "RawNumber",
+        "type": "object",
+        "properties": {
+          "raw": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "raw"
+        ]
+      },
+      {
+        "type": "number"
+      }
+    ]
+  },
+  "path": "/meta/regularMarketPrice",
+  "message": "Expected required property"
+}
+
+    This may happen intermittently and you should catch errors appropriately.
+    However:  1) if this recently started happening on every request for a symbol
+    that used to work, Yahoo may have changed their API.  2) If this happens on
+    every request for a symbol you've never used before, but not for other
+    symbols, you've found an edge-case (OR, we may just be protecting you from
+    "bad" data sometimes stored for e.g. misspelt symbols on Yahoo's side).
+    Please see if anyone has reported this previously:
+
+      https://github.com/gadicc/node-yahoo-finance2/issues?q=is%3Aissue+ChartResultObject
+
+    or open a new issue (and mention the symbol):  yahoo-finance2 v2.13.3
+
+      https://github.com/gadicc/node-yahoo-finance2/issues/new?labels=bug%2C+validation&template=validation.md&title=ChartResultObject
+
+    For information on how to turn off the above logging or skip these errors,
+    see https://github.com/gadicc/node-yahoo-finance2/tree/devel/docs/validation.md.
+
+    At the end of the doc, there's also a section on how to
+    [Help Fix Validation Errors](https://github.com/gadicc/node-yahoo-finance2/blob/devel/docs/validation.md#help-fix)
+    in case you'd like to contribute to the project.  Most of the time, these
+    fixes are very quick and easy; it's just hard for our small core team to keep up,
+    so help is always appreciated!
+
+{
+  "type": 45,
+  "schema": {
+    "title": "YahooNumber",
+    "anyOf": [
+      {
+        "title": "RawNumber",
+        "type": "object",
+        "properties": {
+          "raw": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "raw"
+        ]
+      },
+      {
+        "type": "number"
+      }
+    ]
+  },
+  "path": "/meta/regularMarketPrice",
+  "message": "Expected required property"
+}
+
+    This may happen intermittently and you should catch errors appropriately.
+    However:  1) if this recently started happening on every request for a symbol
+    that used to work, Yahoo may have changed their API.  2) If this happens on
+    every request for a symbol you've never used before, but not for other
+    symbols, you've found an edge-case (OR, we may just be protecting you from
+    "bad" data sometimes stored for e.g. misspelt symbols on Yahoo's side).
+    Please see if anyone has reported this previously:
+
+      https://github.com/gadicc/node-yahoo-finance2/issues?q=is%3Aissue+ChartResultObject
+
+    or open a new issue (and mention the symbol):  yahoo-finance2 v2.13.3
+
+      https://github.com/gadicc/node-yahoo-finance2/issues/new?labels=bug%2C+validation&template=validation.md&title=ChartResultObject
+
+    For information on how to turn off the above logging or skip these errors,
+    see https://github.com/gadicc/node-yahoo-finance2/tree/devel/docs/validation.md.
+
+    At the end of the doc, there's also a section on how to
+    [Help Fix Validation Errors](https://github.com/gadicc/node-yahoo-finance2/blob/devel/docs/validation.md#help-fix)
+    in case you'd like to contribute to the project.  Most of the time, these
+    fixes are very quick and easy; it's just hard for our small core team to keep up,
+    so help is always appreciated!
+
+[MarketData] Historical fetch failed for GC: Failed Yahoo Schema validation
+^C
+[2025-07-14T12:38:41.501Z] SIGINT received. Starting graceful shutdown...
+✅ Server closed successfully
+[SessionManager] Shutdown completed
+✅ Graceful shutdown completed

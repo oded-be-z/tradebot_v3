@@ -79,7 +79,7 @@ class IntentClassifier {
             
             // Question patterns for stock queries
             'hows', 'how\'s', 'whats', 'what\'s', 'how doing',
-            'doing', 'trading at', 'currently', 'current',
+            'doing', 'at', 'trading at', 'currently', 'current',
             'latest', 'update', 'status', 'looking', 'looks',
             'think about', 'thoughts on', 'opinion on',
             'worth buying', 'worth selling', 'worth it'
@@ -104,8 +104,6 @@ class IntentClassifier {
             'travel', 'vacation', 'hotel', 'flight', 'relationship', 'dating',
             'personal', 'life', 'family', 'friends', 'social', 'birthday',
             'party', 'celebration', 'wedding', 'anniversary', 'gift', 'gifts',
-            'guitar', 'piano', 'drums', 'violin', 'instrument', 'instruments',
-            'band', 'orchestra', 'concert', 'performance', 'sing', 'singing',
             
             // Technology (non-financial)
             'programming', 'code', 'software', 'hardware', 'computer',
@@ -116,19 +114,11 @@ class IntentClassifier {
             'health', 'medical', 'doctor', 'hospital', 'medicine',
             'symptom', 'disease', 'treatment', 'therapy', 'fitness',
             'exercise', 'workout', 'diet', 'nutrition', 'vitamin',
-            'weight', 'lose weight', 'weight loss', 'calories', 'fat',
-            'gym', 'cardio', 'muscle', 'body', 'healthy',
             
             // Education
             'school', 'university', 'education', 'learning', 'study',
             'homework', 'exam', 'test', 'grade', 'course', 'class',
             'teacher', 'professor', 'student', 'academic',
-            
-            // Math & Calculations (non-financial)
-            'what is', 'calculate', 'math', 'mathematics', 'algebra',
-            'geometry', 'calculus', 'equation', 'formula', 'solve',
-            'add', 'subtract', 'multiply', 'divide', 'plus', 'minus',
-            'times', 'divided by', 'equals', 'sum', 'difference',
             
             // Legal (non-financial)
             'legal', 'law', 'lawyer', 'attorney', 'court', 'lawsuit', 
@@ -137,8 +127,6 @@ class IntentClassifier {
             // Entertainment
             'tv show', 'television', 'netflix', 'comedy', 'drama', 'horror',
             'actor', 'actress', 'celebrity', 'fashion', 'beauty', 'makeup',
-            'best movies', 'movies to watch', 'film', 'films', 'cinema',
-            'entertainment', 'streaming', 'movie recommendation', 'movie recommendations',
             
             // General life topics
             'how to fix', 'repair', 'maintenance', 'home improvement',
@@ -155,7 +143,7 @@ class IntentClassifier {
         this.pricePattern = /\$?\d+(?:\.\d{2})?(?:\s?(?:dollars?|usd|cents?))?/gi;
     }
 
-    classifyIntent(text, conversationHistory = []) {
+    classifyIntent(text) {
         const normalizedText = text.toLowerCase();
         const words = normalizedText.split(/\s+/);
         
@@ -163,67 +151,9 @@ class IntentClassifier {
         let nonFinancialScore = 0;
         let totalWords = words.length;
         let keywordMatches = [];
-        let contextScore = 0;
         
         // DEBUG: Log the query
         console.log(`[IntentClassifier] Analyzing: "${text}"`);
-        
-        // Check conversation history for context - REDUCED WEIGHT
-        if (conversationHistory && conversationHistory.length > 0) {
-            contextScore = this.analyzeConversationContext(conversationHistory);
-            if (contextScore > 0) {
-                // Reduce context boost weight to prevent over-classification
-                const reducedContextScore = Math.min(contextScore * 0.3, 3); // Max boost of 3
-                financialScore += reducedContextScore;
-                keywordMatches.push(`context boost: +${reducedContextScore.toFixed(1)}`);
-                console.log(`[IntentClassifier] Context boost from history: +${reducedContextScore.toFixed(1)} (reduced from ${contextScore})`);
-            }
-        }
-        
-        // Enhanced natural language pattern detection
-        const naturalLanguagePatterns = [
-            // "What's up with X" patterns
-            { pattern: /what'?s up with (oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft)/i, boost: 5, type: 'inquiry' },
-            { pattern: /whats up with (oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft)/i, boost: 5, type: 'inquiry' },
-            { pattern: /what about (oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft)/i, boost: 4, type: 'inquiry' },
-            { pattern: /how is (oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft)/i, boost: 4, type: 'inquiry' },
-            { pattern: /how's (oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft)/i, boost: 4, type: 'inquiry' },
-            
-            // "Teach me about X" patterns  
-            { pattern: /teach me about (oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft|trading|investing)/i, boost: 6, type: 'education' },
-            { pattern: /tell me about (oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft|trading|investing)/i, boost: 5, type: 'education' },
-            { pattern: /explain (oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft|trading|investing)/i, boost: 5, type: 'education' },
-            { pattern: /what is (oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft)/i, boost: 4, type: 'education' },
-            
-            // "X trends" patterns
-            { pattern: /(oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft) trends?/i, boost: 5, type: 'analysis' },
-            { pattern: /(oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft) analysis/i, boost: 5, type: 'analysis' },
-            { pattern: /(oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft) performance/i, boost: 5, type: 'analysis' },
-            { pattern: /(oil|gold|silver|bitcoin|ethereum|apple|tesla|nvidia|microsoft) price/i, boost: 6, type: 'price' },
-            
-            // Commodity specific patterns
-            { pattern: /oil prices?/i, boost: 6, type: 'price' },
-            { pattern: /crude oil/i, boost: 5, type: 'commodity' },
-            { pattern: /gold prices?/i, boost: 6, type: 'price' },
-            { pattern: /silver prices?/i, boost: 6, type: 'price' },
-            
-            // Stock specific patterns
-            { pattern: /(tesla|apple|nvidia|microsoft) stock/i, boost: 6, type: 'stock' },
-            { pattern: /(aapl|tsla|nvda|msft) stock/i, boost: 6, type: 'stock' },
-            
-            // Crypto specific patterns
-            { pattern: /bitcoin vs ethereum/i, boost: 7, type: 'comparison' },
-            { pattern: /(bitcoin|ethereum|btc|eth) vs (bitcoin|ethereum|btc|eth)/i, boost: 7, type: 'comparison' }
-        ];
-        
-        // Check for natural language patterns
-        for (const { pattern, boost, type } of naturalLanguagePatterns) {
-            if (pattern.test(text)) {
-                financialScore += boost;
-                keywordMatches.push(`natural language: ${type}`);
-                console.log(`[IntentClassifier] Natural language pattern matched: ${type} (+${boost})`);
-            }
-        }
         
         // Special handling for common portfolio questions
         const portfolioPatterns = [
@@ -289,19 +219,16 @@ class IntentClassifier {
             }
         }
 
-        // Check for non-financial keywords with VERY HIGH penalty
+        // Check for non-financial keywords with HIGH penalty
         for (const keyword of this.nonFinancialKeywords) {
-            // Use word boundaries to avoid matching substrings (e.g., "app" in "Apple")
-            const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-            if (regex.test(normalizedText)) {
+            if (normalizedText.includes(keyword)) {
                 // CRITICAL: Give very high penalty to non-financial keywords
-                const weight = keyword.split(' ').length * 10; // 10x multiplier for non-financial
+                const weight = keyword.split(' ').length * 5; // 5x multiplier for non-financial
                 
                 // Extra penalty for cooking/food terms
                 if (keyword.includes('recipe') || keyword.includes('cook') || keyword.includes('pizza') || 
-                    keyword.includes('food') || keyword.includes('make') || keyword.includes('teach me') ||
-                    keyword.includes('gluten') || keyword.includes('bake') || keyword.includes('meal')) {
-                    nonFinancialScore += weight * 5; // 50x total multiplier for cooking
+                    keyword.includes('food') || keyword.includes('make') || keyword.includes('teach me')) {
+                    nonFinancialScore += weight * 3; // 15x total multiplier for cooking
                 } else {
                     nonFinancialScore += weight;
                 }
@@ -349,7 +276,7 @@ class IntentClassifier {
         let classification;
         let confidence;
         
-        console.log(`[IntentClassifier] Scores - Financial: ${financialScore}, Non-Financial: ${nonFinancialScore}, Context: ${contextScore}`);
+        console.log(`[IntentClassifier] Scores - Financial: ${financialScore}, Non-Financial: ${nonFinancialScore}`);
 
         if (totalScore === 0) {
             classification = 'ambiguous';
@@ -363,11 +290,6 @@ class IntentClassifier {
         } else {
             classification = 'ambiguous';
             confidence = 0.5;
-        }
-        
-        // Lower ambiguous threshold if context score is high
-        if (classification === 'ambiguous' && contextScore > 5) {
-            confidence = 0.5 + (contextScore * 0.05); // Boost confidence based on context
         }
 
         // Boost confidence for strong financial indicators
@@ -407,8 +329,7 @@ class IntentClassifier {
                 isQuestion: this.isQuestion(normalizedText),
                 isGreeting: this.isGreeting(normalizedText),
                 hasFinancialContext: this.hasFinancialContext(normalizedText),
-                hasTemporalContext: this.hasTemporalContext(normalizedText),
-                contextScore: contextScore
+                hasTemporalContext: this.hasTemporalContext(normalizedText)
             }
         };
     }
@@ -507,64 +428,18 @@ class IntentClassifier {
         return 'general_financial';
     }
 
-    shouldAllowResponse(classification, confidence, contextScore = 0) {
-        // STRICT FINANCIAL ONLY - Require 0.8 confidence threshold
-        if (classification === 'financial' && confidence >= 0.8) {
+    shouldAllowResponse(classification, confidence) {
+        // STRICT FINANCIAL ONLY - 100% refusal rate for non-financial
+        if (classification === 'financial' && confidence >= 0.6) {
             return { allow: true, reason: 'High-confidence financial query' };
         }
 
         if (classification === 'greeting' && confidence >= 0.8) {
             return { allow: true, reason: 'Clear greeting message' };
         }
-        
-        // Allow ambiguous queries only with very strong financial context
-        if (classification === 'ambiguous' && contextScore >= 10 && confidence >= 0.7) {
-            return { allow: true, reason: 'Ambiguous query with very strong financial context' };
-        }
 
-        // BLOCK EVERYTHING ELSE - including low-confidence financial queries
-        if (classification === 'financial' && confidence < 0.8) {
-            return { allow: false, reason: 'Financial query but confidence below 0.8 threshold' };
-        }
-        
+        // BLOCK EVERYTHING ELSE - including ambiguous and low-confidence queries
         return { allow: false, reason: 'Non-financial or ambiguous query - strict financial-only policy' };
-    }
-    
-    analyzeConversationContext(conversationHistory) {
-        if (!conversationHistory || conversationHistory.length === 0) return 0;
-        
-        let contextScore = 0;
-        const recentMessages = conversationHistory.slice(-5); // Look at last 5 messages
-        
-        recentMessages.forEach(msg => {
-            const text = msg.message || msg.content || '';
-            const normalizedText = text.toLowerCase();
-            
-            // Check for financial keywords in history
-            const financialMatches = this.financialKeywords.filter(keyword => 
-                normalizedText.includes(keyword)
-            );
-            
-            // Check for stock/crypto symbols
-            const hasStockSymbol = this.stockSymbolPattern.test(text);
-            const hasCryptoSymbol = this.cryptoPattern.test(text);
-            
-            // Score based on recency and relevance
-            const messageAge = conversationHistory.length - conversationHistory.indexOf(msg);
-            const recencyMultiplier = messageAge <= 2 ? 2 : 1; // Recent messages get 2x weight
-            
-            if (financialMatches.length > 0) {
-                contextScore += financialMatches.length * recencyMultiplier;
-            }
-            if (hasStockSymbol) {
-                contextScore += 3 * recencyMultiplier;
-            }
-            if (hasCryptoSymbol) {
-                contextScore += 3 * recencyMultiplier;
-            }
-        });
-        
-        return contextScore;
     }
 }
 

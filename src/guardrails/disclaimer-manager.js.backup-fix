@@ -2,7 +2,7 @@ class DisclaimerManager {
     constructor() {
         this.disclaimers = {
             general: {
-                text: "Educational only. Consult advisor.",
+                text: "⚠️ **Disclaimer**: This information is for educational purposes only and should not be considered as financial advice. Always consult with a qualified financial advisor before making any investment decisions.",
                 severity: 'medium',
                 placement: 'end'
             },

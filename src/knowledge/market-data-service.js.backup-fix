@@ -1,0 +1,399 @@
+const axios = require('axios');
+const yahooFinance = require('yahoo-finance2').default;
+const ForexService = require('../data/forex-service');
+const CommoditiesService = require('../data/commodities-service');
+
+class MarketDataService {
+    constructor() {
+        this.cache = new Map();
+        this.CACHE_DURATION = 30000; // 30 seconds for faster responses
+        this.forexService = new ForexService();
+        this.commoditiesService = new CommoditiesService();
+    }
+
+    async fetchStockPrice(symbol) {
+        const upperSymbol = symbol.toUpperCase();
+        const cacheKey = `stock:${upperSymbol}`;
+        const cached = this.cache.get(cacheKey);
+        
+        if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+            return cached.data;
+        }
+
+        // TRY 1: Polygon (best real-time data)
+        if (process.env.POLYGON_API_KEY) {
+            try {
+                const response = await axios.get(
+                    `https://api.polygon.io/v2/aggs/ticker/${upperSymbol}/prev`,
+                    { 
+                        params: { apiKey: process.env.POLYGON_API_KEY },
+                        timeout: 2000 // 2 second timeout for faster responses
+                    }
+                );
+                
+                if (response.data.results?.[0]) {
+                    const result = response.data.results[0];
+                    const data = {
+                        symbol: upperSymbol,
+                        price: result.c, // Close price
+                        open: result.o,
+                        high: result.h,
+                        low: result.l,
+                        volume: result.v,
+                        previousClose: result.pc || result.c,
+                        change: result.c - (result.pc || result.c),
+                        changePercent: ((result.c - (result.pc || result.c)) / (result.pc || result.c)) * 100,
+                        timestamp: Date.now(),
+                        source: 'polygon'
+                    };
+                    this.cache.set(cacheKey, { data, timestamp: Date.now() });
+                    return data;
+                }
+            } catch (e) {
+                console.log(`Polygon failed for ${upperSymbol}: ${e.message}, trying Yahoo...`);
+            }
+        }
+
+        // TRY 2: Yahoo Finance
+        try {
+            const quote = await yahooFinance.quote(upperSymbol);
+            if (quote && quote.regularMarketPrice) {
+                let changePercent = quote.regularMarketChangePercent;
+                // Use 24h fallback if daily change is 0
+                if (changePercent === 0 && quote.fiftyTwoWeekChangePercent) {
+                    changePercent = quote.fiftyTwoWeekChangePercent * 100;
+                }
+                
+                const data = {
+                    symbol: upperSymbol,
+                    price: quote.regularMarketPrice,
+                    open: quote.regularMarketOpen,
+                    high: quote.regularMarketDayHigh,
+                    low: quote.regularMarketDayLow,
+                    volume: quote.regularMarketVolume,
+                    previousClose: quote.regularMarketPreviousClose,
+                    change: quote.regularMarketChange,
+                    changePercent: changePercent,
+                    timestamp: Date.now(),
+                    source: 'yahoo'
+                };
+                this.cache.set(cacheKey, { data, timestamp: Date.now() });
+                return data;
+            }
+        } catch (e) {
+            console.log(`Yahoo failed for ${upperSymbol}: ${e.message}, trying Alpha Vantage...`);
+        }
+
+        // TRY 3: Alpha Vantage
+        if (process.env.ALPHA_VANTAGE_API_KEY) {
+            try {
+                const response = await axios.get('https://www.alphavantage.co/query', {
+                    params: {
+                        function: 'GLOBAL_QUOTE',
+                        symbol: upperSymbol,
+                        apikey: process.env.ALPHA_VANTAGE_API_KEY
+                    },
+                    timeout: 2000 // 2 second timeout
+                });
+                
+                const quote = response.data['Global Quote'];
+                if (quote && quote['05. price']) {
+                    const data = {
+                        symbol: upperSymbol,
+                        price: parseFloat(quote['05. price']),
+                        open: parseFloat(quote['02. open']),
+                        high: parseFloat(quote['03. high']),
+                        low: parseFloat(quote['04. low']),
+                        volume: parseInt(quote['06. volume']),
+                        previousClose: parseFloat(quote['08. previous close']),
+                        change: parseFloat(quote['09. change']),
+                        changePercent: parseFloat(quote['10. change percent'].replace('%', '')),
+                        timestamp: Date.now(),
+                        source: 'alphavantage'
+                    };
+                    this.cache.set(cacheKey, { data, timestamp: Date.now() });
+                    return data;
+                }
+            } catch (e) {
+                console.error(`Alpha Vantage failed for ${upperSymbol}: ${e.message}. All APIs failed.`);
+            }
+        }
+
+        return { 
+            symbol: upperSymbol, 
+            price: null, 
+            error: `Unable to retrieve ${upperSymbol} data from primary sources. Symbol may be invalid or temporarily unavailable.`,
+            timestamp: Date.now(),
+            source: 'error'
+        };
+    }
+
+
+    async fetchCryptoPrice(symbol) {
+        const upperSymbol = symbol.toUpperCase();
+        const cacheKey = `crypto:${upperSymbol}`;
+        const cached = this.cache.get(cacheKey);
+        
+        if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+            return cached.data;
+        }
+        
+        // For crypto, try Polygon first (they have crypto data)
+        if (process.env.POLYGON_API_KEY) {
+            try {
+                const polygonSymbol = `X:${upperSymbol}USD`;
+                const response = await axios.get(
+                    `https://api.polygon.io/v2/aggs/ticker/${polygonSymbol}/prev`,
+                    { params: { apiKey: process.env.POLYGON_API_KEY } }
+                );
+                
+                if (response.data.results?.[0]) {
+                    const result = response.data.results[0];
+                    const data = {
+                        symbol: upperSymbol,
+                        price: result.c,
+                        change: result.c - (result.pc || result.c),
+                        changePercent: ((result.c - (result.pc || result.c)) / (result.pc || result.c)) * 100,
+                        volume: result.v,
+                        timestamp: Date.now(),
+                        source: 'polygon'
+                    };
+                    this.cache.set(cacheKey, { data, timestamp: Date.now() });
+                    return data;
+                }
+            } catch (e) {
+                console.log(`Polygon crypto failed for ${upperSymbol}: ${e.message}, trying CoinGecko...`);
+            }
+        }
+
+        // Try Yahoo Finance for crypto
+        try {
+            const yahooSymbol = `${upperSymbol}-USD`;
+            const quote = await yahooFinance.quote(yahooSymbol);
+            if (quote && quote.regularMarketPrice) {
+                const data = {
+                    symbol: upperSymbol,
+                    price: quote.regularMarketPrice,
+                    open: quote.regularMarketOpen,
+                    high: quote.regularMarketDayHigh,
+                    low: quote.regularMarketDayLow,
+                    volume: quote.regularMarketVolume,
+                    previousClose: quote.regularMarketPreviousClose,
+                    change: quote.regularMarketChange,
+                    changePercent: quote.regularMarketChangePercent,
+                    timestamp: Date.now(),
+                    source: 'yahoo'
+                };
+                this.cache.set(cacheKey, { data, timestamp: Date.now() });
+                return data;
+            }
+        } catch (e) {
+            console.log(`Yahoo crypto failed for ${upperSymbol}: ${e.message}, trying CoinGecko...`);
+        }
+
+        // Fallback to CoinGecko with enhanced data
+        try {
+            const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price`, {
+                params: {
+                    ids: this.getCoinGeckoId(symbol),
+                    vs_currencies: 'usd',
+                    include_24hr_change: 'true',
+                    include_24hr_vol: 'true',
+                    include_last_updated_at: 'true'
+                },
+                timeout: 2000 // 2 second timeout
+            });
+
+            const coinId = this.getCoinGeckoId(symbol);
+            const coinData = response.data[coinId];
+
+            const price = coinData?.usd || null;
+            
+            // Add realistic Bitcoin price validation (20K - 200K range)
+            if (upperSymbol === 'BTC' && price && (price < 20000 || price > 200000)) {
+                console.warn(`[MarketData] Bitcoin price ${price} outside realistic range (20K-200K), using fallback`);
+                return {
+                    symbol: upperSymbol,
+                    price: null,
+                    error: `Bitcoin price ${price} appears unrealistic, please verify with official sources`,
+                    timestamp: Date.now(),
+                    source: 'error'
+                };
+            }
+            
+            const changePercent = coinData?.usd_24h_change || 0;
+            const volume = coinData?.usd_24h_vol || 0;
+            
+            const data = {
+                symbol: upperSymbol,
+                price: price,
+                change: price ? (price * (changePercent / 100)) : 0,
+                changePercent: changePercent,
+                volume: volume,
+                timestamp: Date.now(),
+                source: 'coingecko'
+            };
+
+            this.cache.set(cacheKey, {
+                data,
+                timestamp: Date.now()
+            });
+
+            return data;
+        } catch (error) {
+            console.error(`[MarketData] Error fetching crypto price for ${symbol}:`, {
+                message: error.message,
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                apiSource: 'coingecko',
+                symbol: upperSymbol,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Final fallback: return error with graceful message
+        return {
+            symbol: upperSymbol,
+            price: null,
+            error: `Unable to retrieve ${upperSymbol} data from primary sources. Symbol may be invalid or temporarily unavailable.`,
+            timestamp: Date.now(),
+            source: 'error'
+        };
+    }
+
+    getCoinGeckoId(symbol) {
+        const symbolMap = {
+            'BTC': 'bitcoin',
+            'ETH': 'ethereum',
+            'ADA': 'cardano',
+            'DOT': 'polkadot',
+            'SOL': 'solana',
+            'MATIC': 'polygon',
+            'AVAX': 'avalanche-2',
+            'LINK': 'chainlink',
+            'UNI': 'uniswap',
+            'AAVE': 'aave'
+        };
+        return symbolMap[symbol.toUpperCase()] || symbol.toLowerCase();
+    }
+
+    async fetchForexRate(pair) {
+        return await this.forexService.fetchForexRate(pair);
+    }
+
+    async fetchCommodityPrice(commodity) {
+        return await this.commoditiesService.fetchCommodityPrice(commodity);
+    }
+
+    async fetchMultiplePrices(symbols, type = 'stock') {
+        const promises = symbols.map(symbol => {
+            switch (type) {
+                case 'crypto':
+                    return this.fetchCryptoPrice(symbol);
+                case 'forex':
+                    return this.fetchForexRate(symbol);
+                case 'commodity':
+                    return this.fetchCommodityPrice(symbol);
+                default:
+                    return this.fetchStockPrice(symbol);
+            }
+        });
+        return Promise.all(promises);
+    }
+
+    async fetchMarketData(symbol, type = 'auto') {
+        // Normalize symbol first to handle full names like "BITCOIN"
+        const normalizedSymbol = this.normalizeSymbol(symbol);
+        const upperSymbol = normalizedSymbol.toUpperCase();
+        
+        // Auto-detect type if not specified
+        if (type === 'auto') {
+            type = this.detectAssetType(upperSymbol);
+        }
+        
+        console.log(`[MarketData] Fetching ${type} data for ${symbol} (normalized: ${upperSymbol})`);
+        
+        switch (type) {
+            case 'crypto':
+                return await this.fetchCryptoPrice(upperSymbol);
+            case 'forex':
+                return await this.fetchForexRate(upperSymbol);
+            case 'commodity':
+                return await this.fetchCommodityPrice(upperSymbol);
+            default:
+                return await this.fetchStockPrice(upperSymbol);
+        }
+    }
+
+    detectAssetType(symbol) {
+        // Normalize symbol first
+        const normalizedSymbol = this.normalizeSymbol(symbol);
+        
+        // Detect forex pairs
+        if (symbol.includes('/') || symbol.includes('USD') || symbol.includes('EUR') || symbol.includes('GBP')) {
+            return 'forex';
+        }
+        
+        // Detect crypto
+        const cryptoSymbols = ['BTC', 'ETH', 'ADA', 'DOT', 'SOL', 'MATIC', 'AVAX', 'LINK', 'UNI', 'AAVE', 'DOGE'];
+        if (cryptoSymbols.includes(normalizedSymbol)) {
+            return 'crypto';
+        }
+        
+        // Detect commodities
+        const commodityKeywords = ['GOLD', 'SILVER', 'OIL', 'COPPER', 'WHEAT', 'CORN', 'COFFEE', 'SUGAR', 'COTTON'];
+        if (commodityKeywords.some(keyword => symbol.includes(keyword))) {
+            return 'commodity';
+        }
+        
+        // Default to stock
+        return 'stock';
+    }
+
+    clearCache() {
+        this.cache.clear();
+        this.forexService.clearCache();
+        this.commoditiesService.clearCache();
+    }
+
+    getCacheSize() {
+        return {
+            total: this.cache.size + this.forexService.getCacheSize() + this.commoditiesService.getCacheSize(),
+            stocks: this.cache.size,
+            forex: this.forexService.getCacheSize(),
+            commodities: this.commoditiesService.getCacheSize()
+        };
+    }
+
+    normalizeSymbol(symbol) {
+        if (!symbol || typeof symbol !== 'string') return symbol;
+        
+        const upperSymbol = symbol.toUpperCase();
+        
+        // Common full name to symbol mappings
+        const nameToSymbol = {
+            'BITCOIN': 'BTC',
+            'ETHEREUM': 'ETH',
+            'DOGECOIN': 'DOGE',
+            'CARDANO': 'ADA',
+            'SOLANA': 'SOL',
+            'POLYGON': 'MATIC',
+            'AVALANCHE': 'AVAX',
+            'CHAINLINK': 'LINK',
+            'UNISWAP': 'UNI',
+            'AAVE': 'AAVE',
+            'APPLE': 'AAPL',
+            'MICROSOFT': 'MSFT',
+            'GOOGLE': 'GOOGL',
+            'AMAZON': 'AMZN',
+            'TESLA': 'TSLA',
+            'META': 'META',
+            'NVIDIA': 'NVDA',
+            'NETFLIX': 'NFLX'
+        };
+        
+        return nameToSymbol[upperSymbol] || upperSymbol;
+    }
+}
+
+module.exports = MarketDataService;
