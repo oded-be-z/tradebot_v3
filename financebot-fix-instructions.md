@@ -3,7 +3,9 @@
 Please fix the following issues in this project:
 
 ## 1. FIX PORTFOLIO ANALYZER (CRITICAL - Do this first!)
+
 In server.js, add at the top with other imports:
+
 ```javascript
 const pLimit = require('p-limit');
 Then fix the performAnalysis method in the PortfolioAnalyzer class.
@@ -39,3 +41,4 @@ Show diversification analysis
 Calculate risk metrics
 
 Please test each fix before moving to the next. Start with fixing the p-limit import error.
+```

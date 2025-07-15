@@ -1,0 +1,533 @@
+{
+  "summary": {
+    "totalTests": 20,
+    "passedTests": 5,
+    "failedTests": 15,
+    "errorTests": 0,
+    "passRate": "25.0",
+    "timestamp": "2025-07-15T05:55:02.521Z",
+    "sessionId": "test-nlp-1752558882328"
+  },
+  "results": [
+    {
+      "query": "AAPL vs MSFT",
+      "expectedType": "comparison",
+      "actualType": "comparison_table",
+      "response": "\n      <div class=\"comparison-container\">\n        <h3>AAPL vs MSFT Comparison</h3>\n        <table class=\"comparison-table\">\n          <thead>\n            <tr><th>Metric</th><th>AAPL</th><th>MSFT</th></tr>\n          </thead>\n          <tbody>\n            \n              <tr><td class=\"metric-label\">Current Price</td><td class=\"metric-value\">$195.50</td><td class=\"metric-value\">$428.76</td></tr>\n            \n              <tr><td class=\"metric-label\">Day Change</td><td class=\"metric-value\">2.34%</td><td class=\"metric-value\">1.43%</td></tr>\n            \n              <tr><td class=\"metric-label\">Volume</td><td class=\"metric-value\">45,600,000</td><td class=\"metric-value\">23,400,000</td></tr>\n            \n              <tr><td class=\"metric-label\">52-Week Range</td><td class=\"metric-value\">$164.08 - $199.62</td><td class=\"metric-value\">$324 - $468.35</td></tr>\n            \n              <tr><td class=\"metric-label\">Market Cap</td><td class=\"metric-value\">3.0T</td><td class=\"metric-value\">3.2T</td></tr>\n            \n          </tbody>\n        </table>\n        \n          <div class=\"analysis-section\">\n            <h4>Analysis</h4>\n            <p>**AAPL vs MSFT Analysis:**\n\n• **Price Comparison**: AAPL is trading lower than MSFT by 54.4%\n• **Today's Performance**: AAPL is outperforming with 2.34% change\n• **Market Size**: MSFT has a larger market capitalization\n\n**Investment Consideration**: Both assets carry different risk profiles. Consider your investment timeline and risk tolerance.</p>\n          </div>\n        \n      </div>\n    ",
+      "responseLength": 1550,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:42.397Z",
+      "typeMatch": true,
+      "hasTable": true,
+      "tableCheck": "PASS",
+      "passed": true
+    },
+    {
+      "query": "apple versus microsoft",
+      "expectedType": "comparison",
+      "actualType": "comparison_table",
+      "response": "\n      <div class=\"comparison-container\">\n        <h3>APPLE vs MICROSOFT Comparison</h3>\n        <table class=\"comparison-table\">\n          <thead>\n            <tr><th>Metric</th><th>APPLE</th><th>MICROSOFT</th></tr>\n          </thead>\n          <tbody>\n            \n              <tr><td class=\"metric-label\">Current Price</td><td class=\"metric-value\">$100.00</td><td class=\"metric-value\">$100.00</td></tr>\n            \n              <tr><td class=\"metric-label\">Day Change</td><td class=\"metric-value\">N/A</td><td class=\"metric-value\">N/A</td></tr>\n            \n              <tr><td class=\"metric-label\">Volume</td><td class=\"metric-value\">1,000,000</td><td class=\"metric-value\">1,000,000</td></tr>\n            \n              <tr><td class=\"metric-label\">52-Week Range</td><td class=\"metric-value\">$90 - $110</td><td class=\"metric-value\">$90 - $110</td></tr>\n            \n              <tr><td class=\"metric-label\">Market Cap</td><td class=\"metric-value\">N/A</td><td class=\"metric-value\">N/A</td></tr>\n            \n          </tbody>\n        </table>\n        \n          <div class=\"analysis-section\">\n            <h4>Analysis</h4>\n            <p>**APPLE vs MICROSOFT Analysis:**\n\n• **Price Comparison**: APPLE is trading lower than MICROSOFT by 0%\n• **Market Size**: MICROSOFT has a larger market capitalization\n\n**Investment Consideration**: Both assets carry different risk profiles. Consider your investment timeline and risk tolerance.</p>\n          </div>\n        \n      </div>\n    ",
+      "responseLength": 1490,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:43.406Z",
+      "typeMatch": true,
+      "hasTable": true,
+      "tableCheck": "PASS",
+      "passed": true
+    },
+    {
+      "query": "compare Google and Amazon",
+      "expectedType": "comparison",
+      "actualType": "general",
+      "response": "I'm Max, your financial advisor. I can help you analyze stocks, compare investments, and review portfolios. Try asking about specific symbols like \"AAPL\" or upload your portfolio for analysis.",
+      "responseLength": 192,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:44.411Z",
+      "typeMatch": false,
+      "hasTable": false,
+      "tableCheck": "FAIL",
+      "passed": false
+    },
+    {
+      "query": "GOLD COMPARED TO SILVER",
+      "expectedType": "comparison",
+      "actualType": "error",
+      "response": "Please specify two items to compare (e.g., \"AAPL vs MSFT\")",
+      "responseLength": 58,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:45.419Z",
+      "typeMatch": false,
+      "hasTable": false,
+      "tableCheck": "FAIL",
+      "passed": false
+    },
+    {
+      "query": "btc vs eth",
+      "expectedType": "comparison",
+      "actualType": "comparison_table",
+      "response": "\n      <div class=\"comparison-container\">\n        <h3>BTC vs ETH Comparison</h3>\n        <table class=\"comparison-table\">\n          <thead>\n            <tr><th>Metric</th><th>BTC</th><th>ETH</th></tr>\n          </thead>\n          <tbody>\n            \n              <tr><td class=\"metric-label\">Current Price</td><td class=\"metric-value\">$100.00</td><td class=\"metric-value\">$100.00</td></tr>\n            \n              <tr><td class=\"metric-label\">Day Change</td><td class=\"metric-value\">N/A</td><td class=\"metric-value\">N/A</td></tr>\n            \n              <tr><td class=\"metric-label\">Volume</td><td class=\"metric-value\">1,000,000</td><td class=\"metric-value\">1,000,000</td></tr>\n            \n              <tr><td class=\"metric-label\">52-Week Range</td><td class=\"metric-value\">$90 - $110</td><td class=\"metric-value\">$90 - $110</td></tr>\n            \n              <tr><td class=\"metric-label\">Market Cap</td><td class=\"metric-value\">N/A</td><td class=\"metric-value\">N/A</td></tr>\n            \n          </tbody>\n        </table>\n        \n          <div class=\"analysis-section\">\n            <h4>Analysis</h4>\n            <p>**BTC vs ETH Analysis:**\n\n• **Price Comparison**: BTC is trading lower than ETH by 0%\n• **Market Size**: ETH has a larger market capitalization\n\n**Investment Consideration**: Both assets carry different risk profiles. Consider your investment timeline and risk tolerance.</p>\n          </div>\n        \n      </div>\n    ",
+      "responseLength": 1452,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:46.422Z",
+      "typeMatch": true,
+      "hasTable": true,
+      "tableCheck": "PASS",
+      "passed": true
+    },
+    {
+      "query": "AAPL trends",
+      "expectedType": "trend",
+      "actualType": "trend_analysis",
+      "response": "\n      <div class=\"trend-analysis\">\n        <h3>AAPL Trend Analysis</h3>\n        <div class=\"trend-summary\">\n          <span class=\"trend-direction up\">\n            📈 \n            UP 1.17%\n          </span>\n          <span class=\"current-price\">Current: $195.5</span>\n        </div>\n        <div class=\"trend-levels\">\n          <span class=\"support\">Support: $189.75</span>\n          <span class=\"resistance\">Resistance: $201.09</span>\n        </div>\n        <div class=\"trend-explanation\">\n          **AAPL Trend Analysis:**\n\n**Current Direction**: 📈 Uptrend with 1.17% change over 30 days\n\n**Key Levels**:\n• Support: $189.75\n• Resistance: $201.09\n• Current Price: $195.50\n\n**Technical Outlook**: The stock is showing positive momentum. Watch for continuation above resistance levels.\n\n**Next Steps**: Monitor volume patterns and news catalysts that could influence the current trend direction.\n        </div>\n      </div>\n    ",
+      "responseLength": 930,
+      "hasChart": true,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:47.429Z",
+      "typeMatch": true,
+      "hasExplanation": false,
+      "explanationCheck": "FAIL",
+      "passed": false
+    },
+    {
+      "query": "what's the trend for oil?",
+      "expectedType": "trend",
+      "actualType": "trend_analysis",
+      "response": "\n      <div class=\"trend-analysis\">\n        <h3>AAPL Trend Analysis</h3>\n        <div class=\"trend-summary\">\n          <span class=\"trend-direction up\">\n            📈 \n            UP 0.82%\n          </span>\n          <span class=\"current-price\">Current: $195.5</span>\n        </div>\n        <div class=\"trend-levels\">\n          <span class=\"support\">Support: $189.83</span>\n          <span class=\"resistance\">Resistance: $201.32</span>\n        </div>\n        <div class=\"trend-explanation\">\n          **AAPL Trend Analysis:**\n\n**Current Direction**: 📈 Uptrend with 0.82% change over 30 days\n\n**Key Levels**:\n• Support: $189.83\n• Resistance: $201.32\n• Current Price: $195.50\n\n**Technical Outlook**: The stock is showing positive momentum. Watch for continuation above resistance levels.\n\n**Next Steps**: Monitor volume patterns and news catalysts that could influence the current trend direction.\n        </div>\n      </div>\n    ",
+      "responseLength": 930,
+      "hasChart": true,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:48.433Z",
+      "typeMatch": true,
+      "hasExplanation": false,
+      "explanationCheck": "FAIL",
+      "passed": false
+    },
+    {
+      "query": "bitcoin direction",
+      "expectedType": "trend",
+      "actualType": "trend_analysis",
+      "response": "\n      <div class=\"trend-analysis\">\n        <h3>AAPL Trend Analysis</h3>\n        <div class=\"trend-summary\">\n          <span class=\"trend-direction down\">\n            📉 \n            DOWN -0.30%\n          </span>\n          <span class=\"current-price\">Current: $195.5</span>\n        </div>\n        <div class=\"trend-levels\">\n          <span class=\"support\">Support: $189.69</span>\n          <span class=\"resistance\">Resistance: $201.33</span>\n        </div>\n        <div class=\"trend-explanation\">\n          **AAPL Trend Analysis:**\n\n**Current Direction**: 📉 Downtrend with 0.3% change over 30 days\n\n**Key Levels**:\n• Support: $189.69\n• Resistance: $201.33\n• Current Price: $195.50\n\n**Technical Outlook**: The stock is under pressure. Key support levels will be critical for any recovery.\n\n**Next Steps**: Monitor volume patterns and news catalysts that could influence the current trend direction.\n        </div>\n      </div>\n    ",
+      "responseLength": 931,
+      "hasChart": true,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:49.440Z",
+      "typeMatch": true,
+      "hasExplanation": false,
+      "explanationCheck": "FAIL",
+      "passed": false
+    },
+    {
+      "query": "show me tesla forecast",
+      "expectedType": "trend",
+      "actualType": "trend_analysis",
+      "response": "\n      <div class=\"trend-analysis\">\n        <h3>AAPL Trend Analysis</h3>\n        <div class=\"trend-summary\">\n          <span class=\"trend-direction up\">\n            📈 \n            UP 0.22%\n          </span>\n          <span class=\"current-price\">Current: $195.5</span>\n        </div>\n        <div class=\"trend-levels\">\n          <span class=\"support\">Support: $189.75</span>\n          <span class=\"resistance\">Resistance: $201.12</span>\n        </div>\n        <div class=\"trend-explanation\">\n          **AAPL Trend Analysis:**\n\n**Current Direction**: 📈 Uptrend with 0.22% change over 30 days\n\n**Key Levels**:\n• Support: $189.75\n• Resistance: $201.12\n• Current Price: $195.50\n\n**Technical Outlook**: The stock is showing positive momentum. Watch for continuation above resistance levels.\n\n**Next Steps**: Monitor volume patterns and news catalysts that could influence the current trend direction.\n        </div>\n      </div>\n    ",
+      "responseLength": 930,
+      "hasChart": true,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:50.445Z",
+      "typeMatch": true,
+      "hasExplanation": false,
+      "explanationCheck": "FAIL",
+      "passed": false
+    },
+    {
+      "query": "crude oil analysis",
+      "expectedType": "trend",
+      "actualType": "standard_analysis",
+      "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+      "responseLength": 561,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:51.450Z",
+      "typeMatch": false,
+      "hasExplanation": false,
+      "explanationCheck": "FAIL",
+      "passed": false
+    },
+    {
+      "query": "analyze my portfolio",
+      "expectedType": "portfolio",
+      "actualType": "error",
+      "response": "No portfolio data available. Please upload your portfolio first.",
+      "responseLength": 64,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:52.453Z",
+      "typeMatch": false,
+      "passed": false
+    },
+    {
+      "query": "how are my stocks doing?",
+      "expectedType": "portfolio",
+      "actualType": "error",
+      "response": "No portfolio data available. Please upload your portfolio first.",
+      "responseLength": 64,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:53.465Z",
+      "typeMatch": false,
+      "passed": false
+    },
+    {
+      "query": "portfolio performance",
+      "expectedType": "portfolio",
+      "actualType": "error",
+      "response": "No portfolio data available. Please upload your portfolio first.",
+      "responseLength": 64,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:54.470Z",
+      "typeMatch": false,
+      "passed": false
+    },
+    {
+      "query": "what's my best performer?",
+      "expectedType": "portfolio",
+      "actualType": "standard_analysis",
+      "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+      "responseLength": 561,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:55.476Z",
+      "typeMatch": false,
+      "passed": false
+    },
+    {
+      "query": "AAPL price",
+      "expectedType": "price",
+      "actualType": "standard_analysis",
+      "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+      "responseLength": 561,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:56.483Z",
+      "typeMatch": false,
+      "passed": false
+    },
+    {
+      "query": "how much is bitcoin?",
+      "expectedType": "price",
+      "actualType": "standard_analysis",
+      "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+      "responseLength": 561,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:57.491Z",
+      "typeMatch": false,
+      "passed": false
+    },
+    {
+      "query": "gold current value",
+      "expectedType": "price",
+      "actualType": "standard_analysis",
+      "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+      "responseLength": 561,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:58.494Z",
+      "typeMatch": false,
+      "passed": false
+    },
+    {
+      "query": "why is TSLA down today?",
+      "expectedType": "analysis",
+      "actualType": "standard_analysis",
+      "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+      "responseLength": 561,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:54:59.503Z",
+      "typeMatch": true,
+      "hasExplanation": false,
+      "explanationCheck": "FAIL",
+      "passed": false
+    },
+    {
+      "query": "should I buy NVDA?",
+      "expectedType": "analysis",
+      "actualType": "standard_analysis",
+      "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+      "responseLength": 561,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:55:00.510Z",
+      "typeMatch": true,
+      "passed": true
+    },
+    {
+      "query": "market crash coming?",
+      "expectedType": "analysis",
+      "actualType": "standard_analysis",
+      "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+      "responseLength": 561,
+      "hasChart": false,
+      "status": "completed",
+      "timestamp": "2025-07-15T05:55:01.514Z",
+      "typeMatch": true,
+      "passed": true
+    }
+  ],
+  "criticalIssues": [
+    {
+      "query": "compare Google and Amazon",
+      "issue": "Expected comparison, got general",
+      "details": {
+        "query": "compare Google and Amazon",
+        "expectedType": "comparison",
+        "actualType": "general",
+        "response": "I'm Max, your financial advisor. I can help you analyze stocks, compare investments, and review portfolios. Try asking about specific symbols like \"AAPL\" or upload your portfolio for analysis.",
+        "responseLength": 192,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:44.411Z",
+        "typeMatch": false,
+        "hasTable": false,
+        "tableCheck": "FAIL",
+        "passed": false
+      }
+    },
+    {
+      "query": "GOLD COMPARED TO SILVER",
+      "issue": "Expected comparison, got error",
+      "details": {
+        "query": "GOLD COMPARED TO SILVER",
+        "expectedType": "comparison",
+        "actualType": "error",
+        "response": "Please specify two items to compare (e.g., \"AAPL vs MSFT\")",
+        "responseLength": 58,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:45.419Z",
+        "typeMatch": false,
+        "hasTable": false,
+        "tableCheck": "FAIL",
+        "passed": false
+      }
+    },
+    {
+      "query": "AAPL trends",
+      "issue": "Expected trend, got trend_analysis",
+      "details": {
+        "query": "AAPL trends",
+        "expectedType": "trend",
+        "actualType": "trend_analysis",
+        "response": "\n      <div class=\"trend-analysis\">\n        <h3>AAPL Trend Analysis</h3>\n        <div class=\"trend-summary\">\n          <span class=\"trend-direction up\">\n            📈 \n            UP 1.17%\n          </span>\n          <span class=\"current-price\">Current: $195.5</span>\n        </div>\n        <div class=\"trend-levels\">\n          <span class=\"support\">Support: $189.75</span>\n          <span class=\"resistance\">Resistance: $201.09</span>\n        </div>\n        <div class=\"trend-explanation\">\n          **AAPL Trend Analysis:**\n\n**Current Direction**: 📈 Uptrend with 1.17% change over 30 days\n\n**Key Levels**:\n• Support: $189.75\n• Resistance: $201.09\n• Current Price: $195.50\n\n**Technical Outlook**: The stock is showing positive momentum. Watch for continuation above resistance levels.\n\n**Next Steps**: Monitor volume patterns and news catalysts that could influence the current trend direction.\n        </div>\n      </div>\n    ",
+        "responseLength": 930,
+        "hasChart": true,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:47.429Z",
+        "typeMatch": true,
+        "hasExplanation": false,
+        "explanationCheck": "FAIL",
+        "passed": false
+      }
+    },
+    {
+      "query": "what's the trend for oil?",
+      "issue": "Expected trend, got trend_analysis",
+      "details": {
+        "query": "what's the trend for oil?",
+        "expectedType": "trend",
+        "actualType": "trend_analysis",
+        "response": "\n      <div class=\"trend-analysis\">\n        <h3>AAPL Trend Analysis</h3>\n        <div class=\"trend-summary\">\n          <span class=\"trend-direction up\">\n            📈 \n            UP 0.82%\n          </span>\n          <span class=\"current-price\">Current: $195.5</span>\n        </div>\n        <div class=\"trend-levels\">\n          <span class=\"support\">Support: $189.83</span>\n          <span class=\"resistance\">Resistance: $201.32</span>\n        </div>\n        <div class=\"trend-explanation\">\n          **AAPL Trend Analysis:**\n\n**Current Direction**: 📈 Uptrend with 0.82% change over 30 days\n\n**Key Levels**:\n• Support: $189.83\n• Resistance: $201.32\n• Current Price: $195.50\n\n**Technical Outlook**: The stock is showing positive momentum. Watch for continuation above resistance levels.\n\n**Next Steps**: Monitor volume patterns and news catalysts that could influence the current trend direction.\n        </div>\n      </div>\n    ",
+        "responseLength": 930,
+        "hasChart": true,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:48.433Z",
+        "typeMatch": true,
+        "hasExplanation": false,
+        "explanationCheck": "FAIL",
+        "passed": false
+      }
+    },
+    {
+      "query": "bitcoin direction",
+      "issue": "Expected trend, got trend_analysis",
+      "details": {
+        "query": "bitcoin direction",
+        "expectedType": "trend",
+        "actualType": "trend_analysis",
+        "response": "\n      <div class=\"trend-analysis\">\n        <h3>AAPL Trend Analysis</h3>\n        <div class=\"trend-summary\">\n          <span class=\"trend-direction down\">\n            📉 \n            DOWN -0.30%\n          </span>\n          <span class=\"current-price\">Current: $195.5</span>\n        </div>\n        <div class=\"trend-levels\">\n          <span class=\"support\">Support: $189.69</span>\n          <span class=\"resistance\">Resistance: $201.33</span>\n        </div>\n        <div class=\"trend-explanation\">\n          **AAPL Trend Analysis:**\n\n**Current Direction**: 📉 Downtrend with 0.3% change over 30 days\n\n**Key Levels**:\n• Support: $189.69\n• Resistance: $201.33\n• Current Price: $195.50\n\n**Technical Outlook**: The stock is under pressure. Key support levels will be critical for any recovery.\n\n**Next Steps**: Monitor volume patterns and news catalysts that could influence the current trend direction.\n        </div>\n      </div>\n    ",
+        "responseLength": 931,
+        "hasChart": true,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:49.440Z",
+        "typeMatch": true,
+        "hasExplanation": false,
+        "explanationCheck": "FAIL",
+        "passed": false
+      }
+    },
+    {
+      "query": "show me tesla forecast",
+      "issue": "Expected trend, got trend_analysis",
+      "details": {
+        "query": "show me tesla forecast",
+        "expectedType": "trend",
+        "actualType": "trend_analysis",
+        "response": "\n      <div class=\"trend-analysis\">\n        <h3>AAPL Trend Analysis</h3>\n        <div class=\"trend-summary\">\n          <span class=\"trend-direction up\">\n            📈 \n            UP 0.22%\n          </span>\n          <span class=\"current-price\">Current: $195.5</span>\n        </div>\n        <div class=\"trend-levels\">\n          <span class=\"support\">Support: $189.75</span>\n          <span class=\"resistance\">Resistance: $201.12</span>\n        </div>\n        <div class=\"trend-explanation\">\n          **AAPL Trend Analysis:**\n\n**Current Direction**: 📈 Uptrend with 0.22% change over 30 days\n\n**Key Levels**:\n• Support: $189.75\n• Resistance: $201.12\n• Current Price: $195.50\n\n**Technical Outlook**: The stock is showing positive momentum. Watch for continuation above resistance levels.\n\n**Next Steps**: Monitor volume patterns and news catalysts that could influence the current trend direction.\n        </div>\n      </div>\n    ",
+        "responseLength": 930,
+        "hasChart": true,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:50.445Z",
+        "typeMatch": true,
+        "hasExplanation": false,
+        "explanationCheck": "FAIL",
+        "passed": false
+      }
+    },
+    {
+      "query": "crude oil analysis",
+      "issue": "Expected trend, got standard_analysis",
+      "details": {
+        "query": "crude oil analysis",
+        "expectedType": "trend",
+        "actualType": "standard_analysis",
+        "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+        "responseLength": 561,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:51.450Z",
+        "typeMatch": false,
+        "hasExplanation": false,
+        "explanationCheck": "FAIL",
+        "passed": false
+      }
+    },
+    {
+      "query": "analyze my portfolio",
+      "issue": "Expected portfolio, got error",
+      "details": {
+        "query": "analyze my portfolio",
+        "expectedType": "portfolio",
+        "actualType": "error",
+        "response": "No portfolio data available. Please upload your portfolio first.",
+        "responseLength": 64,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:52.453Z",
+        "typeMatch": false,
+        "passed": false
+      }
+    },
+    {
+      "query": "how are my stocks doing?",
+      "issue": "Expected portfolio, got error",
+      "details": {
+        "query": "how are my stocks doing?",
+        "expectedType": "portfolio",
+        "actualType": "error",
+        "response": "No portfolio data available. Please upload your portfolio first.",
+        "responseLength": 64,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:53.465Z",
+        "typeMatch": false,
+        "passed": false
+      }
+    },
+    {
+      "query": "portfolio performance",
+      "issue": "Expected portfolio, got error",
+      "details": {
+        "query": "portfolio performance",
+        "expectedType": "portfolio",
+        "actualType": "error",
+        "response": "No portfolio data available. Please upload your portfolio first.",
+        "responseLength": 64,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:54.470Z",
+        "typeMatch": false,
+        "passed": false
+      }
+    },
+    {
+      "query": "what's my best performer?",
+      "issue": "Expected portfolio, got standard_analysis",
+      "details": {
+        "query": "what's my best performer?",
+        "expectedType": "portfolio",
+        "actualType": "standard_analysis",
+        "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+        "responseLength": 561,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:55.476Z",
+        "typeMatch": false,
+        "passed": false
+      }
+    },
+    {
+      "query": "AAPL price",
+      "issue": "Expected price, got standard_analysis",
+      "details": {
+        "query": "AAPL price",
+        "expectedType": "price",
+        "actualType": "standard_analysis",
+        "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+        "responseLength": 561,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:56.483Z",
+        "typeMatch": false,
+        "passed": false
+      }
+    },
+    {
+      "query": "how much is bitcoin?",
+      "issue": "Expected price, got standard_analysis",
+      "details": {
+        "query": "how much is bitcoin?",
+        "expectedType": "price",
+        "actualType": "standard_analysis",
+        "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+        "responseLength": 561,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:57.491Z",
+        "typeMatch": false,
+        "passed": false
+      }
+    },
+    {
+      "query": "gold current value",
+      "issue": "Expected price, got standard_analysis",
+      "details": {
+        "query": "gold current value",
+        "expectedType": "price",
+        "actualType": "standard_analysis",
+        "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+        "responseLength": 561,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:58.494Z",
+        "typeMatch": false,
+        "passed": false
+      }
+    },
+    {
+      "query": "why is TSLA down today?",
+      "issue": "Expected analysis, got standard_analysis",
+      "details": {
+        "query": "why is TSLA down today?",
+        "expectedType": "analysis",
+        "actualType": "standard_analysis",
+        "response": "<strong>AAPL Analysis:</strong><br><br><strong>Current Price</strong>: $195.50<br><strong>Today's Change</strong>: +2.34% (📈)<br><strong>Volume</strong>: 45,600,000<br><br><strong>Key Insights</strong>:<br>• AAPL is currently gaining momentum in today's session<br>• Current price action suggests strong buying interest<br>• Trading volume is elevated compared to typical sessions<br><br><strong>Investment Consideration</strong>: Always consider your risk tolerance and investment timeline. Monitor key support and resistance levels for entry and exit points.",
+        "responseLength": 561,
+        "hasChart": false,
+        "status": "completed",
+        "timestamp": "2025-07-15T05:54:59.503Z",
+        "typeMatch": true,
+        "hasExplanation": false,
+        "explanationCheck": "FAIL",
+        "passed": false
+      }
+    }
+  ]
+}

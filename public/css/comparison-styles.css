@@ -1,0 +1,132 @@
+/* Comparison Table Styles */
+.comparison-container {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 10px 0;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+}
+
+.comparison-table th {
+  background: rgba(0, 212, 255, 0.2);
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+}
+
+.comparison-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.comparison-table .metric-label {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.comparison-table .metric-value {
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+/* Trend Analysis Styles */
+.trend-analysis {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.trend-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 15px 0;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
+
+.trend-direction {
+  font-size: 1.3em;
+  font-weight: 600;
+}
+
+.trend-direction.up {
+  color: #00ff88;
+}
+.trend-direction.down {
+  color: #ff006e;
+}
+
+.trend-levels {
+  display: flex;
+  gap: 30px;
+  margin: 15px 0;
+}
+
+.support {
+  color: #00ff88;
+}
+.resistance {
+  color: #ff006e;
+}
+
+/* Portfolio Analysis Styles */
+.portfolio-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.metric-card {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.metric-card .label {
+  font-size: 0.9em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.metric-card .value {
+  font-size: 1.5em;
+  font-weight: 600;
+}
+
+.metric-card.positive .value {
+  color: #00ff88;
+}
+.metric-card.negative .value {
+  color: #ff006e;
+}
+
+.portfolio-recommendations {
+  margin-top: 20px;
+}
+
+.recommendation {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  margin: 8px 0;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  border-left: 3px solid #00d4ff;
+}
+
+.rec-type {
+  font-weight: 600;
+  color: #00d4ff;
+  min-width: 100px;
+}

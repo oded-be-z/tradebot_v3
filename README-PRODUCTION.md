@@ -5,9 +5,10 @@
 This version implements **enterprise-grade security** with proper environment variable management. All API keys are now loaded securely from environment variables with **no hardcoded fallbacks**.
 
 ### ✅ **Security Improvements:**
+
 - **🔐 SECURE API key management** - No hardcoded fallbacks
 - **🚫 Trading advice filtering** - All recommendations blocked
-- **📝 Educational disclaimers** - Added to all responses  
+- **📝 Educational disclaimers** - Added to all responses
 - **💬 Conversational interface** - Friendly Max personality
 - **🗃️ Session management** - TTL, LRU eviction, cleanup
 - **✅ Startup validation** - Server refuses to start without API keys
@@ -17,17 +18,21 @@ This version implements **enterprise-grade security** with proper environment va
 ## ⚡ **Quick Start Guide**
 
 ### 1. Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### 2. Configure API Keys (REQUIRED)
+
 Copy the example environment file and add your API keys:
+
 ```bash
 cp .env.example .env
 ```
 
 ### 3. Edit Your Environment File
+
 Open `.env` in your text editor and add your API keys:
 
 ```bash
@@ -42,6 +47,7 @@ POLYGON_API_KEY=your_polygon_key_here
 ```
 
 ### 4. Start the Server
+
 ```bash
 npm start
 ```
@@ -53,22 +59,25 @@ The server will start on **http://localhost:3000**
 ## 📊 **Features Working**
 
 ### ✅ **Real Market Data**
+
 - **Microsoft**: Live stock prices
-- **Tesla**: Real-time updates  
+- **Tesla**: Real-time updates
 - **Bitcoin**: Live crypto prices
 - **Ethereum**: Current market data
 - **Gold**: Commodity prices
 - **And 50+ other assets**
 
 ### ✅ **AI Analysis**
+
 - **Perplexity AI** integration for market analysis
 - **Real-time price data** embedded in responses
 - **Technical analysis** with live charts
 - **Investment recommendations** with current prices
 
 ### ✅ **Portfolio Analysis**
+
 - **CSV upload** support
-- **Real-time portfolio valuation** 
+- **Real-time portfolio valuation**
 - **Performance tracking** with live data
 - **Risk assessment** and recommendations
 
@@ -77,6 +86,7 @@ The server will start on **http://localhost:3000**
 ## 🔑 **API Key Setup Instructions**
 
 ### **PERPLEXITY API KEY** (Required)
+
 1. Visit [Perplexity AI](https://www.perplexity.ai/)
 2. Sign up for an account
 3. Navigate to API settings
@@ -87,6 +97,7 @@ The server will start on **http://localhost:3000**
 **Paid Plans:** Higher rate limits and priority access
 
 ### **ALPHA VANTAGE API KEY** (Optional)
+
 1. Visit [Alpha Vantage](https://www.alphavantage.co/)
 2. Sign up for a free account
 3. Get your API key from the dashboard
@@ -96,6 +107,7 @@ The server will start on **http://localhost:3000**
 **Paid Plans:** Higher rate limits available
 
 ### **POLYGON API KEY** (Optional)
+
 1. Visit [Polygon.io](https://polygon.io/)
 2. Sign up for an account
 3. Choose your plan (free tier available)
@@ -115,29 +127,33 @@ The server will start on **http://localhost:3000**
 ✅ **CORS Protection** - Configurable for production environments  
 ✅ **Security Headers** - Helmet.js for enhanced security  
 ✅ **Input Validation** - All user inputs properly validated  
-✅ **Error Handling** - User-friendly error messages, no sensitive data exposed  
+✅ **Error Handling** - User-friendly error messages, no sensitive data exposed
 
 ## ✅ **Features**
 
 ### ✅ **AI-Powered Analysis**
+
 - Real-time financial analysis using Perplexity AI
 - Conversational interface with friendly responses
 - Educational focus (no trading advice)
 - Context-aware responses
 
 ### ✅ **Market Data Integration**
+
 - Live market data from multiple sources
 - Historical price charts
 - Portfolio analysis with CSV upload
 - Real-time ticker updates
 
 ### ✅ **Enterprise Security**
+
 - Secure API key management
 - Rate limiting and DDoS protection
 - Input validation and sanitization
 - Error handling without data exposure
 
 ### ✅ **User Experience**
+
 - Mobile-responsive design
 - Fast load times with caching
 - Intuitive chat interface
@@ -148,6 +164,7 @@ The server will start on **http://localhost:3000**
 ## 🔍 **Health Check & Testing**
 
 ### **Check Server Status**
+
 ```bash
 curl http://localhost:3000/api/health
 # or
@@ -155,6 +172,7 @@ npm run health
 ```
 
 This will return:
+
 - ✅ Service status
 - 🔐 Security configuration status
 - 🤖 AI capabilities status
@@ -163,6 +181,7 @@ This will return:
 ### **Test Chat Functionality**
 
 **Quick Single Test:**
+
 ```bash
 npm run test:chat "What is Bitcoin?"
 # or
@@ -170,6 +189,7 @@ node test-chat.js "Analyze Apple stock"
 ```
 
 **Full API Test Suite:**
+
 ```bash
 npm run test:api
 # or
@@ -177,6 +197,7 @@ node test/api-test.js
 ```
 
 This will test:
+
 - ✅ Health endpoint
 - ✅ Session management
 - ✅ Chat functionality
@@ -184,6 +205,7 @@ This will test:
 - ✅ Error handling
 
 ### **Unit Tests**
+
 ```bash
 npm test
 ```
@@ -196,14 +218,14 @@ npm test
 
 ### **Environment Variables**
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `PERPLEXITY_API_KEY` | ✅ Yes | None | Perplexity AI API key |
-| `ALPHA_VANTAGE_API_KEY` | ❌ No | None | Alpha Vantage API key |
-| `POLYGON_API_KEY` | ❌ No | None | Polygon.io API key |
-| `PORT` | ❌ No | 3000 | Server port |
-| `NODE_ENV` | ❌ No | development | Environment mode |
-| `ALLOWED_ORIGINS` | ❌ No | localhost | CORS origins (production) |
+| Variable                | Required | Default     | Description               |
+| ----------------------- | -------- | ----------- | ------------------------- |
+| `PERPLEXITY_API_KEY`    | ✅ Yes   | None        | Perplexity AI API key     |
+| `ALPHA_VANTAGE_API_KEY` | ❌ No    | None        | Alpha Vantage API key     |
+| `POLYGON_API_KEY`       | ❌ No    | None        | Polygon.io API key        |
+| `PORT`                  | ❌ No    | 3000        | Server port               |
+| `NODE_ENV`              | ❌ No    | development | Environment mode          |
+| `ALLOWED_ORIGINS`       | ❌ No    | localhost   | CORS origins (production) |
 
 ### **Production Deployment**
 
@@ -220,6 +242,7 @@ For production deployment, ensure you:
 ## 🛠️ **Development**
 
 ### **Project Structure**
+
 ```
 financebot-pro/
 ├── server.js              # Main server file (SECURE)
@@ -233,6 +256,7 @@ financebot-pro/
 ```
 
 ### **Scripts**
+
 ```bash
 npm start          # Start production server
 npm run dev        # Start development server with nodemon
@@ -245,18 +269,21 @@ npm run lint       # Check code quality
 ## 🎯 **What Changed from v4.0**
 
 ### ✅ **Real Data Integration**
+
 - **Replaced all fake data** with Yahoo Finance API
 - **Added real-time price updates** every 30 seconds
 - **Integrated live prices** in AI responses
 - **Added historical chart data** from real markets
 
 ### ✅ **Production Hardening**
+
 - **Built-in API key fallbacks** for reliability
 - **Enhanced error handling** for API failures
 - **Improved caching strategy** for performance
 - **Better logging and monitoring**
 
 ### ✅ **User Experience**
+
 - **Real market sidebar** with live prices
 - **Live price charts** instead of mock data
 - **Enhanced AI responses** with current market data
@@ -277,6 +304,7 @@ npm run lint       # Check code quality
 ## 🚀 **Ready for Secure Production!**
 
 Your FinanceBot Pro v4.0 is now **secure and production-ready** with:
+
 - **🔐 Enterprise-grade security** with no hardcoded API keys
 - **🚫 Trading advice filtering** to ensure legal compliance
 - **💬 Conversational AI interface** with friendly Max personality
@@ -288,6 +316,6 @@ Your FinanceBot Pro v4.0 is now **secure and production-ready** with:
 
 ---
 
-*Last Updated: December 2024*
-*Version: 4.0.0 Secure Production*
-*Status: ✅ Ready for Secure Deployment* 
+_Last Updated: December 2024_
+_Version: 4.0.0 Secure Production_
+_Status: ✅ Ready for Secure Deployment_

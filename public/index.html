@@ -1,1479 +1,1747 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FinanceBot Pro - Your AI Financial Advisor</title>
-    
+
     <!-- Chart.js Libraries - Loaded on demand for better performance -->
     <script>
-        // Lazy load Chart.js libraries only when needed
-        let chartLibrariesLoaded = false;
-        
-        async function loadChartLibraries() {
-            if (chartLibrariesLoaded) return;
-            
-            const scripts = [
-                'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js',
-                'https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1/dist/chartjs-chart-financial.min.js',
-                'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js'
-            ];
-            
-            for (const src of scripts) {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = src;
-                    script.onload = resolve;
-                    script.onerror = reject;
-                    document.head.appendChild(script);
-                });
-            }
-            
-            chartLibrariesLoaded = true;
+      // Lazy load Chart.js libraries only when needed
+      let chartLibrariesLoaded = false;
+
+      async function loadChartLibraries() {
+        if (chartLibrariesLoaded) return;
+
+        const scripts = [
+          "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js",
+          "https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1/dist/chartjs-chart-financial.min.js",
+          "https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js",
+        ];
+
+        for (const src of scripts) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
         }
+
+        chartLibrariesLoaded = true;
+      }
     </script>
-    
+
     <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Comparison Styles -->
+    <link rel="stylesheet" href="css/comparison-styles.css" />
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        :root {
-            --primary-blue: #00D4FF;
-            --dark-bg: #0A0E27;
-            --card-bg: rgba(10,14,39,0.6);
-            --primary-dark: #0a0e1a;
-            --secondary-dark: #0f1420;
-            --tertiary-dark: #1a1f2e;
-            --border-color: #2a3142;
-            --text-primary: #FFFFFF;
-            --text-secondary: #8B92A3;
-            --success: #00FF88;
-            --danger: #FF3366;
-            --info: #00D4FF;
-            --chart-green: #00FF88;
-            --chart-red: #FF3366;
-        }
+      :root {
+        --primary-blue: #00d4ff;
+        --dark-bg: #0a0e27;
+        --card-bg: rgba(10, 14, 39, 0.6);
+        --primary-dark: #0a0e1a;
+        --secondary-dark: #0f1420;
+        --tertiary-dark: #1a1f2e;
+        --border-color: #2a3142;
+        --text-primary: #ffffff;
+        --text-secondary: #8b92a3;
+        --success: #00ff88;
+        --danger: #ff3366;
+        --info: #00d4ff;
+        --chart-green: #00ff88;
+        --chart-red: #ff3366;
+      }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--primary-dark);
-            color: var(--text-primary);
-            overflow: hidden;
-            height: 100vh;
-        }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        background: var(--primary-dark);
+        color: var(--text-primary);
+        overflow: hidden;
+        height: 100vh;
+      }
 
-        /* Layout */
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            position: relative;
-        }
+      /* Layout */
+      .app-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        position: relative;
+      }
 
-        /* Desktop Market Header */
+      /* Desktop Market Header */
+      .desktop-market-header {
+        background: var(--secondary-dark);
+        border-bottom: 1px solid var(--border-color);
+        padding: 12px 24px;
+        display: flex;
+        align-items: center;
+        z-index: 100;
+      }
+
+      .desktop-market-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .logo-compact {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--primary-blue);
+      }
+
+      .logo-icon {
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, var(--primary-blue), #0066cc);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
+      }
+
+      .market-ticker {
+        flex: 1;
+        margin: 0 24px;
+        overflow: hidden;
+        height: 32px;
+        display: flex;
+        align-items: center;
+      }
+
+      .market-ticker-content {
+        display: flex;
+        gap: 24px;
+        animation: tickerScroll 30s linear infinite;
+        white-space: nowrap;
+      }
+
+      @keyframes tickerScroll {
+        0% {
+          transform: translateX(100%);
+        }
+        100% {
+          transform: translateX(-100%);
+        }
+      }
+
+      .ticker-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--text-secondary);
+      }
+
+      .ticker-symbol {
+        color: var(--primary-blue);
+        font-weight: 600;
+      }
+
+      .ticker-price {
+        color: var(--text-primary);
+      }
+
+      .ticker-change {
+        font-size: 12px;
+      }
+
+      .ticker-change.positive {
+        color: var(--success);
+      }
+
+      .ticker-change.negative {
+        color: var(--danger);
+      }
+
+      /* Main Content */
+      .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: var(--primary-dark);
+        width: 100%;
+        overflow: hidden;
+      }
+
+      /* Chat Header */
+      .chat-header {
+        background: var(--secondary-dark);
+        padding: 20px 32px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .chat-header-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .chat-title {
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .status-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        border-radius: 20px;
+        font-size: 12px;
+        color: var(--success);
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--success);
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.5;
+          transform: scale(1.2);
+        }
+      }
+
+      /* Chat Container */
+      .chat-container {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 32px 20px 200px 20px;
+        scroll-behavior: smooth;
+        position: relative;
+      }
+
+      .chat-container::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .chat-container::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .chat-container::-webkit-scrollbar-thumb {
+        background: rgba(0, 212, 255, 0.3);
+        border-radius: 4px;
+      }
+
+      /* Welcome Message */
+      .simple-welcome {
+        max-width: 900px;
+        margin: 60px auto;
+        padding: 40px;
+        text-align: center;
+        animation: fadeIn 0.6s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .welcome-message {
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 16px;
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        text-align: center;
+        width: 100%;
+      }
+
+      /* Messages */
+      .message {
+        margin-bottom: 24px;
+        animation: messageSlide 0.3s ease;
+      }
+
+      @keyframes messageSlide {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .message-wrapper {
+        display: flex;
+        gap: 12px;
+        max-width: 900px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      .message.user .message-wrapper {
+        justify-content: flex-end;
+        flex-direction: row-reverse;
+      }
+
+      .message-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        flex-shrink: 0;
+      }
+
+      .message.user .message-avatar {
+        background: linear-gradient(135deg, var(--primary-blue), #0066cc);
+        color: white;
+        font-weight: 600;
+        font-size: 16px;
+      }
+
+      .message.bot .message-avatar {
+        background: linear-gradient(135deg, #00d4ff, #0066cc);
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 16px;
+      }
+
+      .message-content {
+        background: var(--tertiary-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 18px 22px;
+        font-size: 15px;
+        line-height: 1.7;
+        position: relative;
+        max-width: 80%;
+        word-wrap: break-word;
+      }
+
+      .message.user .message-content {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: var(--text-primary);
+        max-width: 70%;
+        margin-left: auto;
+        cursor: default;
+        border-radius: 18px 18px 4px 18px;
+      }
+
+      .message.bot .message-content {
+        background: linear-gradient(
+          135deg,
+          var(--secondary-dark),
+          var(--tertiary-dark)
+        );
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        max-width: 100%;
+      }
+
+      /* Chart Container - Optimized */
+      .chart-container {
+        background: var(--secondary-dark);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 16px 0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        animation: chartFadeIn 0.5s ease;
+      }
+
+      /* Mini Chart - Inline */
+      .mini-chart-container {
+        background: rgba(26, 31, 46, 0.8);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        margin: 12px 0;
+        position: relative;
+        backdrop-filter: blur(10px);
+        display: inline-block;
+        width: 300px;
+        height: 150px;
+      }
+
+      .mini-chart-container canvas {
+        width: 100% !important;
+        height: 100% !important;
+      }
+
+      .chart-symbol {
+        font-weight: 700;
+        font-size: 14px;
+        color: #00d4ff;
+      }
+
+      .chart-price {
+        font-size: 18px;
+        font-weight: 700;
+        color: #ffffff;
+      }
+
+      .chart-change {
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .chart-change.positive {
+        color: #00ff88;
+      }
+      .chart-change.negative {
+        color: #ff3366;
+      }
+
+      .chart-source {
+        position: absolute;
+        bottom: 4px;
+        right: 8px;
+        font-size: 9px;
+        color: #5a6270;
+        opacity: 0.7;
+      }
+
+      @keyframes chartFadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      .chart-container canvas {
+        max-height: 300px !important;
+      }
+
+      /* Portfolio Analysis Result - Refined */
+      .portfolio-result {
+        background: var(--secondary-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 12px 0;
+      }
+
+      .portfolio-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .stat-item {
+        background: var(--tertiary-dark);
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        transition: all 0.2s ease;
+      }
+
+      .stat-item:hover {
+        transform: translateY(-2px);
+        border-color: var(--primary-blue);
+        box-shadow: 0 4px 8px rgba(0, 212, 255, 0.2);
+      }
+
+      .stat-label {
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .stat-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--primary-blue);
+      }
+
+      /* Enhanced Typing Indicator with Multiple States */
+      .typing-indicator {
+        display: none;
+        padding: 16px;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .typing-indicator.active {
+        display: flex;
+        animation: fadeIn 0.3s ease;
+      }
+
+      .typing-bubble {
+        background: var(--tertiary-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .typing-bubble::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(0, 212, 255, 0.1),
+          transparent
+        );
+        animation: shimmer 2s infinite;
+      }
+
+      @keyframes shimmer {
+        0% {
+          left: -100%;
+        }
+        100% {
+          left: 100%;
+        }
+      }
+
+      .ai-avatar {
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(135deg, #00d4ff, #0066cc);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 600;
+        color: white;
+        position: relative;
+        z-index: 2;
+      }
+
+      .typing-text {
+        color: var(--text-secondary);
+        font-size: 14px;
+        margin-right: 8px;
+        position: relative;
+        z-index: 2;
+      }
+
+      /* Enhanced Spinner Animation */
+      .typing-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(0, 212, 255, 0.2);
+        border-top-color: var(--primary-blue);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        position: relative;
+        z-index: 2;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Portfolio Analysis Loading Indicator */
+      .portfolio-loading {
+        display: none;
+        padding: 20px;
+        max-width: 900px;
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      .portfolio-loading.active {
+        display: block;
+        animation: fadeIn 0.5s ease;
+      }
+
+      .portfolio-loading-content {
+        background: var(--tertiary-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .portfolio-loading-icon {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(0, 212, 255, 0.2);
+        border-top-color: var(--primary-blue);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      .portfolio-loading-text {
+        color: var(--text-primary);
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .portfolio-loading-subtext {
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+
+      .portfolio-progress {
+        width: 100%;
+        height: 4px;
+        background: rgba(0, 212, 255, 0.1);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 12px;
+      }
+
+      .portfolio-progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary-blue), #0066cc);
+        border-radius: 2px;
+        animation: progress 3s ease-in-out infinite;
+        width: 0%;
+      }
+
+      @keyframes progress {
+        0% {
+          width: 0%;
+        }
+        50% {
+          width: 70%;
+        }
+        100% {
+          width: 100%;
+        }
+      }
+
+      /* Chart Generation Loading */
+      .chart-loading {
+        display: none;
+        padding: 20px;
+        background: var(--secondary-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        margin: 16px 0;
+        text-align: center;
+      }
+
+      .chart-loading.active {
+        display: block;
+        animation: fadeIn 0.5s ease;
+      }
+
+      .chart-loading-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .chart-loading-spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(0, 212, 255, 0.2);
+        border-top-color: var(--primary-blue);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      .chart-loading-text {
+        color: var(--text-primary);
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      /* API Call Loading States */
+      .api-loading {
+        display: none;
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--tertiary-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 12px 16px;
+        z-index: 9999;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      .api-loading.active {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        animation: slideIn 0.3s ease;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      .api-loading-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(0, 212, 255, 0.2);
+        border-top-color: var(--primary-blue);
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+
+      .api-loading-text {
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      /* Loading Dots Animation */
+      .loading-dots::after {
+        content: "";
+        animation: dots 1.5s infinite;
+      }
+
+      @keyframes dots {
+        0%,
+        20% {
+          content: "";
+        }
+        40% {
+          content: ".";
+        }
+        60% {
+          content: "..";
+        }
+        80%,
+        100% {
+          content: "...";
+        }
+      }
+
+      /* Pulse Animation for Loading States */
+      .pulse-loading {
+        animation: pulse-glow 2s infinite;
+      }
+
+      @keyframes pulse-glow {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4);
+          border-color: rgba(0, 212, 255, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 0 8px rgba(0, 212, 255, 0);
+          border-color: var(--primary-blue);
+        }
+      }
+
+      /* Input Area */
+      .modern-input-area {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: var(--secondary-dark);
+        padding: 16px 20px 8px 20px;
+        border-top: 1px solid var(--border-color);
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+      }
+
+      .modern-input-container {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .modern-input-field {
+        background: var(--tertiary-dark);
+        border: 2px solid var(--border-color);
+        border-radius: 24px;
+        padding: 4px;
+        display: flex;
+        align-items: flex-end;
+        transition: all 0.2s ease;
+      }
+
+      .modern-input-field:focus-within {
+        border-color: var(--primary-blue);
+        box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.1);
+      }
+
+      .modern-input-field.loading {
+        border-color: var(--primary-blue);
+        animation: pulse-glow 2s infinite;
+      }
+
+      .modern-chat-input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: var(--text-primary);
+        font-size: 16px;
+        padding: 12px 16px;
+        resize: none;
+        font-family: "Inter", sans-serif;
+        line-height: 1.4;
+        max-height: 120px;
+        min-height: 20px;
+      }
+
+      .modern-chat-input::placeholder {
+        color: var(--text-secondary);
+      }
+
+      .modern-input-actions {
+        display: flex;
+        gap: 8px;
+        padding: 8px;
+      }
+
+      .modern-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 16px;
+        border: none;
+        background: var(--border-color);
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        z-index: 1001;
+        pointer-events: auto;
+      }
+
+      .modern-btn:hover {
+        background: var(--primary-blue);
+        color: var(--primary-dark);
+        transform: scale(1.05);
+      }
+
+      .modern-btn.send-btn {
+        background: var(--primary-blue);
+        color: var(--primary-dark);
+        cursor: pointer;
+        pointer-events: auto;
+      }
+
+      .modern-btn.send-btn:hover {
+        background: #00e5ff;
+        transform: scale(1.1);
+      }
+
+      .modern-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .modern-btn:active {
+        transform: scale(0.95);
+      }
+
+      .modern-btn.loading {
+        pointer-events: none;
+        opacity: 0.7;
+      }
+
+      .modern-btn.loading::after {
+        content: "";
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border: 2px solid transparent;
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      /* File Input Hidden */
+      .file-input-hidden {
+        display: none;
+      }
+
+      /* File Upload Indicator */
+      .file-upload-indicator {
+        display: none;
+        position: absolute;
+        top: -40px;
+        left: 0;
+        right: 0;
+        background: var(--tertiary-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+
+      .file-upload-indicator.active {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .upload-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(0, 212, 255, 0.3);
+        border-top-color: var(--primary-blue);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      /* Disclaimer */
+      .disclaimer-footer {
+        text-align: center;
+        font-size: 11px;
+        color: #5a6270;
+        padding: 4px 0 8px 0;
+        opacity: 0.7;
+      }
+
+      /* Mobile Responsive */
+      @media (max-width: 768px) {
         .desktop-market-header {
-            background: var(--secondary-dark);
-            border-bottom: 1px solid var(--border-color);
-            padding: 12px 24px;
-            display: flex;
-            align-items: center;
-            z-index: 100;
+          display: none;
         }
 
-        .desktop-market-content {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .logo-compact {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--primary-blue);
-        }
-
-        .logo-icon {
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, var(--primary-blue), #0066CC);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
-        }
-
-        .market-ticker {
-            flex: 1;
-            margin: 0 24px;
-            overflow: hidden;
-            height: 32px;
-            display: flex;
-            align-items: center;
-        }
-
-        .market-ticker-content {
-            display: flex;
-            gap: 24px;
-            animation: tickerScroll 30s linear infinite;
-            white-space: nowrap;
-        }
-
-        @keyframes tickerScroll {
-            0% { transform: translateX(100%); }
-            100% { transform: translateX(-100%); }
-        }
-
-        .ticker-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
-
-        .ticker-symbol {
-            color: var(--primary-blue);
-            font-weight: 600;
-        }
-
-        .ticker-price {
-            color: var(--text-primary);
-        }
-
-        .ticker-change {
-            font-size: 12px;
-        }
-
-        .ticker-change.positive {
-            color: var(--success);
-        }
-
-        .ticker-change.negative {
-            color: var(--danger);
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: var(--primary-dark);
-            width: 100%;
-            overflow: hidden;
-        }
-
-        /* Chat Header */
         .chat-header {
-            background: var(--secondary-dark);
-            padding: 20px 32px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+          padding: 12px 16px;
         }
 
-        .chat-header-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .chat-title {
-            font-size: 20px;
-            font-weight: 600;
-        }
-
-        .status-badge {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 12px;
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            border-radius: 20px;
-            font-size: 12px;
-            color: var(--success);
-        }
-
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            background: var(--success);
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.2); }
-        }
-
-        /* Chat Container */
         .chat-container {
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
-            padding: 32px 20px 200px 20px;
-            scroll-behavior: smooth;
-            position: relative;
-        }
-
-        .chat-container::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .chat-container::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .chat-container::-webkit-scrollbar-thumb {
-            background: rgba(0, 212, 255, 0.3);
-            border-radius: 4px;
-        }
-
-        /* Welcome Message */
-        .simple-welcome {
-            max-width: 900px;
-            margin: 60px auto;
-            padding: 40px;
-            text-align: center;
-            animation: fadeIn 0.6s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .welcome-message {
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.02);
-            border-radius: 16px;
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            text-align: center;
-            width: 100%;
-        }
-
-        /* Messages */
-        .message {
-            margin-bottom: 24px;
-            animation: messageSlide 0.3s ease;
-        }
-
-        @keyframes messageSlide {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+          padding: 16px 12px 180px 12px;
         }
 
         .message-wrapper {
-            display: flex;
-            gap: 12px;
-            max-width: 900px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        .message.user .message-wrapper {
-            justify-content: flex-end;
-            flex-direction: row-reverse;
-        }
-
-        .message-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            flex-shrink: 0;
-        }
-
-        .message.user .message-avatar {
-            background: linear-gradient(135deg, var(--primary-blue), #0066CC);
-            color: white;
-            font-weight: 600;
-            font-size: 16px;
-        }
-
-        .message.bot .message-avatar {
-            background: linear-gradient(135deg, #00D4FF, #0066CC);
-            color: #FFFFFF;
-            font-weight: 600;
-            font-size: 16px;
+          max-width: 100%;
+          padding: 0 8px;
         }
 
         .message-content {
-            background: var(--tertiary-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 18px 22px;
-            font-size: 15px;
-            line-height: 1.7;
-            position: relative;
-            max-width: 80%;
-            word-wrap: break-word;
+          max-width: 85%;
+          font-size: 14px;
         }
 
-        .message.user .message-content {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-primary);
-            max-width: 70%;
-            margin-left: auto;
-            cursor: default;
-            border-radius: 18px 18px 4px 18px;
+        .message-avatar {
+          width: 32px;
+          height: 32px;
         }
 
-        .message.bot .message-content {
-            background: linear-gradient(135deg, var(--secondary-dark), var(--tertiary-dark));
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            max-width: 100%;
+        .modern-input-area {
+          padding: 12px 16px 4px 16px;
         }
 
-        /* Chart Container - Optimized */
-        .chart-container {
-            background: var(--secondary-dark);
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            padding: 16px;
-            margin: 16px 0;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            animation: chartFadeIn 0.5s ease;
-        }
-
-        /* Mini Chart - Inline */
-        .mini-chart-container {
-            background: rgba(26, 31, 46, 0.8);
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            border-radius: 8px;
-            padding: 12px;
-            margin: 12px 0;
-            position: relative;
-            backdrop-filter: blur(10px);
-            display: inline-block;
-            width: 300px;
-            height: 150px;
-        }
-
-        .mini-chart-container canvas {
-            width: 100% !important;
-            height: 100% !important;
-        }
-
-        .chart-symbol {
-            font-weight: 700;
-            font-size: 14px;
-            color: #00D4FF;
-        }
-
-        .chart-price {
-            font-size: 18px;
-            font-weight: 700;
-            color: #FFFFFF;
-        }
-
-        .chart-change {
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .chart-change.positive { color: #00FF88; }
-        .chart-change.negative { color: #FF3366; }
-
-        .chart-source {
-            position: absolute;
-            bottom: 4px;
-            right: 8px;
-            font-size: 9px;
-            color: #5a6270;
-            opacity: 0.7;
-        }
-
-        @keyframes chartFadeIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
+        .disclaimer-footer {
+          font-size: 10px;
+          padding: 2px 0 6px 0;
         }
 
         .chart-container canvas {
-            max-height: 300px !important;
-        }
-
-        /* Portfolio Analysis Result - Refined */
-        .portfolio-result {
-            background: var(--secondary-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 16px;
-            margin: 12px 0;
-        }
-
-        .portfolio-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 12px;
-            margin-top: 12px;
-        }
-
-        .stat-item {
-            background: var(--tertiary-dark);
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            transition: all 0.2s ease;
-        }
-
-        .stat-item:hover {
-            transform: translateY(-2px);
-            border-color: var(--primary-blue);
-            box-shadow: 0 4px 8px rgba(0, 212, 255, 0.2);
-        }
-
-        .stat-label {
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-bottom: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .stat-value {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--primary-blue);
-        }
-
-        /* Enhanced Typing Indicator with Multiple States */
-        .typing-indicator {
-            display: none;
-            padding: 16px;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .typing-indicator.active {
-            display: flex;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .typing-bubble {
-            background: var(--tertiary-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 18px;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .typing-bubble::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-
-        .ai-avatar {
-            width: 28px;
-            height: 28px;
-            background: linear-gradient(135deg, #00D4FF, #0066CC);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: 600;
-            color: white;
-            position: relative;
-            z-index: 2;
-        }
-
-        .typing-text {
-            color: var(--text-secondary);
-            font-size: 14px;
-            margin-right: 8px;
-            position: relative;
-            z-index: 2;
-        }
-
-        /* Enhanced Spinner Animation */
-        .typing-spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(0, 212, 255, 0.2);
-            border-top-color: var(--primary-blue);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            position: relative;
-            z-index: 2;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Portfolio Analysis Loading Indicator */
-        .portfolio-loading {
-            display: none;
-            padding: 20px;
-            max-width: 900px;
-            margin: 0 auto;
-            text-align: center;
-        }
-
-        .portfolio-loading.active {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-
-        .portfolio-loading-content {
-            background: var(--tertiary-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .portfolio-loading-icon {
-            width: 48px;
-            height: 48px;
-            border: 4px solid rgba(0, 212, 255, 0.2);
-            border-top-color: var(--primary-blue);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        .portfolio-loading-text {
-            color: var(--text-primary);
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .portfolio-loading-subtext {
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        .portfolio-progress {
-            width: 100%;
-            height: 4px;
-            background: rgba(0, 212, 255, 0.1);
-            border-radius: 2px;
-            overflow: hidden;
-            margin-top: 12px;
-        }
-
-        .portfolio-progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-blue), #0066CC);
-            border-radius: 2px;
-            animation: progress 3s ease-in-out infinite;
-            width: 0%;
-        }
-
-        @keyframes progress {
-            0% { width: 0%; }
-            50% { width: 70%; }
-            100% { width: 100%; }
-        }
-
-        /* Chart Generation Loading */
-        .chart-loading {
-            display: none;
-            padding: 20px;
-            background: var(--secondary-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            margin: 16px 0;
-            text-align: center;
-        }
-
-        .chart-loading.active {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-
-        .chart-loading-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .chart-loading-spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid rgba(0, 212, 255, 0.2);
-            border-top-color: var(--primary-blue);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        .chart-loading-text {
-            color: var(--text-primary);
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        /* API Call Loading States */
-        .api-loading {
-            display: none;
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--tertiary-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 12px 16px;
-            z-index: 9999;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .api-loading.active {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        .api-loading-spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(0, 212, 255, 0.2);
-            border-top-color: var(--primary-blue);
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-        }
-
-        .api-loading-text {
-            color: var(--text-secondary);
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        /* Loading Dots Animation */
-        .loading-dots::after {
-            content: '';
-            animation: dots 1.5s infinite;
-        }
-
-        @keyframes dots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
-            60% { content: '..'; }
-            80%, 100% { content: '...'; }
-        }
-
-        /* Pulse Animation for Loading States */
-        .pulse-loading {
-            animation: pulse-glow 2s infinite;
-        }
-
-        @keyframes pulse-glow {
-            0%, 100% { 
-                box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4);
-                border-color: rgba(0, 212, 255, 0.3);
-            }
-            50% { 
-                box-shadow: 0 0 0 8px rgba(0, 212, 255, 0);
-                border-color: var(--primary-blue);
-            }
-        }
-
-        /* Input Area */
-        .modern-input-area {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            background: var(--secondary-dark);
-            padding: 16px 20px 8px 20px;
-            border-top: 1px solid var(--border-color);
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
-        }
-
-        .modern-input-container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .modern-input-field {
-            background: var(--tertiary-dark);
-            border: 2px solid var(--border-color);
-            border-radius: 24px;
-            padding: 4px;
-            display: flex;
-            align-items: flex-end;
-            transition: all 0.2s ease;
-        }
-
-        .modern-input-field:focus-within {
-            border-color: var(--primary-blue);
-            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.1);
-        }
-
-        .modern-input-field.loading {
-            border-color: var(--primary-blue);
-            animation: pulse-glow 2s infinite;
-        }
-
-        .modern-chat-input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            outline: none;
-            color: var(--text-primary);
-            font-size: 16px;
-            padding: 12px 16px;
-            resize: none;
-            font-family: 'Inter', sans-serif;
-            line-height: 1.4;
-            max-height: 120px;
-            min-height: 20px;
-        }
-
-        .modern-chat-input::placeholder {
-            color: var(--text-secondary);
-        }
-
-        .modern-input-actions {
-            display: flex;
-            gap: 8px;
-            padding: 8px;
-        }
-
-        .modern-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 16px;
-            border: none;
-            background: var(--border-color);
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            position: relative;
-            z-index: 1001;
-            pointer-events: auto;
-        }
-
-        .modern-btn:hover {
-            background: var(--primary-blue);
-            color: var(--primary-dark);
-            transform: scale(1.05);
-        }
-
-        .modern-btn.send-btn {
-            background: var(--primary-blue);
-            color: var(--primary-dark);
-            cursor: pointer;
-            pointer-events: auto;
-        }
-
-        .modern-btn.send-btn:hover {
-            background: #00E5FF;
-            transform: scale(1.1);
-        }
-
-        .modern-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .modern-btn:active {
-            transform: scale(0.95);
-        }
-
-        .modern-btn.loading {
-            pointer-events: none;
-            opacity: 0.7;
-        }
-
-        .modern-btn.loading::after {
-            content: '';
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            border: 2px solid transparent;
-            border-top-color: currentColor;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        /* File Input Hidden */
-        .file-input-hidden {
-            display: none;
-        }
-
-        /* File Upload Indicator */
-        .file-upload-indicator {
-            display: none;
-            position: absolute;
-            top: -40px;
-            left: 0;
-            right: 0;
-            background: var(--tertiary-dark);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        .file-upload-indicator.active {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .upload-spinner {
-            width: 14px;
-            height: 14px;
-            border: 2px solid rgba(0, 212, 255, 0.3);
-            border-top-color: var(--primary-blue);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        /* Disclaimer */
-        .disclaimer-footer {
-            text-align: center;
-            font-size: 11px;
-            color: #5a6270;
-            padding: 4px 0 8px 0;
-            opacity: 0.7;
-        }
-
-        /* Mobile Responsive */
-        @media (max-width: 768px) {
-            .desktop-market-header {
-                display: none;
-            }
-
-            .chat-header {
-                padding: 12px 16px;
-            }
-
-            .chat-container {
-                padding: 16px 12px 180px 12px;
-            }
-
-            .message-wrapper {
-                max-width: 100%;
-                padding: 0 8px;
-            }
-
-            .message-content {
-                max-width: 85%;
-                font-size: 14px;
-            }
-
-            .message-avatar {
-                width: 32px;
-                height: 32px;
-            }
-
-            .modern-input-area {
-                padding: 12px 16px 4px 16px;
-            }
-
-            .disclaimer-footer {
-                font-size: 10px;
-                padding: 2px 0 6px 0;
-            }
-
-            .chart-container canvas {
-                max-height: 250px !important;
-            }
-        }
-
-        /* Professional Chart */
-        .professional-chart {
-            background: #1E222D;
-            border: 1px solid #2A2E39;
-            border-radius: 8px;
-            padding: 16px;
-            margin: 12px 0;
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 12px;
-        }
-
-        .chart-title .symbol {
-            font-weight: 700;
-            color: #D1D4DC;
-            margin-right: 12px;
-        }
-
-        .chart-title .price {
-            font-size: 20px;
-            font-weight: 700;
-            color: #FFFFFF;
-            margin-right: 8px;
-        }
-
-        .chart-title .change {
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .chart-title .change.positive {
-            color: #00D9FF;
-        }
-
-        .chart-title .change.negative {
-            color: #FF3B69;
-        }
-
-        .time-range {
-            color: #848E9C;
-            font-size: 12px;
-        }
+          max-height: 250px !important;
+        }
+      }
+
+      /* Professional Chart */
+      .professional-chart {
+        background: #1e222d;
+        border: 1px solid #2a2e39;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 12px 0;
+      }
+
+      .chart-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+
+      .chart-title .symbol {
+        font-weight: 700;
+        color: #d1d4dc;
+        margin-right: 12px;
+      }
+
+      .chart-title .price {
+        font-size: 20px;
+        font-weight: 700;
+        color: #ffffff;
+        margin-right: 8px;
+      }
+
+      .chart-title .change {
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .chart-title .change.positive {
+        color: #00d9ff;
+      }
+
+      .chart-title .change.negative {
+        color: #ff3b69;
+      }
+
+      .time-range {
+        color: #848e9c;
+        font-size: 12px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="app-container">
-        <!-- Desktop Market Header -->
-        <div class="desktop-market-header" id="desktop-market-header">
-            <div class="desktop-market-content">
-                <div class="logo-compact">
-                    <div class="logo-icon">📊</div>
-                    <span>FinanceBot Pro</span>
-                </div>
-                <div class="market-ticker" id="market-ticker">
-                    <!-- Live market data will scroll here -->
-                </div>
+      <!-- Desktop Market Header -->
+      <div class="desktop-market-header" id="desktop-market-header">
+        <div class="desktop-market-content">
+          <div class="logo-compact">
+            <div class="logo-icon">📊</div>
+            <span>FinanceBot Pro</span>
+          </div>
+          <div class="market-ticker" id="market-ticker">
+            <!-- Live market data will scroll here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Chat Header -->
+        <header class="chat-header">
+          <div class="chat-header-left">
+            <h1 class="chat-title">Chat with Max</h1>
+            <div class="status-badge">
+              <span class="status-dot"></span>
+              <span>AI Advisor Online</span>
             </div>
+          </div>
+        </header>
+
+        <!-- Chat Container -->
+        <div class="chat-container" id="chat-container">
+          <div class="simple-welcome" id="simple-welcome">
+            <div class="welcome-message">
+              <h2 style="color: var(--primary-blue); margin-bottom: 20px">
+                FinanceBot Pro
+              </h2>
+              <p
+                style="
+                  color: var(--text-secondary);
+                  font-size: 16px;
+                  line-height: 1.6;
+                  margin-bottom: 20px;
+                "
+              >
+                I'm Max, your Wall Street insider. Drop me any ticker, upload
+                your portfolio CSV, or ask about markets.
+              </p>
+              <p
+                style="
+                  color: #5a6270;
+                  font-size: 12px;
+                  line-height: 1.4;
+                  opacity: 0.7;
+                "
+              >
+                For informational purposes only. Not financial advice.<br />
+                Always consult a professional advisor before making investment
+                decisions.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Chat Header -->
-            <header class="chat-header">
-                <div class="chat-header-left">
-                    <h1 class="chat-title">Chat with Max</h1>
-                    <div class="status-badge">
-                        <span class="status-dot"></span>
-                        <span>AI Advisor Online</span>
-                    </div>
-                </div>
-            </header>
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typing-indicator">
+          <div class="typing-bubble">
+            <div class="ai-avatar">M</div>
+            <span class="typing-text" id="typing-text">Max is thinking...</span>
+            <div class="typing-spinner"></div>
+          </div>
+        </div>
 
-            <!-- Chat Container -->
-            <div class="chat-container" id="chat-container">
-                <div class="simple-welcome" id="simple-welcome">
-                    <div class="welcome-message">
-                        <h2 style="color: var(--primary-blue); margin-bottom: 20px;">FinanceBot Pro</h2>
-                        <p style="color: var(--text-secondary); font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-                            I'm Max, your Wall Street insider. Drop me any ticker, upload your portfolio CSV, or ask about markets.
-                        </p>
-                        <p style="color: #5a6270; font-size: 12px; line-height: 1.4; opacity: 0.7;">
-                            For informational purposes only. Not financial advice.<br>
-                            Always consult a professional advisor before making investment decisions.
-                        </p>
-                    </div>
-                </div>
+        <!-- Portfolio Analysis Loading -->
+        <div class="portfolio-loading" id="portfolio-loading">
+          <div class="portfolio-loading-content">
+            <div class="portfolio-loading-icon"></div>
+            <div class="portfolio-loading-text">Analyzing your portfolio</div>
+            <div class="portfolio-loading-subtext">
+              Processing holdings, calculating risk metrics, and generating
+              insights...
             </div>
+            <div class="portfolio-progress">
+              <div class="portfolio-progress-bar"></div>
+            </div>
+          </div>
+        </div>
 
-            <!-- Typing Indicator -->
-            <div class="typing-indicator" id="typing-indicator">
-                <div class="typing-bubble">
-                    <div class="ai-avatar">M</div>
-                    <span class="typing-text" id="typing-text">Max is thinking...</span>
-                    <div class="typing-spinner"></div>
-                </div>
+        <!-- Chart Generation Loading -->
+        <div class="chart-loading" id="chart-loading">
+          <div class="chart-loading-content">
+            <div class="chart-loading-spinner"></div>
+            <div class="chart-loading-text">
+              Generating chart with real-time data...
             </div>
+          </div>
+        </div>
 
-            <!-- Portfolio Analysis Loading -->
-            <div class="portfolio-loading" id="portfolio-loading">
-                <div class="portfolio-loading-content">
-                    <div class="portfolio-loading-icon"></div>
-                    <div class="portfolio-loading-text">Analyzing your portfolio</div>
-                    <div class="portfolio-loading-subtext">Processing holdings, calculating risk metrics, and generating insights...</div>
-                    <div class="portfolio-progress">
-                        <div class="portfolio-progress-bar"></div>
-                    </div>
-                </div>
-            </div>
+        <!-- API Call Loading (Top-right corner) -->
+        <div class="api-loading" id="api-loading">
+          <div class="api-loading-spinner"></div>
+          <div class="api-loading-text" id="api-loading-text">
+            Fetching data...
+          </div>
+        </div>
 
-            <!-- Chart Generation Loading -->
-            <div class="chart-loading" id="chart-loading">
-                <div class="chart-loading-content">
-                    <div class="chart-loading-spinner"></div>
-                    <div class="chart-loading-text">Generating chart with real-time data...</div>
-                </div>
+        <!-- Modern Input Area -->
+        <div class="modern-input-area">
+          <div class="modern-input-container">
+            <div class="file-upload-indicator" id="file-upload-indicator">
+              <div class="upload-spinner"></div>
+              <span>Analyzing portfolio...</span>
             </div>
-
-            <!-- API Call Loading (Top-right corner) -->
-            <div class="api-loading" id="api-loading">
-                <div class="api-loading-spinner"></div>
-                <div class="api-loading-text" id="api-loading-text">Fetching data...</div>
+            <div class="modern-input-field">
+              <textarea
+                id="chat-input"
+                class="modern-chat-input"
+                placeholder="Message Max..."
+                rows="1"
+              ></textarea>
+              <div class="modern-input-actions">
+                <input
+                  type="file"
+                  id="file-input"
+                  class="file-input-hidden"
+                  accept=".csv"
+                />
+                <button
+                  class="modern-btn"
+                  id="upload-btn"
+                  type="button"
+                  title="Upload Portfolio CSV"
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"
+                    />
+                    <path d="M8 15h8v2H8zm0-4h8v2H8zm0-4h5v2H8z" />
+                  </svg>
+                </button>
+                <button class="modern-btn send-btn" id="send-btn" type="button">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                  </svg>
+                </button>
+              </div>
             </div>
-
-            <!-- Modern Input Area -->
-            <div class="modern-input-area">
-                <div class="modern-input-container">
-                    <div class="file-upload-indicator" id="file-upload-indicator">
-                        <div class="upload-spinner"></div>
-                        <span>Analyzing portfolio...</span>
-                    </div>
-                    <div class="modern-input-field">
-                        <textarea 
-                            id="chat-input" 
-                            class="modern-chat-input" 
-                            placeholder="Message Max..."
-                            rows="1"
-                        ></textarea>
-                        <div class="modern-input-actions">
-                            <input type="file" id="file-input" class="file-input-hidden" accept=".csv">
-                            <button class="modern-btn" id="upload-btn" type="button" title="Upload Portfolio CSV">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
-                                    <path d="M8 15h8v2H8zm0-4h8v2H8zm0-4h5v2H8z"/>
-                                </svg>
-                            </button>
-                            <button class="modern-btn send-btn" id="send-btn" type="button">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="disclaimer-footer">
-                    For informational purposes only. Not financial advice. Consult a professional advisor.
-                </div>
-            </div>
-        </main>
+          </div>
+          <div class="disclaimer-footer">
+            For informational purposes only. Not financial advice. Consult a
+            professional advisor.
+          </div>
+        </div>
+      </main>
     </div>
 
+    <!-- WebSocket Client -->
+    <script src="websocket-client.js"></script>
+
     <script>
-        console.log('JavaScript is loading...');
-        
-        // Global state
-        let sessionId = null;
-        let isTyping = false;
-        let activeCharts = [];
-        let uploadedPortfolio = null;
+      console.log("JavaScript is loading...");
 
-        // Core messaging function
-        function sendMessage() {
-            console.log('sendMessage called');
-            const input = document.getElementById('chat-input');
-            if (!input) {
-                console.error('Chat input not found!');
-                return;
+      // Global state
+      let sessionId = null;
+      let isTyping = false;
+      let activeCharts = [];
+      let uploadedPortfolio = null;
+      let wsClient = null;
+
+      // Handle new response types
+      function handleNewResponse(data) {
+        const { response, chartData, type, metadata } = data;
+
+        // Create message element
+        const messageEl = document.createElement("div");
+        messageEl.className = "message bot fade-in";
+
+        const wrapperDiv = document.createElement("div");
+        wrapperDiv.className = "message-wrapper";
+
+        const avatarDiv = document.createElement("div");
+        avatarDiv.className = "message-avatar";
+        avatarDiv.textContent = "M";
+        wrapperDiv.appendChild(avatarDiv);
+
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "message-content";
+
+        // Add response content based on type
+        if (
+          type === "comparison_table" ||
+          type === "portfolio_analysis" ||
+          type === "trend_analysis"
+        ) {
+          contentDiv.innerHTML = response; // Already formatted HTML
+        } else {
+          contentDiv.innerHTML = formatBotMessage(response);
+        }
+
+        wrapperDiv.appendChild(contentDiv);
+        messageEl.appendChild(wrapperDiv);
+
+        const container = document.getElementById("chat-container");
+        container.appendChild(messageEl);
+
+        // Add chart if provided
+        if (chartData && chartData.config) {
+          const chartEl = document.createElement("div");
+          chartEl.className = "chart-container fade-in";
+          chartEl.innerHTML = `
+                    <div style="text-align: center; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 8px; margin: 10px 0;">
+                        <p style="color: #00d4ff;">📊 ${chartData.config.title || "Chart"}</p>
+                        <p style="color: #8B92A3; font-size: 12px;">Chart rendering available in full implementation</p>
+                    </div>
+                `;
+          container.appendChild(chartEl);
+        }
+
+        // Update UI based on metadata
+        if (metadata) {
+          if (metadata.hasPortfolio) {
+            showPortfolioIndicator();
+          }
+          if (metadata.symbol) {
+            updateLastSymbol(metadata.symbol);
+          }
+        }
+
+        // Scroll to bottom
+        scrollToBottom();
+      }
+
+      // Portfolio indicator functions
+      function showPortfolioIndicator() {
+        // Add visual indicator that portfolio is loaded
+        const indicator = document.querySelector(".portfolio-indicator");
+        if (indicator) {
+          indicator.style.display = "block";
+        }
+      }
+
+      function updateLastSymbol(symbol) {
+        // Update any last symbol references
+        console.log("Last symbol:", symbol);
+      }
+
+      // Core messaging function
+      function sendMessage() {
+        console.log("sendMessage called");
+        const input = document.getElementById("chat-input");
+        if (!input) {
+          console.error("Chat input not found!");
+          return;
+        }
+
+        const message = input.value.trim();
+        console.log("Message:", message, "isTyping:", isTyping);
+
+        if (!message || isTyping) {
+          console.log("No message or already typing, returning");
+          return;
+        }
+
+        input.value = "";
+        autoResize(input);
+
+        const welcomeScreen = document.getElementById("simple-welcome");
+        if (welcomeScreen) {
+          welcomeScreen.style.display = "none";
+        }
+
+        addMessage(message, "user");
+
+        // Show appropriate loading indicator based on message type
+        if (
+          message.toLowerCase().includes("chart") ||
+          message.toLowerCase().includes("graph")
+        ) {
+          showChartLoadingIndicator();
+        } else {
+          showTypingIndicator("Max is analyzing your query");
+        }
+
+        showApiLoadingIndicator("Fetching market data");
+
+        isTyping = true;
+        const sendBtn = document.getElementById("send-btn");
+        const inputField = document.querySelector(".modern-input-field");
+        sendBtn.disabled = true;
+        sendBtn.classList.add("loading");
+        inputField.classList.add("loading");
+
+        fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message,
+            sessionId,
+            hasPortfolio: !!uploadedPortfolio,
+          }),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
             }
-            
-            const message = input.value.trim();
-            console.log('Message:', message, 'isTyping:', isTyping);
-            
-            if (!message || isTyping) {
-                console.log('No message or already typing, returning');
-                return;
-            }
-            
-            input.value = '';
-            autoResize(input);
-            
-            const welcomeScreen = document.getElementById('simple-welcome');
-            if (welcomeScreen) {
-                welcomeScreen.style.display = 'none';
-            }
-            
-            addMessage(message, 'user');
-            
-            // Show appropriate loading indicator based on message type
-            if (message.toLowerCase().includes('chart') || message.toLowerCase().includes('graph')) {
-                showChartLoadingIndicator();
+            return response.json();
+          })
+          .then((data) => {
+            hideAllLoadingIndicators();
+
+            if (data.success) {
+              // Handle new response format
+              handleNewResponse(data);
             } else {
-                showTypingIndicator('Max is analyzing your query');
+              addMessage(data.error || "Error processing request", "bot");
             }
-            
-            showApiLoadingIndicator('Fetching market data');
-            
-            isTyping = true;
-            const sendBtn = document.getElementById('send-btn');
-            const inputField = document.querySelector('.modern-input-field');
-            sendBtn.disabled = true;
-            sendBtn.classList.add('loading');
-            inputField.classList.add('loading');
-            
-            fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    message, 
-                    sessionId,
-                    hasPortfolio: !!uploadedPortfolio
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                hideAllLoadingIndicators();
-                
-                if (data.success) {
-                    addBotMessage(data.data, {
-                        chart: data.chart,
-                        miniChart: data.miniChart,
-                        metadata: data.metadata,
-                        realMarketData: data.realMarketData
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Chat error:', error);
-                hideAllLoadingIndicators();
-                addMessage('Connection lost. Markets are volatile, try again.', 'bot');
-            })
-            .finally(() => {
-                isTyping = false;
-                const sendBtn = document.getElementById('send-btn');
-                const inputField = document.querySelector('.modern-input-field');
-                sendBtn.disabled = false;
-                sendBtn.classList.remove('loading');
-                inputField.classList.remove('loading');
-                document.getElementById('chat-input').focus();
-            });
+          })
+          .catch((error) => {
+            console.error("Chat error:", error);
+            hideAllLoadingIndicators();
+            addMessage(
+              "Connection lost. Markets are volatile, try again.",
+              "bot",
+            );
+          })
+          .finally(() => {
+            isTyping = false;
+            const sendBtn = document.getElementById("send-btn");
+            const inputField = document.querySelector(".modern-input-field");
+            sendBtn.disabled = false;
+            sendBtn.classList.remove("loading");
+            inputField.classList.remove("loading");
+            document.getElementById("chat-input").focus();
+          });
+      }
+
+      // File upload handler
+      function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.name.endsWith(".csv")) {
+          addMessage("Please upload a CSV file for portfolio analysis.", "bot");
+          return;
         }
 
-        // File upload handler
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+        const indicator = document.getElementById("file-upload-indicator");
+        indicator.classList.add("active");
 
-            if (!file.name.endsWith('.csv')) {
-                addMessage('Please upload a CSV file for portfolio analysis.', 'bot');
-                return;
-            }
-
-            const indicator = document.getElementById('file-upload-indicator');
-            indicator.classList.add('active');
-
-            const welcomeScreen = document.getElementById('simple-welcome');
-            if (welcomeScreen) {
-                welcomeScreen.style.display = 'none';
-            }
-
-            addMessage(`Uploading portfolio: ${file.name}`, 'user');
-            
-            // Show portfolio loading indicator
-            showPortfolioLoadingIndicator();
-            showApiLoadingIndicator('Uploading portfolio data');
-
-            const uploadBtn = document.getElementById('upload-btn');
-            uploadBtn.classList.add('loading');
-            uploadBtn.disabled = true;
-
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('sessionId', sessionId);
-
-            fetch('/api/portfolio/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                hideAllLoadingIndicators();
-                indicator.classList.remove('active');
-                
-                const uploadBtn = document.getElementById('upload-btn');
-                uploadBtn.classList.remove('loading');
-                uploadBtn.disabled = false;
-
-                if (data.success) {
-                    uploadedPortfolio = data.portfolio;
-                    
-                    const portfolioMessage = {
-                        content: data.data.content,
-                        quickActions: [],
-                        chart: data.chart,
-                        portfolioStats: data.portfolioStats
-                    };
-
-                    addBotMessage(portfolioMessage);
-                } else {
-                    addMessage(data.error || 'Failed to analyze portfolio. Please check your CSV format.', 'bot');
-                }
-            })
-            .catch(error => {
-                console.error('Upload error:', error);
-                hideAllLoadingIndicators();
-                indicator.classList.remove('active');
-                
-                const uploadBtn = document.getElementById('upload-btn');
-                uploadBtn.classList.remove('loading');
-                uploadBtn.disabled = false;
-                
-                addMessage('Sorry, I encountered an error uploading your portfolio. Please try again.', 'bot');
-            });
-
-            event.target.value = '';
+        const welcomeScreen = document.getElementById("simple-welcome");
+        if (welcomeScreen) {
+          welcomeScreen.style.display = "none";
         }
 
-        // Add message to chat
-        function addMessage(content, type) {
-            const container = document.getElementById('chat-container');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${type}`;
-            
-            const wrapperDiv = document.createElement('div');
-            wrapperDiv.className = 'message-wrapper';
-            
-            const avatarDiv = document.createElement('div');
-            avatarDiv.className = 'message-avatar';
-            avatarDiv.textContent = type === 'user' ? 'U' : 'M';
-            wrapperDiv.appendChild(avatarDiv);
-            
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'message-content';
-            
-            if (type === 'user') {
-                contentDiv.textContent = content;
+        addMessage(`Uploading portfolio: ${file.name}`, "user");
+
+        // Show portfolio loading indicator
+        showPortfolioLoadingIndicator();
+        showApiLoadingIndicator("Uploading portfolio data");
+
+        const uploadBtn = document.getElementById("upload-btn");
+        uploadBtn.classList.add("loading");
+        uploadBtn.disabled = true;
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("sessionId", sessionId);
+
+        fetch("/api/portfolio/upload", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            hideAllLoadingIndicators();
+            indicator.classList.remove("active");
+
+            const uploadBtn = document.getElementById("upload-btn");
+            uploadBtn.classList.remove("loading");
+            uploadBtn.disabled = false;
+
+            if (data.success) {
+              uploadedPortfolio = data.holdings;
+
+              // Create a formatted portfolio message
+              const portfolioMessage = `**Portfolio Upload Successful!**
+
+**Summary:**
+• Holdings: ${data.holdings.length} assets
+• Total Value: $${data.metrics.totalValue}
+• Total Return: ${data.metrics.totalGainPercent}% (${data.metrics.totalGain >= 0 ? "+" : ""}$${data.metrics.totalGain})
+
+**Top Holdings:**
+${data.holdings
+  .slice(0, 5)
+  .map(
+    (h) =>
+      `• ${h.symbol}: ${h.shares} shares @ $${h.currentPrice.toFixed(2)} (${h.changePercent >= 0 ? "+" : ""}${h.changePercent}%)`,
+  )
+  .join("\n")}
+
+Your portfolio is now loaded and ready for analysis!`;
+
+              addMessage(portfolioMessage, "bot");
             } else {
-                contentDiv.innerHTML = formatBotMessage(content);
+              addMessage(
+                data.error ||
+                  "Failed to analyze portfolio. Please check your CSV format.",
+                "bot",
+              );
             }
-            
-            wrapperDiv.appendChild(contentDiv);
-            messageDiv.appendChild(wrapperDiv);
-            container.appendChild(messageDiv);
-            
-            const welcomeScreen = document.getElementById('simple-welcome');
-            if (welcomeScreen) {
-                welcomeScreen.style.display = 'none';
-            }
-            
-            scrollToBottom();
+          })
+          .catch((error) => {
+            console.error("Upload error:", error);
+            hideAllLoadingIndicators();
+            indicator.classList.remove("active");
+
+            const uploadBtn = document.getElementById("upload-btn");
+            uploadBtn.classList.remove("loading");
+            uploadBtn.disabled = false;
+
+            addMessage(
+              "Sorry, I encountered an error uploading your portfolio. Please try again.",
+              "bot",
+            );
+          });
+
+        event.target.value = "";
+      }
+
+      // Add message to chat
+      function addMessage(content, type) {
+        const container = document.getElementById("chat-container");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${type}`;
+
+        const wrapperDiv = document.createElement("div");
+        wrapperDiv.className = "message-wrapper";
+
+        const avatarDiv = document.createElement("div");
+        avatarDiv.className = "message-avatar";
+        avatarDiv.textContent = type === "user" ? "U" : "M";
+        wrapperDiv.appendChild(avatarDiv);
+
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "message-content";
+
+        if (type === "user") {
+          contentDiv.textContent = content;
+        } else {
+          contentDiv.innerHTML = formatBotMessage(content);
         }
 
-        // Add bot message with enhanced features
-        function addBotMessage(data, options = {}) {
-            const container = document.getElementById('chat-container');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message bot';
-            
-            const wrapperDiv = document.createElement('div');
-            wrapperDiv.className = 'message-wrapper';
-            
-            const avatarDiv = document.createElement('div');
-            avatarDiv.className = 'message-avatar';
-            avatarDiv.textContent = 'M';
-            wrapperDiv.appendChild(avatarDiv);
-            
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'message-content';
-            
-            const content = data.content || data || '';
-            contentDiv.innerHTML = formatBotMessage(String(content));
-            
-            if (data.portfolioStats) {
-                const statsDiv = createPortfolioStatsDiv(data.portfolioStats);
-                contentDiv.appendChild(statsDiv);
-            }
-            
-            if (data.tableData) {
-                renderTable(contentDiv, data.tableData);
-            }
-            
-            if (shouldShowChart(content)) {
-                const symbol = extractSymbol(content);
-                const chartType = getChartType(content);
-                generatePriceChart(symbol, chartType).then(chartData => {
-                    if (chartData) {
-                        renderChart(contentDiv, chartData);
-                    }
-                });
-            }
-            
-            if (options.chart || data.chart) {
-                renderChart(contentDiv, options.chart || data.chart);
-            }
-            
-            if (options.miniChart || data.miniChart) {
-                renderMiniChart(contentDiv, options.miniChart || data.miniChart, options.realMarketData);
-            }
-            
-            wrapperDiv.appendChild(contentDiv);
-            messageDiv.appendChild(wrapperDiv);
-            container.appendChild(messageDiv);
-            
-            scrollToBottom();
+        wrapperDiv.appendChild(contentDiv);
+        messageDiv.appendChild(wrapperDiv);
+        container.appendChild(messageDiv);
+
+        const welcomeScreen = document.getElementById("simple-welcome");
+        if (welcomeScreen) {
+          welcomeScreen.style.display = "none";
         }
 
-        // Format bot message with enhanced number formatting
-        function formatBotMessage(content) {
-            if (!content) return '';
-            
-            const contentStr = String(content);
-            
-            let formatted = contentStr.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-            
-            // Enhanced dollar amount formatting with proper number formatting
-            formatted = formatted.replace(/\$[\d,]+\.?\d*/g, (match) => {
-                const cleanValue = match.replace(/[$,]/g, '');
-                const numValue = parseFloat(cleanValue);
-                if (!isNaN(numValue)) {
-                    const formattedValue = numValue.toLocaleString('en-US', { 
-                        minimumFractionDigits: 2, 
-                        maximumFractionDigits: 2 
-                    });
-                    return `<span style="color: #00D4FF; font-weight: 700;">$${formattedValue}</span>`;
-                }
-                return `<span style="color: #00D4FF; font-weight: 700;">${match}</span>`;
-            });
-            
-            // Enhanced percentage formatting with arrows and better detection
-            formatted = formatted.replace(/([+-]?\d+\.?\d*%)/g, (match) => {
-                const value = parseFloat(match);
-                const isPositive = value > 0;
-                const isNegative = value < 0;
-                const color = isPositive ? '#00FF88' : isNegative ? '#FF3366' : '#8B92A3';
-                const arrow = isPositive ? '▲' : isNegative ? '▼' : '−';
-                const formattedPercent = isPositive ? `+${match}` : match;
-                return `<span style="color: ${color}; font-weight: 700;">${formattedPercent} ${arrow}</span>`;
-            });
-            
-            // Enhanced ticker formatting - only format standalone tickers
-            formatted = formatted.replace(/\b([A-Z]{2,5})\b(?![^<]*>)/g, (match, ticker) => {
-                // Don't format if it's part of a longer word or inside HTML tags
-                const commonWords = ['USD', 'EUR', 'API', 'CSV', 'PDF', 'AI', 'ML', 'CEO', 'IPO', 'ETF'];
-                if (commonWords.includes(ticker)) {
-                    return match;
-                }
-                return `<span style="color: #00D4FF; font-weight: 700;">${ticker}</span>`;
-            });
-            
-            // Format large numbers (millions/billions)
-            formatted = formatted.replace(/\b(\d+(?:,\d{3})*(?:\.\d+)?)\s*(million|billion|trillion|M|B|T)\b/gi, (match, number, unit) => {
-                const cleanNumber = number.replace(/,/g, '');
-                const numValue = parseFloat(cleanNumber);
-                let multiplier = 1;
-                let suffix = '';
-                
-                switch(unit.toLowerCase()) {
-                    case 'million':
-                    case 'm':
-                        multiplier = 1000000;
-                        suffix = 'M';
-                        break;
-                    case 'billion':
-                    case 'b':
-                        multiplier = 1000000000;
-                        suffix = 'B';
-                        break;
-                    case 'trillion':
-                    case 't':
-                        multiplier = 1000000000000;
-                        suffix = 'T';
-                        break;
-                }
-                
-                const actualValue = numValue * multiplier;
-                const formattedValue = actualValue.toLocaleString('en-US', { 
-                    minimumFractionDigits: 0, 
-                    maximumFractionDigits: 2 
-                });
-                
-                return `<span style="color: #00D4FF; font-weight: 700;">$${formattedValue}</span>`;
-            });
-            
-            // Add line breaks
-            formatted = formatted.replace(/\n/g, '<br>');
-            
-            return formatted;
+        scrollToBottom();
+      }
+
+      // Add bot message with enhanced features
+      function addBotMessage(data, options = {}) {
+        const container = document.getElementById("chat-container");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message bot";
+
+        const wrapperDiv = document.createElement("div");
+        wrapperDiv.className = "message-wrapper";
+
+        const avatarDiv = document.createElement("div");
+        avatarDiv.className = "message-avatar";
+        avatarDiv.textContent = "M";
+        wrapperDiv.appendChild(avatarDiv);
+
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "message-content";
+
+        const content = data.content || data || "";
+        contentDiv.innerHTML = formatBotMessage(String(content));
+
+        if (data.portfolioStats) {
+          const statsDiv = createPortfolioStatsDiv(data.portfolioStats);
+          contentDiv.appendChild(statsDiv);
         }
 
-        // Portfolio stats display - more compact
-        function createPortfolioStatsDiv(stats) {
-            const statsDiv = document.createElement('div');
-            statsDiv.className = 'portfolio-result';
-            
-            const statsGrid = document.createElement('div');
-            statsGrid.className = 'portfolio-stats';
-            
-            if (stats.totalValue !== undefined) {
-                statsGrid.innerHTML += `
+        if (data.tableData) {
+          renderTable(contentDiv, data.tableData);
+        }
+
+        if (shouldShowChart(content)) {
+          const symbol = extractSymbol(content);
+          const chartType = getChartType(content);
+          generatePriceChart(symbol, chartType).then((chartData) => {
+            if (chartData) {
+              renderChart(contentDiv, chartData);
+            }
+          });
+        }
+
+        if (options.chart || data.chart) {
+          renderChart(contentDiv, options.chart || data.chart);
+        }
+
+        if (options.miniChart || data.miniChart) {
+          renderMiniChart(
+            contentDiv,
+            options.miniChart || data.miniChart,
+            options.realMarketData,
+          );
+        }
+
+        wrapperDiv.appendChild(contentDiv);
+        messageDiv.appendChild(wrapperDiv);
+        container.appendChild(messageDiv);
+
+        scrollToBottom();
+      }
+
+      // Format bot message with enhanced number formatting
+      function formatBotMessage(content) {
+        if (!content) return "";
+
+        const contentStr = String(content);
+
+        let formatted = contentStr.replace(
+          /\*\*(.+?)\*\*/g,
+          "<strong>$1</strong>",
+        );
+
+        // Enhanced dollar amount formatting with proper number formatting
+        formatted = formatted.replace(/\$[\d,]+\.?\d*/g, (match) => {
+          const cleanValue = match.replace(/[$,]/g, "");
+          const numValue = parseFloat(cleanValue);
+          if (!isNaN(numValue)) {
+            const formattedValue = numValue.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            });
+            return `<span style="color: #00D4FF; font-weight: 700;">$${formattedValue}</span>`;
+          }
+          return `<span style="color: #00D4FF; font-weight: 700;">${match}</span>`;
+        });
+
+        // Enhanced percentage formatting with arrows and better detection
+        formatted = formatted.replace(/([+-]?\d+\.?\d*%)/g, (match) => {
+          const value = parseFloat(match);
+          const isPositive = value > 0;
+          const isNegative = value < 0;
+          const color = isPositive
+            ? "#00FF88"
+            : isNegative
+              ? "#FF3366"
+              : "#8B92A3";
+          const arrow = isPositive ? "▲" : isNegative ? "▼" : "−";
+          const formattedPercent = isPositive ? `+${match}` : match;
+          return `<span style="color: ${color}; font-weight: 700;">${formattedPercent} ${arrow}</span>`;
+        });
+
+        // Enhanced ticker formatting - only format standalone tickers
+        formatted = formatted.replace(
+          /\b([A-Z]{2,5})\b(?![^<]*>)/g,
+          (match, ticker) => {
+            // Don't format if it's part of a longer word or inside HTML tags
+            const commonWords = [
+              "USD",
+              "EUR",
+              "API",
+              "CSV",
+              "PDF",
+              "AI",
+              "ML",
+              "CEO",
+              "IPO",
+              "ETF",
+            ];
+            if (commonWords.includes(ticker)) {
+              return match;
+            }
+            return `<span style="color: #00D4FF; font-weight: 700;">${ticker}</span>`;
+          },
+        );
+
+        // Format large numbers (millions/billions)
+        formatted = formatted.replace(
+          /\b(\d+(?:,\d{3})*(?:\.\d+)?)\s*(million|billion|trillion|M|B|T)\b/gi,
+          (match, number, unit) => {
+            const cleanNumber = number.replace(/,/g, "");
+            const numValue = parseFloat(cleanNumber);
+            let multiplier = 1;
+            let suffix = "";
+
+            switch (unit.toLowerCase()) {
+              case "million":
+              case "m":
+                multiplier = 1000000;
+                suffix = "M";
+                break;
+              case "billion":
+              case "b":
+                multiplier = 1000000000;
+                suffix = "B";
+                break;
+              case "trillion":
+              case "t":
+                multiplier = 1000000000000;
+                suffix = "T";
+                break;
+            }
+
+            const actualValue = numValue * multiplier;
+            const formattedValue = actualValue.toLocaleString("en-US", {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 2,
+            });
+
+            return `<span style="color: #00D4FF; font-weight: 700;">$${formattedValue}</span>`;
+          },
+        );
+
+        // Add line breaks
+        formatted = formatted.replace(/\n/g, "<br>");
+
+        return formatted;
+      }
+
+      // Portfolio stats display - more compact
+      function createPortfolioStatsDiv(stats) {
+        const statsDiv = document.createElement("div");
+        statsDiv.className = "portfolio-result";
+
+        const statsGrid = document.createElement("div");
+        statsGrid.className = "portfolio-stats";
+
+        if (stats.totalValue !== undefined) {
+          statsGrid.innerHTML += `
                     <div class="stat-item">
                         <div class="stat-label">Total Value</div>
                         <div class="stat-value">$${Number(stats.totalValue).toLocaleString()}</div>
                     </div>
                 `;
-            }
-            
-            if (stats.totalAssets !== undefined) {
-                statsGrid.innerHTML += `
+        }
+
+        if (stats.totalAssets !== undefined) {
+          statsGrid.innerHTML += `
                     <div class="stat-item">
                         <div class="stat-label">Assets</div>
                         <div class="stat-value">${stats.totalAssets}</div>
                     </div>
                 `;
-            }
-            
-            if (stats.dayChange !== undefined) {
-                const changeColor = stats.dayChange >= 0 ? '#00FF88' : '#FF3366';
-                const arrow = stats.dayChange >= 0 ? '↑' : '↓';
-                statsGrid.innerHTML += `
+        }
+
+        if (stats.dayChange !== undefined) {
+          const changeColor = stats.dayChange >= 0 ? "#00FF88" : "#FF3366";
+          const arrow = stats.dayChange >= 0 ? "↑" : "↓";
+          statsGrid.innerHTML += `
                     <div class="stat-item">
                         <div class="stat-label">Performance</div>
                         <div class="stat-value" style="color: ${changeColor}">
-                            ${stats.dayChange >= 0 ? '+' : ''}${stats.dayChange.toFixed(2)}% ${arrow}
+                            ${stats.dayChange >= 0 ? "+" : ""}${stats.dayChange.toFixed(2)}% ${arrow}
                         </div>
                     </div>
                 `;
-            }
-            
-            if (stats.diversificationScore !== undefined) {
-                const scoreColor = stats.diversificationScore >= 70 ? '#00FF88' : stats.diversificationScore >= 50 ? '#FFD700' : '#FF3366';
-                statsGrid.innerHTML += `
+        }
+
+        if (stats.diversificationScore !== undefined) {
+          const scoreColor =
+            stats.diversificationScore >= 70
+              ? "#00FF88"
+              : stats.diversificationScore >= 50
+                ? "#FFD700"
+                : "#FF3366";
+          statsGrid.innerHTML += `
                     <div class="stat-item">
                         <div class="stat-label">Diversification</div>
                         <div class="stat-value" style="color: ${scoreColor}">
@@ -1481,12 +1749,16 @@
                         </div>
                     </div>
                 `;
-            }
-            
-            if (stats.riskAssessment !== undefined) {
-                const riskColor = stats.riskAssessment === 'Conservative' ? '#00FF88' : 
-                                 stats.riskAssessment === 'Moderate' ? '#FFD700' : '#FF3366';
-                statsGrid.innerHTML += `
+        }
+
+        if (stats.riskAssessment !== undefined) {
+          const riskColor =
+            stats.riskAssessment === "Conservative"
+              ? "#00FF88"
+              : stats.riskAssessment === "Moderate"
+                ? "#FFD700"
+                : "#FF3366";
+          statsGrid.innerHTML += `
                     <div class="stat-item">
                         <div class="stat-label">Risk Level</div>
                         <div class="stat-value" style="color: ${riskColor}">
@@ -1494,11 +1766,16 @@
                         </div>
                     </div>
                 `;
-            }
-            
-            if (stats.riskLevel !== undefined) {
-                const riskColor = stats.riskLevel === 'LOW' ? '#00FF88' : stats.riskLevel === 'MEDIUM' ? '#FFD700' : '#FF3366';
-                statsGrid.innerHTML += `
+        }
+
+        if (stats.riskLevel !== undefined) {
+          const riskColor =
+            stats.riskLevel === "LOW"
+              ? "#00FF88"
+              : stats.riskLevel === "MEDIUM"
+                ? "#FFD700"
+                : "#FF3366";
+          statsGrid.innerHTML += `
                     <div class="stat-item">
                         <div class="stat-label">Risk Level</div>
                         <div class="stat-value" style="color: ${riskColor}">
@@ -1506,102 +1783,103 @@
                         </div>
                     </div>
                 `;
-            }
-            
-            if (stats.sharpeRatio !== undefined) {
-                statsGrid.innerHTML += `
+        }
+
+        if (stats.sharpeRatio !== undefined) {
+          statsGrid.innerHTML += `
                     <div class="stat-item">
                         <div class="stat-label">Sharpe Ratio</div>
                         <div class="stat-value">${stats.sharpeRatio}</div>
                     </div>
                 `;
-            }
-            
-            if (stats.beta !== undefined) {
-                statsGrid.innerHTML += `
+        }
+
+        if (stats.beta !== undefined) {
+          statsGrid.innerHTML += `
                     <div class="stat-item">
                         <div class="stat-label">Beta</div>
                         <div class="stat-value">${stats.beta}</div>
                     </div>
                 `;
-            }
-            
-            if (stats.valueAtRisk !== undefined && stats.valueAtRisk.daily) {
-                statsGrid.innerHTML += `
+        }
+
+        if (stats.valueAtRisk !== undefined && stats.valueAtRisk.daily) {
+          statsGrid.innerHTML += `
                     <div class="stat-item">
                         <div class="stat-label">VaR (Daily)</div>
                         <div class="stat-value" style="color: #FF9500;">$${Number(stats.valueAtRisk.daily).toLocaleString()}</div>
                     </div>
                 `;
-            }
-            
-            statsDiv.appendChild(statsGrid);
-            return statsDiv;
         }
 
-        // After createPortfolioStatsDiv:
-        function formatTableCell(value, columnType) {
-            const strValue = String(value);
-            
-            // Format currency values
-            if (columnType === 'currency' || strValue.startsWith('$')) {
-                const numValue = parseFloat(strValue.replace(/[$,]/g, ''));
-                if (!isNaN(numValue)) {
-                    return `$${numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                }
-            }
-            
-            // Format percentage with trend indicators
-            if (columnType === 'percentage' || strValue.includes('%')) {
-                const numValue = parseFloat(strValue.replace('%', ''));
-                if (!isNaN(numValue)) {
-                    const arrow = numValue > 0 ? '▲' : numValue < 0 ? '▼' : '−';
-                    const color = numValue > 0 ? '#00FF88' : numValue < 0 ? '#FF3366' : '#8B92A3';
-                    return {
-                        html: `<span style="color: ${color}; font-weight: 600;">${numValue > 0 ? '+' : ''}${numValue.toFixed(2)}% ${arrow}</span>`,
-                        isHtml: true
-                    };
-                }
-            }
-            
-            // Format large numbers
-            if (columnType === 'number' && !isNaN(value)) {
-                const numValue = parseFloat(value);
-                if (numValue >= 1000000) {
-                    return `${(numValue / 1000000).toFixed(2)}M`;
-                } else if (numValue >= 1000) {
-                    return `${(numValue / 1000).toFixed(2)}K`;
-                }
-                return numValue.toLocaleString();
-            }
-            
-            return value;
+        statsDiv.appendChild(statsGrid);
+        return statsDiv;
+      }
+
+      // After createPortfolioStatsDiv:
+      function formatTableCell(value, columnType) {
+        const strValue = String(value);
+
+        // Format currency values
+        if (columnType === "currency" || strValue.startsWith("$")) {
+          const numValue = parseFloat(strValue.replace(/[$,]/g, ""));
+          if (!isNaN(numValue)) {
+            return `$${numValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          }
         }
-        
-        function renderTable(container, tableData) {
-            if (!tableData || !tableData.headers || !tableData.rows) return;
-            
-            // Determine column types
-            const columnTypes = tableData.columnTypes || [];
-            
-            const table = document.createElement('table');
-            table.style.cssText = `
+
+        // Format percentage with trend indicators
+        if (columnType === "percentage" || strValue.includes("%")) {
+          const numValue = parseFloat(strValue.replace("%", ""));
+          if (!isNaN(numValue)) {
+            const arrow = numValue > 0 ? "▲" : numValue < 0 ? "▼" : "−";
+            const color =
+              numValue > 0 ? "#00FF88" : numValue < 0 ? "#FF3366" : "#8B92A3";
+            return {
+              html: `<span style="color: ${color}; font-weight: 600;">${numValue > 0 ? "+" : ""}${numValue.toFixed(2)}% ${arrow}</span>`,
+              isHtml: true,
+            };
+          }
+        }
+
+        // Format large numbers
+        if (columnType === "number" && !isNaN(value)) {
+          const numValue = parseFloat(value);
+          if (numValue >= 1000000) {
+            return `${(numValue / 1000000).toFixed(2)}M`;
+          } else if (numValue >= 1000) {
+            return `${(numValue / 1000).toFixed(2)}K`;
+          }
+          return numValue.toLocaleString();
+        }
+
+        return value;
+      }
+
+      function renderTable(container, tableData) {
+        if (!tableData || !tableData.headers || !tableData.rows) return;
+
+        // Determine column types
+        const columnTypes = tableData.columnTypes || [];
+
+        const table = document.createElement("table");
+        table.style.cssText = `
                 width: 100%;
                 border-collapse: collapse;
                 margin-top: 16px;
                 font-size: 14px;
                 background: rgba(10,14,39,0.6);
             `;
-            
-            // Enhanced header
-            const thead = document.createElement('thead');
-            const headerRow = document.createElement('tr');
-            headerRow.style.background = 'rgba(0,212,255,0.1)';
-            
-            tableData.headers.forEach((header, index) => {
-                const th = document.createElement('th');
-                th.textContent = header;
-                th.style.cssText = `
+
+        // Enhanced header
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+        headerRow.style.background = "rgba(0,212,255,0.1)";
+
+        tableData.headers.forEach((header, index) => {
+          const th = document.createElement("th");
+          th.textContent = header;
+          th.style.cssText = `
                     padding: 12px 16px;
                     border-bottom: 2px solid #00D4FF;
                     text-align: left;
@@ -1611,60 +1889,68 @@
                     font-size: 12px;
                     letter-spacing: 0.5px;
                 `;
-                if (columnTypes[index] === 'currency' || columnTypes[index] === 'percentage' || columnTypes[index] === 'number') {
-                    th.style.textAlign = 'right';
-                }
-                headerRow.appendChild(th);
-            });
-            thead.appendChild(headerRow);
-            table.appendChild(thead);
-            
-            // Enhanced body with formatted cells
-            const tbody = document.createElement('tbody');
-            tableData.rows.forEach((row, rowIndex) => {
-                const tr = document.createElement('tr');
-                tr.style.cssText = `
+          if (
+            columnTypes[index] === "currency" ||
+            columnTypes[index] === "percentage" ||
+            columnTypes[index] === "number"
+          ) {
+            th.style.textAlign = "right";
+          }
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // Enhanced body with formatted cells
+        const tbody = document.createElement("tbody");
+        tableData.rows.forEach((row, rowIndex) => {
+          const tr = document.createElement("tr");
+          tr.style.cssText = `
                     transition: background 0.2s;
                     cursor: pointer;
                 `;
-                tr.onmouseover = () => tr.style.background = 'rgba(0,212,255,0.05)';
-                tr.onmouseout = () => tr.style.background = 'transparent';
-                
-                row.forEach((cell, cellIndex) => {
-                    const td = document.createElement('td');
-                    const formatted = formatTableCell(cell, columnTypes[cellIndex]);
-                    
-                    if (formatted.isHtml) {
-                        td.innerHTML = formatted.html;
-                    } else {
-                        td.textContent = formatted;
-                    }
-                    
-                    td.style.cssText = `
+          tr.onmouseover = () => (tr.style.background = "rgba(0,212,255,0.05)");
+          tr.onmouseout = () => (tr.style.background = "transparent");
+
+          row.forEach((cell, cellIndex) => {
+            const td = document.createElement("td");
+            const formatted = formatTableCell(cell, columnTypes[cellIndex]);
+
+            if (formatted.isHtml) {
+              td.innerHTML = formatted.html;
+            } else {
+              td.textContent = formatted;
+            }
+
+            td.style.cssText = `
                         padding: 12px 16px;
                         border-bottom: 1px solid rgba(42,49,66,0.5);
                         color: #E0E0E0;
                     `;
-                    
-                    if (columnTypes[cellIndex] === 'currency' || columnTypes[cellIndex] === 'percentage' || columnTypes[cellIndex] === 'number') {
-                        td.style.textAlign = 'right';
-                    }
-                    
-                    // Highlight first column (usually symbol/name)
-                    if (cellIndex === 0) {
-                        td.style.fontWeight = '600';
-                        td.style.color = '#00D4FF';
-                    }
-                    
-                    tr.appendChild(td);
-                });
-                tbody.appendChild(tr);
-            });
-            table.appendChild(tbody);
-            
-            // Professional container
-            const tableContainer = document.createElement('div');
-            tableContainer.style.cssText = `
+
+            if (
+              columnTypes[cellIndex] === "currency" ||
+              columnTypes[cellIndex] === "percentage" ||
+              columnTypes[cellIndex] === "number"
+            ) {
+              td.style.textAlign = "right";
+            }
+
+            // Highlight first column (usually symbol/name)
+            if (cellIndex === 0) {
+              td.style.fontWeight = "600";
+              td.style.color = "#00D4FF";
+            }
+
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        // Professional container
+        const tableContainer = document.createElement("div");
+        tableContainer.style.cssText = `
                 overflow-x: auto;
                 margin: 24px 0;
                 border-radius: 12px;
@@ -1672,430 +1958,491 @@
                 box-shadow: 0 4px 20px rgba(0,0,0,0.3);
                 background: rgba(10,14,39,0.4);
             `;
-            tableContainer.appendChild(table);
-            container.appendChild(tableContainer);
-        }
+        tableContainer.appendChild(table);
+        container.appendChild(tableContainer);
+      }
 
-        // Chart functions
-        function shouldShowChart(content) {
-            if (!content) return false;
-            const contentStr = String(content);
-            const triggers = ['price', '%', 'trading', 'climbed', 'fell', 'rose', 'dropped', 'chart', 'graph', 'plot', 'visualize', 'trend', 'candlestick', 'candle', 'ohlc'];
-            const hasPrice = contentStr.includes('$');
-            const hasTrigger = triggers.some(t => contentStr.toLowerCase().includes(t));
-            return hasPrice || hasTrigger;
+      // Chart functions
+      function shouldShowChart(content) {
+        if (!content) return false;
+        const contentStr = String(content);
+        const triggers = [
+          "price",
+          "%",
+          "trading",
+          "climbed",
+          "fell",
+          "rose",
+          "dropped",
+          "chart",
+          "graph",
+          "plot",
+          "visualize",
+          "trend",
+          "candlestick",
+          "candle",
+          "ohlc",
+        ];
+        const hasPrice = contentStr.includes("$");
+        const hasTrigger = triggers.some((t) =>
+          contentStr.toLowerCase().includes(t),
+        );
+        return hasPrice || hasTrigger;
+      }
+
+      function getChartType(content) {
+        const contentStr = String(content).toLowerCase();
+        if (
+          contentStr.includes("candlestick") ||
+          contentStr.includes("candle") ||
+          contentStr.includes("ohlc")
+        ) {
+          return "candlestick";
         }
-        
-        function getChartType(content) {
-            const contentStr = String(content).toLowerCase();
-            if (contentStr.includes('candlestick') || contentStr.includes('candle') || contentStr.includes('ohlc')) {
-                return 'candlestick';
+        return "line";
+      }
+
+      function extractSymbol(content) {
+        const contentStr = String(content);
+        const match = contentStr.match(/\b([A-Z]{2,5})\b/);
+        return match ? match[1] : "STOCK";
+      }
+
+      function generatePriceChart(symbol, chartType = "line") {
+        showChartLoadingIndicator();
+        showApiLoadingIndicator(`Fetching ${symbol} data...`);
+
+        return fetch(`/api/historical-data?symbol=${symbol}&days=30`)
+          .then((res) => res.json())
+          .then((response) => {
+            hideChartLoadingIndicator();
+            hideApiLoadingIndicator();
+
+            if (
+              !response.success ||
+              !response.data ||
+              response.data.length === 0
+            ) {
+              console.error("No historical data available");
+              return null;
             }
-            return 'line';
-        }
-
-        function extractSymbol(content) {
-            const contentStr = String(content);
-            const match = contentStr.match(/\b([A-Z]{2,5})\b/);
-            return match ? match[1] : 'STOCK';
-        }
-
-        function generatePriceChart(symbol, chartType = 'line') {
-            showChartLoadingIndicator();
-            showApiLoadingIndicator(`Fetching ${symbol} data...`);
-            
-            return fetch(`/api/historical-data?symbol=${symbol}&days=30`)
-                .then(res => res.json())
-                .then(response => {
-                    hideChartLoadingIndicator();
-                    hideApiLoadingIndicator();
-                    
-                    if (!response.success || !response.data || response.data.length === 0) {
-                        console.error('No historical data available');
-                        return null;
-                    }
-                    const historical = response.data;
-                    const latest = historical[historical.length - 1];
-                    const changePercent = ((latest.close - historical[0].close) / historical[0].close) * 100;
-                    
-                    if (chartType === 'candlestick') {
-                        return generateCandlestickChart(symbol, historical, changePercent);
-                    } else {
-                        return {
-                            type: 'line',
-                            title: `${symbol} · Real-time · $${latest.close.toFixed(2)}`,
-                            data: {
-                                labels: historical.map(d => new Date(d.date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric' })),
-                                datasets: [{
-                                    label: `${symbol} ($${latest.close.toFixed(2)})`,
-                                    data: historical.map(d => d.close),
-                                    borderColor: changePercent >= 0 ? '#00FF88' : '#FF3366',
-                                    backgroundColor: changePercent >= 0 ? 'rgba(0,255,136,0.1)' : 'rgba(255,51,102,0.1)',
-                                    borderWidth: 2,
-                                    tension: 0.4,
-                                    fill: true,
-                                    pointRadius: 0,
-                                    pointHoverRadius: 6,
-                                    pointHoverBackgroundColor: changePercent >= 0 ? '#00FF88' : '#FF3366',
-                                    pointHoverBorderColor: '#FFFFFF',
-                                    pointHoverBorderWidth: 2
-                                }]
-                            }
-                        };
-                    }
-                })
-                .catch(error => {
-                    console.error('Historical data fetch error:', error);
-                    hideChartLoadingIndicator();
-                    hideApiLoadingIndicator();
-                    return null;
-                });
-        }
-        
-        function calculateMovingAverage(data, period) {
-            const result = [];
-            for (let i = 0; i < data.length; i++) {
-                if (i < period - 1) {
-                    result.push(null);
-                } else {
-                    const sum = data.slice(i - period + 1, i + 1).reduce((acc, d) => acc + d.close, 0);
-                    result.push({
-                        x: new Date(data[i].date).getTime(),
-                        y: sum / period
-                    });
-                }
-            }
-            return result;
-        }
-        
-        function generateCandlestickChart(symbol, historical, changePercent) {
+            const historical = response.data;
             const latest = historical[historical.length - 1];
-            
-            // Calculate moving averages
-            const ma7 = calculateMovingAverage(historical, 7);
-            const ma20 = calculateMovingAverage(historical, 20);
-            
-            // Prepare volume data
-            const volumeData = historical.map(d => ({
-                x: new Date(d.date).getTime(),
-                y: d.volume
-            }));
-            
-            return {
-                type: 'candlestick',
-                title: `${symbol} · Candlestick Chart · $${latest.close.toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`,
+            const changePercent =
+              ((latest.close - historical[0].close) / historical[0].close) *
+              100;
+
+            if (chartType === "candlestick") {
+              return generateCandlestickChart(
+                symbol,
+                historical,
+                changePercent,
+              );
+            } else {
+              return {
+                type: "line",
+                title: `${symbol} · Real-time · $${latest.close.toFixed(2)}`,
                 data: {
-                    datasets: [
-                        {
-                            label: symbol,
-                            data: historical.map(d => ({
-                                x: new Date(d.date).getTime(),
-                                o: d.open,
-                                h: d.high,
-                                l: d.low,
-                                c: d.close
-                            })),
-                            color: {
-                                up: '#00FF88',
-                                down: '#FF3366',
-                                unchanged: '#999'
-                            },
-                            borderColor: {
-                                up: '#00FF88',
-                                down: '#FF3366',
-                                unchanged: '#999'
-                            }
-                        },
-                        {
-                            label: 'MA7',
-                            type: 'line',
-                            data: ma7,
-                            borderColor: '#00D4FF',
-                            backgroundColor: 'transparent',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            yAxisID: 'y'
-                        },
-                        {
-                            label: 'MA20',
-                            type: 'line',
-                            data: ma20,
-                            borderColor: '#FF9500',
-                            backgroundColor: 'transparent',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            yAxisID: 'y'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'day',
-                                displayFormats: {
-                                    day: 'MMM dd'
-                                }
-                            },
-                            grid: {
-                                color: 'rgba(255,255,255,0.1)',
-                                drawBorder: false
-                            },
-                            ticks: {
-                                color: '#8B92A3',
-                                font: { size: 11 }
-                            }
-                        },
-                        y: {
-                            grid: {
-                                color: 'rgba(255,255,255,0.1)',
-                                drawBorder: false
-                            },
-                            ticks: {
-                                color: '#8B92A3',
-                                font: { size: 11 },
-                                callback: function(value) {
-                                    return '$' + value.toFixed(2);
-                                }
-                            }
-                        }
+                  labels: historical.map((d) =>
+                    new Date(d.date).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                    }),
+                  ),
+                  datasets: [
+                    {
+                      label: `${symbol} ($${latest.close.toFixed(2)})`,
+                      data: historical.map((d) => d.close),
+                      borderColor: changePercent >= 0 ? "#00FF88" : "#FF3366",
+                      backgroundColor:
+                        changePercent >= 0
+                          ? "rgba(0,255,136,0.1)"
+                          : "rgba(255,51,102,0.1)",
+                      borderWidth: 2,
+                      tension: 0.4,
+                      fill: true,
+                      pointRadius: 0,
+                      pointHoverRadius: 6,
+                      pointHoverBackgroundColor:
+                        changePercent >= 0 ? "#00FF88" : "#FF3366",
+                      pointHoverBorderColor: "#FFFFFF",
+                      pointHoverBorderWidth: 2,
                     },
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: {
-                                color: '#8B92A3',
-                                font: { size: 11 },
-                                filter: function(item) {
-                                    // Only show MA indicators in legend
-                                    return item.text !== symbol;
-                                }
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(0,0,0,0.9)',
-                            titleColor: '#FFFFFF',
-                            bodyColor: '#00D4FF',
-                            borderColor: '#00D4FF',
-                            borderWidth: 1,
-                            cornerRadius: 4,
-                            padding: 12,
-                            callbacks: {
-                                label: function(context) {
-                                    const point = context.raw;
-                                    return [
-                                        'Open: $' + point.o.toFixed(2),
-                                        'High: $' + point.h.toFixed(2),
-                                        'Low: $' + point.l.toFixed(2),
-                                        'Close: $' + point.c.toFixed(2)
-                                    ];
-                                }
-                            }
-                        }
-                    }
-                }
+                  ],
+                },
+              };
+            }
+          })
+          .catch((error) => {
+            console.error("Historical data fetch error:", error);
+            hideChartLoadingIndicator();
+            hideApiLoadingIndicator();
+            return null;
+          });
+      }
+
+      function calculateMovingAverage(data, period) {
+        const result = [];
+        for (let i = 0; i < data.length; i++) {
+          if (i < period - 1) {
+            result.push(null);
+          } else {
+            const sum = data
+              .slice(i - period + 1, i + 1)
+              .reduce((acc, d) => acc + d.close, 0);
+            result.push({
+              x: new Date(data[i].date).getTime(),
+              y: sum / period,
+            });
+          }
+        }
+        return result;
+      }
+
+      function generateCandlestickChart(symbol, historical, changePercent) {
+        const latest = historical[historical.length - 1];
+
+        // Calculate moving averages
+        const ma7 = calculateMovingAverage(historical, 7);
+        const ma20 = calculateMovingAverage(historical, 20);
+
+        // Prepare volume data
+        const volumeData = historical.map((d) => ({
+          x: new Date(d.date).getTime(),
+          y: d.volume,
+        }));
+
+        return {
+          type: "candlestick",
+          title: `${symbol} · Candlestick Chart · $${latest.close.toFixed(2)} (${changePercent >= 0 ? "+" : ""}${changePercent.toFixed(2)}%)`,
+          data: {
+            datasets: [
+              {
+                label: symbol,
+                data: historical.map((d) => ({
+                  x: new Date(d.date).getTime(),
+                  o: d.open,
+                  h: d.high,
+                  l: d.low,
+                  c: d.close,
+                })),
+                color: {
+                  up: "#00FF88",
+                  down: "#FF3366",
+                  unchanged: "#999",
+                },
+                borderColor: {
+                  up: "#00FF88",
+                  down: "#FF3366",
+                  unchanged: "#999",
+                },
+              },
+              {
+                label: "MA7",
+                type: "line",
+                data: ma7,
+                borderColor: "#00D4FF",
+                backgroundColor: "transparent",
+                borderWidth: 2,
+                pointRadius: 0,
+                yAxisID: "y",
+              },
+              {
+                label: "MA20",
+                type: "line",
+                data: ma20,
+                borderColor: "#FF9500",
+                backgroundColor: "transparent",
+                borderWidth: 2,
+                pointRadius: 0,
+                yAxisID: "y",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                type: "time",
+                time: {
+                  unit: "day",
+                  displayFormats: {
+                    day: "MMM dd",
+                  },
+                },
+                grid: {
+                  color: "rgba(255,255,255,0.1)",
+                  drawBorder: false,
+                },
+                ticks: {
+                  color: "#8B92A3",
+                  font: { size: 11 },
+                },
+              },
+              y: {
+                grid: {
+                  color: "rgba(255,255,255,0.1)",
+                  drawBorder: false,
+                },
+                ticks: {
+                  color: "#8B92A3",
+                  font: { size: 11 },
+                  callback: function (value) {
+                    return "$" + value.toFixed(2);
+                  },
+                },
+              },
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+                labels: {
+                  color: "#8B92A3",
+                  font: { size: 11 },
+                  filter: function (item) {
+                    // Only show MA indicators in legend
+                    return item.text !== symbol;
+                  },
+                },
+              },
+              tooltip: {
+                backgroundColor: "rgba(0,0,0,0.9)",
+                titleColor: "#FFFFFF",
+                bodyColor: "#00D4FF",
+                borderColor: "#00D4FF",
+                borderWidth: 1,
+                cornerRadius: 4,
+                padding: 12,
+                callbacks: {
+                  label: function (context) {
+                    const point = context.raw;
+                    return [
+                      "Open: $" + point.o.toFixed(2),
+                      "High: $" + point.h.toFixed(2),
+                      "Low: $" + point.l.toFixed(2),
+                      "Close: $" + point.c.toFixed(2),
+                    ];
+                  },
+                },
+              },
+            },
+          },
+        };
+      }
+
+      function getLast7Days() {
+        const days = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          days.push(
+            date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+          );
+        }
+        return days;
+      }
+
+      async function renderChart(container, chartData) {
+        if (!chartData) return;
+
+        // Handle base64 image charts from server-side rendering
+        if (chartData.type === "image" && chartData.imageUrl) {
+          console.log("[ChartRenderer] Rendering server-generated chart image");
+          renderImageChart(container, chartData);
+          return;
+        }
+
+        // Handle ASCII fallback charts
+        if (chartData.type === "ascii" && chartData.content) {
+          console.log("[ChartRenderer] Rendering ASCII fallback chart");
+          renderAsciiChart(container, chartData);
+          return;
+        }
+
+        // Legacy: Handle Chart.js config objects (fallback)
+        if (!chartData.data) return;
+
+        // Load Chart.js libraries if not already loaded
+        await loadChartLibraries();
+
+        const chartContainer = document.createElement("div");
+        chartContainer.className = "chart-container";
+
+        if (chartData.title) {
+          const titleDiv = document.createElement("div");
+          titleDiv.style.cssText =
+            "text-align: center; margin-bottom: 15px; color: #8B92A3; font-weight: 500; font-size: 14px; letter-spacing: 0.5px;";
+          titleDiv.textContent = chartData.title;
+          chartContainer.appendChild(titleDiv);
+        }
+
+        const canvas = document.createElement("canvas");
+        chartContainer.appendChild(canvas);
+        container.appendChild(chartContainer);
+
+        try {
+          const ctx = canvas.getContext("2d");
+          // Use chart options from server, or fallback to defaults
+          let chartOptions = chartData.options || {};
+
+          // For pie charts, enforce no axes and use server options
+          if (chartData.type === "pie") {
+            chartOptions = {
+              ...chartOptions,
+              scales: { x: { display: false }, y: { display: false } },
+              responsive: false,
+              maintainAspectRatio: false,
             };
+          } else if (chartData.type === "candlestick") {
+            // Use candlestick-specific options
+            chartOptions = chartData.options || {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                x: {
+                  type: "time",
+                  time: {
+                    unit: "day",
+                    displayFormats: {
+                      day: "MMM dd",
+                    },
+                  },
+                  grid: {
+                    color: "rgba(255,255,255,0.1)",
+                    drawBorder: false,
+                  },
+                  ticks: {
+                    color: "#8B92A3",
+                    font: { size: 11 },
+                  },
+                },
+                y: {
+                  grid: {
+                    color: "rgba(255,255,255,0.1)",
+                    drawBorder: false,
+                  },
+                  ticks: {
+                    color: "#8B92A3",
+                    font: { size: 11 },
+                    callback: function (value) {
+                      return "$" + value.toFixed(2);
+                    },
+                  },
+                },
+              },
+              plugins: {
+                legend: {
+                  display: false,
+                },
+                tooltip: {
+                  backgroundColor: "rgba(0,0,0,0.9)",
+                  titleColor: "#FFFFFF",
+                  bodyColor: "#00D4FF",
+                  borderColor: "#00D4FF",
+                  borderWidth: 1,
+                  cornerRadius: 4,
+                  padding: 12,
+                  callbacks: {
+                    label: function (context) {
+                      const point = context.raw;
+                      return [
+                        "Open: $" + point.o.toFixed(2),
+                        "High: $" + point.h.toFixed(2),
+                        "Low: $" + point.l.toFixed(2),
+                        "Close: $" + point.c.toFixed(2),
+                      ];
+                    },
+                  },
+                },
+              },
+            };
+          } else {
+            // Default options for line/bar charts
+            chartOptions = {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: "index", intersect: false },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: "rgba(0,0,0,0.9)",
+                  titleColor: "#FFFFFF",
+                  bodyColor: "#00D4FF",
+                  borderColor: "#00D4FF",
+                  borderWidth: 1,
+                  cornerRadius: 4,
+                  padding: 12,
+                  displayColors: false,
+                  callbacks: {
+                    label: function (context) {
+                      return "$" + context.parsed.y.toFixed(2);
+                    },
+                  },
+                },
+              },
+              scales: {
+                x: {
+                  ticks: {
+                    color: "#8B92A3",
+                    maxRotation: 0,
+                    autoSkip: true,
+                    maxTicksLimit: 8,
+                  },
+                  grid: { display: false },
+                },
+                y: {
+                  position: "right",
+                  ticks: {
+                    color: "#8B92A3",
+                    callback: (value) => "$" + value.toFixed(0),
+                  },
+                  grid: { color: "rgba(255,255,255,0.03)", drawBorder: false },
+                },
+              },
+            };
+          }
+
+          const chart = new Chart(ctx, {
+            type: chartData.type || "line",
+            data: chartData.data,
+            options: chartOptions,
+          });
+
+          activeCharts.push(chart);
+
+          if (activeCharts.length > 5) {
+            const oldChart = activeCharts.shift();
+            oldChart.destroy();
+          }
+        } catch (error) {
+          console.error("Chart error:", error);
+        }
+      }
+
+      // Render server-generated image charts
+      function renderImageChart(container, chartData) {
+        const chartContainer = document.createElement("div");
+        chartContainer.className = "chart-container";
+        chartContainer.style.textAlign = "center";
+
+        if (chartData.title) {
+          const titleDiv = document.createElement("div");
+          titleDiv.style.cssText =
+            "text-align: center; margin-bottom: 15px; color: #8B92A3; font-weight: 500; font-size: 14px; letter-spacing: 0.5px;";
+          titleDiv.textContent = chartData.title;
+          chartContainer.appendChild(titleDiv);
         }
 
-        function getLast7Days() {
-            const days = [];
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                days.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-            }
-            return days;
-        }
-
-        async function renderChart(container, chartData) {
-            if (!chartData) return;
-            
-            // Handle base64 image charts from server-side rendering
-            if (chartData.type === 'image' && chartData.imageUrl) {
-                console.log('[ChartRenderer] Rendering server-generated chart image');
-                renderImageChart(container, chartData);
-                return;
-            }
-            
-            // Handle ASCII fallback charts
-            if (chartData.type === 'ascii' && chartData.content) {
-                console.log('[ChartRenderer] Rendering ASCII fallback chart');
-                renderAsciiChart(container, chartData);
-                return;
-            }
-            
-            // Legacy: Handle Chart.js config objects (fallback)
-            if (!chartData.data) return;
-            
-            // Load Chart.js libraries if not already loaded
-            await loadChartLibraries();
-            
-            const chartContainer = document.createElement('div');
-            chartContainer.className = 'chart-container';
-            
-            if (chartData.title) {
-                const titleDiv = document.createElement('div');
-                titleDiv.style.cssText = 'text-align: center; margin-bottom: 15px; color: #8B92A3; font-weight: 500; font-size: 14px; letter-spacing: 0.5px;';
-                titleDiv.textContent = chartData.title;
-                chartContainer.appendChild(titleDiv);
-            }
-            
-            const canvas = document.createElement('canvas');
-            chartContainer.appendChild(canvas);
-            container.appendChild(chartContainer);
-            
-            try {
-                const ctx = canvas.getContext('2d');
-                // Use chart options from server, or fallback to defaults
-                let chartOptions = chartData.options || {};
-                
-                // For pie charts, enforce no axes and use server options
-                if (chartData.type === 'pie') {
-                    chartOptions = {
-                        ...chartOptions,
-                        scales: { x: { display: false }, y: { display: false } },
-                        responsive: false,
-                        maintainAspectRatio: false
-                    };
-                } else if (chartData.type === 'candlestick') {
-                    // Use candlestick-specific options
-                    chartOptions = chartData.options || {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: {
-                                type: 'time',
-                                time: {
-                                    unit: 'day',
-                                    displayFormats: {
-                                        day: 'MMM dd'
-                                    }
-                                },
-                                grid: {
-                                    color: 'rgba(255,255,255,0.1)',
-                                    drawBorder: false
-                                },
-                                ticks: {
-                                    color: '#8B92A3',
-                                    font: { size: 11 }
-                                }
-                            },
-                            y: {
-                                grid: {
-                                    color: 'rgba(255,255,255,0.1)',
-                                    drawBorder: false
-                                },
-                                ticks: {
-                                    color: '#8B92A3',
-                                    font: { size: 11 },
-                                    callback: function(value) {
-                                        return '$' + value.toFixed(2);
-                                    }
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                backgroundColor: 'rgba(0,0,0,0.9)',
-                                titleColor: '#FFFFFF',
-                                bodyColor: '#00D4FF',
-                                borderColor: '#00D4FF',
-                                borderWidth: 1,
-                                cornerRadius: 4,
-                                padding: 12,
-                                callbacks: {
-                                    label: function(context) {
-                                        const point = context.raw;
-                                        return [
-                                            'Open: $' + point.o.toFixed(2),
-                                            'High: $' + point.h.toFixed(2),
-                                            'Low: $' + point.l.toFixed(2),
-                                            'Close: $' + point.c.toFixed(2)
-                                        ];
-                                    }
-                                }
-                            }
-                        }
-                    };
-                } else {
-                    // Default options for line/bar charts
-                    chartOptions = {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: 'rgba(0,0,0,0.9)',
-                                titleColor: '#FFFFFF',
-                                bodyColor: '#00D4FF',
-                                borderColor: '#00D4FF',
-                                borderWidth: 1,
-                                cornerRadius: 4,
-                                padding: 12,
-                                displayColors: false,
-                                callbacks: {
-                                    label: function(context) {
-                                        return '$' + context.parsed.y.toFixed(2);
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                ticks: { color: '#8B92A3', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
-                                grid: { display: false }
-                            },
-                            y: {
-                                position: 'right',
-                                ticks: { color: '#8B92A3', callback: value => '$' + value.toFixed(0) },
-                                grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false }
-                            }
-                        }
-                    };
-                }
-                
-                const chart = new Chart(ctx, {
-                    type: chartData.type || 'line',
-                    data: chartData.data,
-                    options: chartOptions
-                });
-                
-                activeCharts.push(chart);
-                
-                if (activeCharts.length > 5) {
-                    const oldChart = activeCharts.shift();
-                    oldChart.destroy();
-                }
-            } catch (error) {
-                console.error('Chart error:', error);
-            }
-        }
-        
-        // Render server-generated image charts
-        function renderImageChart(container, chartData) {
-            const chartContainer = document.createElement('div');
-            chartContainer.className = 'chart-container';
-            chartContainer.style.textAlign = 'center';
-            
-            if (chartData.title) {
-                const titleDiv = document.createElement('div');
-                titleDiv.style.cssText = 'text-align: center; margin-bottom: 15px; color: #8B92A3; font-weight: 500; font-size: 14px; letter-spacing: 0.5px;';
-                titleDiv.textContent = chartData.title;
-                chartContainer.appendChild(titleDiv);
-            }
-            
-            const img = document.createElement('img');
-            img.src = chartData.imageUrl;
-            img.alt = chartData.title || 'Financial Chart';
-            img.style.cssText = `
+        const img = document.createElement("img");
+        img.src = chartData.imageUrl;
+        img.alt = chartData.title || "Financial Chart";
+        img.style.cssText = `
                 max-width: 100%;
                 height: auto;
                 border-radius: 8px;
@@ -2103,11 +2450,11 @@
                 background: #0A0E27;
                 animation: chartFadeIn 0.5s ease;
             `;
-            
-            img.onerror = function() {
-                console.error('[ChartRenderer] Failed to load chart image');
-                const errorDiv = document.createElement('div');
-                errorDiv.style.cssText = `
+
+        img.onerror = function () {
+          console.error("[ChartRenderer] Failed to load chart image");
+          const errorDiv = document.createElement("div");
+          errorDiv.style.cssText = `
                     padding: 20px;
                     background: rgba(255, 51, 102, 0.1);
                     border: 1px solid rgba(255, 51, 102, 0.3);
@@ -2116,23 +2463,23 @@
                     text-align: center;
                     font-size: 14px;
                 `;
-                errorDiv.textContent = '📊 Chart rendering failed. Please try again.';
-                chartContainer.appendChild(errorDiv);
-            };
-            
-            img.onload = function() {
-                console.log('[ChartRenderer] Chart image loaded successfully');
-            };
-            
-            chartContainer.appendChild(img);
-            container.appendChild(chartContainer);
-        }
-        
-        // Render ASCII fallback charts
-        function renderAsciiChart(container, chartData) {
-            const chartContainer = document.createElement('div');
-            chartContainer.className = 'chart-container ascii-chart';
-            chartContainer.style.cssText = `
+          errorDiv.textContent = "📊 Chart rendering failed. Please try again.";
+          chartContainer.appendChild(errorDiv);
+        };
+
+        img.onload = function () {
+          console.log("[ChartRenderer] Chart image loaded successfully");
+        };
+
+        chartContainer.appendChild(img);
+        container.appendChild(chartContainer);
+      }
+
+      // Render ASCII fallback charts
+      function renderAsciiChart(container, chartData) {
+        const chartContainer = document.createElement("div");
+        chartContainer.className = "chart-container ascii-chart";
+        chartContainer.style.cssText = `
                 background: var(--secondary-dark);
                 border: 1px solid var(--border-color);
                 border-radius: 8px;
@@ -2145,317 +2492,377 @@
                 white-space: pre;
                 overflow-x: auto;
             `;
-            
-            if (chartData.title) {
-                const titleDiv = document.createElement('div');
-                titleDiv.style.cssText = 'text-align: center; margin-bottom: 15px; color: #00D4FF; font-weight: 600; font-size: 14px; font-family: Inter, sans-serif;';
-                titleDiv.textContent = chartData.title;
-                chartContainer.appendChild(titleDiv);
-            }
-            
-            const contentDiv = document.createElement('div');
-            contentDiv.textContent = chartData.content;
-            chartContainer.appendChild(contentDiv);
-            
-            container.appendChild(chartContainer);
+
+        if (chartData.title) {
+          const titleDiv = document.createElement("div");
+          titleDiv.style.cssText =
+            "text-align: center; margin-bottom: 15px; color: #00D4FF; font-weight: 600; font-size: 14px; font-family: Inter, sans-serif;";
+          titleDiv.textContent = chartData.title;
+          chartContainer.appendChild(titleDiv);
         }
 
-        // Professional mini chart with TradingView style
-        function renderMiniChart(container, chartData, marketData) {
-            if (!chartData || !chartData.data) return;
-            
-            const chartWrapper = document.createElement('div');
-            chartWrapper.className = 'professional-chart';
-            chartWrapper.innerHTML = `
+        const contentDiv = document.createElement("div");
+        contentDiv.textContent = chartData.content;
+        chartContainer.appendChild(contentDiv);
+
+        container.appendChild(chartContainer);
+      }
+
+      // Professional mini chart with TradingView style
+      function renderMiniChart(container, chartData, marketData) {
+        if (!chartData || !chartData.data) return;
+
+        const chartWrapper = document.createElement("div");
+        chartWrapper.className = "professional-chart";
+        chartWrapper.innerHTML = `
                 <div class="chart-header">
                     <div class="chart-title">
-                        <span class="symbol">${marketData?.symbol || 'SYMBOL'}</span>
-                        <span class="price">$${marketData?.price?.toFixed(2) || 'N/A'}</span>
-                        <span class="change ${(marketData?.changePercent || 0) >= 0 ? 'positive' : 'negative'}">
-                            ${(marketData?.changePercent || 0) >= 0 ? '+' : ''}${(marketData?.changePercent || 0).toFixed(2)}%
+                        <span class="symbol">${marketData?.symbol || "SYMBOL"}</span>
+                        <span class="price">$${marketData?.price?.toFixed(2) || "N/A"}</span>
+                        <span class="change ${(marketData?.changePercent || 0) >= 0 ? "positive" : "negative"}">
+                            ${(marketData?.changePercent || 0) >= 0 ? "+" : ""}${(marketData?.changePercent || 0).toFixed(2)}%
                         </span>
                     </div>
                     <div class="time-range">1D</div>
                 </div>
                 <canvas id="mini-chart-${Date.now()}" width="400" height="150"></canvas>
             `;
-            
-            container.appendChild(chartWrapper);
-            
-            // Draw professional chart
-            const canvas = chartWrapper.querySelector('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            const currentPrice = marketData?.price || chartData.data?.datasets?.[0]?.data?.slice(-1)[0] || 100;
-            const isPositive = (marketData?.changePercent || 0) >= 0;
-            
-            try {
-                const chart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: chartData.data.labels || ['', '', '', '', '', '', ''],
-                        datasets: [{
-                            data: chartData.data.datasets[0].data || [currentPrice * 0.98, currentPrice * 0.99, currentPrice * 0.97, currentPrice, currentPrice * 1.01, currentPrice * 0.99, currentPrice],
-                            borderColor: isPositive ? '#00D9FF' : '#FF3B69',
-                            backgroundColor: isPositive ? 'rgba(0,217,255,0.1)' : 'rgba(255,59,105,0.1)',
-                            borderWidth: 2,
-                            tension: 0.4,
-                            fill: true,
-                            pointRadius: [0, 0, 0, 0, 0, 0, 4], // Only show last point
-                            pointBackgroundColor: isPositive ? '#00D9FF' : '#FF3B69',
-                            pointBorderColor: '#FFFFFF',
-                            pointBorderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: false,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: { enabled: false }
-                        },
-                        scales: {
-                            x: { 
-                                display: true,
-                                grid: { display: false, color: 'rgba(255,255,255,0.1)' },
-                                ticks: { display: false }
-                            },
-                            y: { 
-                                display: true,
-                                position: 'right',
-                                grid: { display: true, color: 'rgba(255,255,255,0.05)' },
-                                ticks: { 
-                                    display: true,
-                                    color: '#8B92A3',
-                                    font: { size: 10 },
-                                    callback: value => '$' + value.toFixed(0),
-                                    count: 4
-                                }
-                            }
-                        },
-                        layout: {
-                            padding: { top: 20, right: 10, bottom: 10, left: 10 }
-                        }
-                    }
-                });
-                
-                activeCharts.push(chart);
-                
-                if (activeCharts.length > 10) {
-                    const oldChart = activeCharts.shift();
-                    oldChart.destroy();
-                }
-            } catch (error) {
-                console.error('Professional chart error:', error);
-            }
-        }
 
-        // UI helpers
-        function showTypingIndicator(message = 'Max is thinking...') {
-            const indicator = document.getElementById('typing-indicator');
-            const textElement = document.getElementById('typing-text');
-            if (textElement) {
-                textElement.textContent = message;
-            }
-            indicator.classList.add('active');
-            scrollToBottom();
-        }
+        container.appendChild(chartWrapper);
 
-        function hideTypingIndicator() {
-            document.getElementById('typing-indicator').classList.remove('active');
-        }
+        // Draw professional chart
+        const canvas = chartWrapper.querySelector("canvas");
+        const ctx = canvas.getContext("2d");
 
-        function showPortfolioLoadingIndicator() {
-            document.getElementById('portfolio-loading').classList.add('active');
-            scrollToBottom();
-        }
+        const currentPrice =
+          marketData?.price ||
+          chartData.data?.datasets?.[0]?.data?.slice(-1)[0] ||
+          100;
+        const isPositive = (marketData?.changePercent || 0) >= 0;
 
-        function hidePortfolioLoadingIndicator() {
-            document.getElementById('portfolio-loading').classList.remove('active');
-        }
+        try {
+          const chart = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: chartData.data.labels || ["", "", "", "", "", "", ""],
+              datasets: [
+                {
+                  data: chartData.data.datasets[0].data || [
+                    currentPrice * 0.98,
+                    currentPrice * 0.99,
+                    currentPrice * 0.97,
+                    currentPrice,
+                    currentPrice * 1.01,
+                    currentPrice * 0.99,
+                    currentPrice,
+                  ],
+                  borderColor: isPositive ? "#00D9FF" : "#FF3B69",
+                  backgroundColor: isPositive
+                    ? "rgba(0,217,255,0.1)"
+                    : "rgba(255,59,105,0.1)",
+                  borderWidth: 2,
+                  tension: 0.4,
+                  fill: true,
+                  pointRadius: [0, 0, 0, 0, 0, 0, 4], // Only show last point
+                  pointBackgroundColor: isPositive ? "#00D9FF" : "#FF3B69",
+                  pointBorderColor: "#FFFFFF",
+                  pointBorderWidth: 2,
+                },
+              ],
+            },
+            options: {
+              responsive: false,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false },
+              },
+              scales: {
+                x: {
+                  display: true,
+                  grid: { display: false, color: "rgba(255,255,255,0.1)" },
+                  ticks: { display: false },
+                },
+                y: {
+                  display: true,
+                  position: "right",
+                  grid: { display: true, color: "rgba(255,255,255,0.05)" },
+                  ticks: {
+                    display: true,
+                    color: "#8B92A3",
+                    font: { size: 10 },
+                    callback: (value) => "$" + value.toFixed(0),
+                    count: 4,
+                  },
+                },
+              },
+              layout: {
+                padding: { top: 20, right: 10, bottom: 10, left: 10 },
+              },
+            },
+          });
 
-        function showChartLoadingIndicator() {
-            document.getElementById('chart-loading').classList.add('active');
-            scrollToBottom();
-        }
+          activeCharts.push(chart);
 
-        function hideChartLoadingIndicator() {
-            document.getElementById('chart-loading').classList.remove('active');
+          if (activeCharts.length > 10) {
+            const oldChart = activeCharts.shift();
+            oldChart.destroy();
+          }
+        } catch (error) {
+          console.error("Professional chart error:", error);
         }
+      }
 
-        function showApiLoadingIndicator(message = 'Fetching data...') {
-            const indicator = document.getElementById('api-loading');
-            const textElement = document.getElementById('api-loading-text');
-            if (textElement) {
-                textElement.textContent = message;
-            }
-            indicator.classList.add('active');
+      // UI helpers
+      function showTypingIndicator(message = "Max is thinking...") {
+        const indicator = document.getElementById("typing-indicator");
+        const textElement = document.getElementById("typing-text");
+        if (textElement) {
+          textElement.textContent = message;
         }
+        indicator.classList.add("active");
+        scrollToBottom();
+      }
 
-        function hideApiLoadingIndicator() {
-            document.getElementById('api-loading').classList.remove('active');
+      function hideTypingIndicator() {
+        document.getElementById("typing-indicator").classList.remove("active");
+      }
+
+      function showPortfolioLoadingIndicator() {
+        document.getElementById("portfolio-loading").classList.add("active");
+        scrollToBottom();
+      }
+
+      function hidePortfolioLoadingIndicator() {
+        document.getElementById("portfolio-loading").classList.remove("active");
+      }
+
+      function showChartLoadingIndicator() {
+        document.getElementById("chart-loading").classList.add("active");
+        scrollToBottom();
+      }
+
+      function hideChartLoadingIndicator() {
+        document.getElementById("chart-loading").classList.remove("active");
+      }
+
+      function showApiLoadingIndicator(message = "Fetching data...") {
+        const indicator = document.getElementById("api-loading");
+        const textElement = document.getElementById("api-loading-text");
+        if (textElement) {
+          textElement.textContent = message;
         }
+        indicator.classList.add("active");
+      }
 
-        function hideAllLoadingIndicators() {
-            hideTypingIndicator();
-            hidePortfolioLoadingIndicator();
-            hideChartLoadingIndicator();
+      function hideApiLoadingIndicator() {
+        document.getElementById("api-loading").classList.remove("active");
+      }
+
+      function hideAllLoadingIndicators() {
+        hideTypingIndicator();
+        hidePortfolioLoadingIndicator();
+        hideChartLoadingIndicator();
+        hideApiLoadingIndicator();
+      }
+
+      function scrollToBottom() {
+        const container = document.getElementById("chat-container");
+        setTimeout(() => {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: "smooth",
+          });
+        }, 100);
+      }
+
+      function autoResize(textarea) {
+        textarea.style.height = "auto";
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
+      }
+
+      function handleKeyDown(event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          console.log("Enter key pressed, sending message");
+          sendMessage();
+        }
+      }
+
+      // Market ticker with real data
+      function updateMarketTicker() {
+        const ticker = document.getElementById("market-ticker");
+        if (!ticker) return;
+
+        // Show subtle loading for market data
+        showApiLoadingIndicator("Updating market data...");
+
+        // Fetch real market data from API
+        fetch("/api/market-data")
+          .then((response) => response.json())
+          .then((data) => {
             hideApiLoadingIndicator();
-        }
-
-        function scrollToBottom() {
-            const container = document.getElementById('chat-container');
-            setTimeout(() => {
-                container.scrollTo({
-                    top: container.scrollHeight,
-                    behavior: 'smooth'
-                });
-            }, 100);
-        }
-
-        function autoResize(textarea) {
-            textarea.style.height = 'auto';
-            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-        }
-
-        function handleKeyDown(event) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                console.log('Enter key pressed, sending message');
-                sendMessage();
+            if (data.success && data.prices) {
+              renderMarketTicker(data.prices);
+            } else {
+              console.error("Failed to fetch market data");
+              renderMarketTicker(getFallbackMarketData());
             }
-        }
+          })
+          .catch((error) => {
+            console.error("Market data fetch error:", error);
+            hideApiLoadingIndicator();
+            renderMarketTicker(getFallbackMarketData());
+          });
+      }
 
-        // Market ticker with real data
-        function updateMarketTicker() {
-            const ticker = document.getElementById('market-ticker');
-            if (!ticker) return;
-            
-            // Show subtle loading for market data
-            showApiLoadingIndicator('Updating market data...');
-            
-            // Fetch real market data from API
-            fetch('/api/market-data')
-                .then(response => response.json())
-                .then(data => {
-                    hideApiLoadingIndicator();
-                    if (data.success && data.prices) {
-                        renderMarketTicker(data.prices);
-                    } else {
-                        console.error('Failed to fetch market data');
-                        renderMarketTicker(getFallbackMarketData());
-                    }
-                })
-                .catch(error => {
-                    console.error('Market data fetch error:', error);
-                    hideApiLoadingIndicator();
-                    renderMarketTicker(getFallbackMarketData());
-                });
-        }
-        
-        function renderMarketTicker(stocks) {
-            const ticker = document.getElementById('market-ticker');
-            if (!ticker) return;
-            
-            const tickerContent = document.createElement('div');
-            tickerContent.className = 'market-ticker-content';
-            
-            [...stocks, ...stocks].forEach(stock => {
-                const item = document.createElement('div');
-                item.className = 'ticker-item';
-                const change = stock.changePercent || stock.change || 0;
-                const arrow = change >= 0 ? '↑' : '↓';
-                item.innerHTML = `
+      function renderMarketTicker(stocks) {
+        const ticker = document.getElementById("market-ticker");
+        if (!ticker) return;
+
+        const tickerContent = document.createElement("div");
+        tickerContent.className = "market-ticker-content";
+
+        [...stocks, ...stocks].forEach((stock) => {
+          const item = document.createElement("div");
+          item.className = "ticker-item";
+          item.setAttribute("data-symbol", stock.symbol);
+          const change = stock.changePercent || stock.change || 0;
+          const arrow = change >= 0 ? "↑" : "↓";
+          item.innerHTML = `
                     <span class="ticker-symbol">${stock.symbol}</span>
-                    <span class="ticker-price">$${stock.price ? stock.price.toFixed(2) : 'N/A'}</span>
-                    <span class="ticker-change ${change >= 0 ? 'positive' : 'negative'}">
-                        ${change >= 0 ? '+' : ''}${change.toFixed(2)}% ${arrow}
+                    <span class="ticker-price">$${stock.price ? stock.price.toFixed(2) : "N/A"}</span>
+                    <span class="ticker-change ${change >= 0 ? "positive" : "negative"}">
+                        ${change >= 0 ? "+" : ""}${change.toFixed(2)}% ${arrow}
                     </span>
                 `;
-                tickerContent.appendChild(item);
-            });
-            
-            ticker.innerHTML = '';
-            ticker.appendChild(tickerContent);
-        }
-        
-        function getFallbackMarketData() {
-            return [
-                { symbol: 'AAPL', price: 195.89, change: 2.34 },
-                { symbol: 'GOOGL', price: 156.12, change: -0.87 },
-                { symbol: 'MSFT', price: 428.76, change: 1.43 },
-                { symbol: 'BTC', price: 67432.18, change: 3.76 },
-                { symbol: 'ETH', price: 3876.42, change: -1.23 },
-                { symbol: 'NVDA', price: 879.44, change: 4.21 },
-                { symbol: 'TSLA', price: 246.38, change: -2.11 }
-            ];
-        }
-
-        // Initialize the app
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM Content Loaded - Setting up event listeners');
-            
-            // Initialize session
-            fetch('/api/session/init', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    sessionId = data.sessionId;
-                    console.log('Session initialized:', sessionId);
-                }
-            })
-            .catch(error => {
-                console.error('Session init failed:', error);
-                sessionId = 'fallback_' + Date.now();
-            });
-            
-            // Set up event listeners
-            const sendBtn = document.getElementById('send-btn');
-            const uploadBtn = document.getElementById('upload-btn');
-            const chatInput = document.getElementById('chat-input');
-            const fileInput = document.getElementById('file-input');
-            
-            if (sendBtn) {
-                sendBtn.addEventListener('click', sendMessage);
-                console.log('Send button event listener added');
-            } else {
-                console.error('Send button not found!');
-            }
-            
-            if (uploadBtn && fileInput) {
-                uploadBtn.addEventListener('click', function() {
-                    fileInput.click();
-                });
-                console.log('Upload button event listener added');
-            }
-            
-            if (fileInput) {
-                fileInput.addEventListener('change', handleFileUpload);
-                console.log('File input event listener added');
-            }
-            
-            if (chatInput) {
-                chatInput.addEventListener('keydown', handleKeyDown);
-                chatInput.addEventListener('input', function() {
-                    autoResize(this);
-                });
-                chatInput.focus();
-                console.log('Chat input event listeners added');
-            } else {
-                console.error('Chat input not found!');
-            }
-            
-            // Start market ticker
-            updateMarketTicker();
-            
-            console.log('App initialized, all features ready');
+          tickerContent.appendChild(item);
         });
 
-        // Make sendMessage globally available
-        window.sendMessage = sendMessage;
+        ticker.innerHTML = "";
+        ticker.appendChild(tickerContent);
+      }
+
+      function getFallbackMarketData() {
+        return [
+          { symbol: "AAPL", price: 195.89, change: 2.34 },
+          { symbol: "GOOGL", price: 156.12, change: -0.87 },
+          { symbol: "MSFT", price: 428.76, change: 1.43 },
+          { symbol: "BTC", price: 67432.18, change: 3.76 },
+          { symbol: "ETH", price: 3876.42, change: -1.23 },
+          { symbol: "NVDA", price: 879.44, change: 4.21 },
+          { symbol: "TSLA", price: 246.38, change: -2.11 },
+        ];
+      }
+
+      // Initialize the app
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("DOM Content Loaded - Setting up event listeners");
+
+        // Initialize session
+        fetch("/api/session/init", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              sessionId = data.sessionId;
+              console.log("Session initialized:", sessionId);
+            }
+          })
+          .catch((error) => {
+            console.error("Session init failed:", error);
+            sessionId = "fallback_" + Date.now();
+          });
+
+        // Set up event listeners
+        const sendBtn = document.getElementById("send-btn");
+        const uploadBtn = document.getElementById("upload-btn");
+        const chatInput = document.getElementById("chat-input");
+        const fileInput = document.getElementById("file-input");
+
+        if (sendBtn) {
+          sendBtn.addEventListener("click", sendMessage);
+          console.log("Send button event listener added");
+        } else {
+          console.error("Send button not found!");
+        }
+
+        if (uploadBtn && fileInput) {
+          uploadBtn.addEventListener("click", function () {
+            fileInput.click();
+          });
+          console.log("Upload button event listener added");
+        }
+
+        if (fileInput) {
+          fileInput.addEventListener("change", handleFileUpload);
+          console.log("File input event listener added");
+        }
+
+        if (chatInput) {
+          chatInput.addEventListener("keydown", handleKeyDown);
+          chatInput.addEventListener("input", function () {
+            autoResize(this);
+          });
+          chatInput.focus();
+          console.log("Chat input event listeners added");
+        } else {
+          console.error("Chat input not found!");
+        }
+
+        // Start market ticker
+        updateMarketTicker();
+
+        // Initialize WebSocket client
+        console.log("Initializing WebSocket client...");
+        wsClient = new WebSocketClient({
+          url: `ws://${window.location.host}/ws`,
+          reconnectDelay: 1000,
+          maxReconnectAttempts: 5,
+          heartbeatInterval: 30000,
+        });
+
+        // Set up WebSocket event handlers
+        wsClient.on("connected", () => {
+          console.log("WebSocket connected");
+          // Subscribe to popular symbols for market ticker
+          const tickerSymbols = [
+            "AAPL",
+            "GOOGL",
+            "MSFT",
+            "AMZN",
+            "TSLA",
+            "NVDA",
+            "META",
+          ];
+          tickerSymbols.forEach((symbol) => {
+            wsClient.subscribe(symbol);
+          });
+        });
+
+        wsClient.on("disconnected", (event) => {
+          console.log("WebSocket disconnected:", event);
+        });
+
+        wsClient.on("trade", (trade) => {
+          console.log("Real-time trade:", trade);
+          // Market ticker will be updated by WebSocket client
+        });
+
+        wsClient.on("error", (error) => {
+          console.error("WebSocket error:", error);
+        });
+
+        // Connect to WebSocket
+        wsClient.connect();
+
+        console.log("App initialized, all features ready");
+      });
+
+      // Make sendMessage globally available
+      window.sendMessage = sendMessage;
     </script>
-</body>
+  </body>
 </html>
