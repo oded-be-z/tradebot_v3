@@ -7,132 +7,65 @@ class ResponseFormatter {
     // Create natural comparison header
     const naturalHeader = this.generateNaturalComparisonHeader(data.symbols);
 
-    let html = `
-      <div class="comparison-container">
-        <h3>${naturalHeader}</h3>
-        <table class="comparison-table">
-          <thead>
-            <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>
-          </thead>
-          <tbody>
-            ${rows
-              .map(
-                (row) => `
-              <tr>${row
-                .map(
-                  (cell, i) =>
-                    `<td class="${i === 0 ? "metric-label" : "metric-value"}">${cell}</td>`,
-                )
-                .join("")}</tr>
-            `,
-              )
-              .join("")}
-          </tbody>
-        </table>
-        ${
-          data.analysis
-            ? `
-          <div class="analysis-section">
-            <h4>Analysis</h4>
-            <p>${data.analysis}</p>
-          </div>
-        `
-            : ""
-        }
-      </div>
-    `;
+    let result = `**${naturalHeader}**\n\n`;
 
-    return html;
+    // Format as clean text table
+    rows.forEach(row => {
+      const metric = row[0];
+      const values = row.slice(1);
+      
+      result += `**${metric}**: `;
+      values.forEach((value, index) => {
+        if (index > 0) result += ' vs ';
+        result += value;
+      });
+      result += '\n';
+    });
+
+    // Add analysis if available
+    if (data.analysis) {
+      result += `\n${data.analysis}`;
+    }
+
+    return result;
   }
 
   formatTrendAnalysis(data) {
-    // Handle null price gracefully
-    const currentPrice = data.currentPrice || data.trend?.resistance || "N/A";
-    const priceDisplay =
-      currentPrice === "N/A"
-        ? "Price Unavailable"
-        : `$${parseFloat(currentPrice).toFixed(2)}`;
-
-    return `
-      <div class="trend-analysis">
-        <h3>${data.symbol} Trend Analysis</h3>
-        <div class="trend-summary">
-          <span class="trend-direction ${data.trend.direction}">
-            ${data.trend.direction === "up" ? "📈" : "📉"} 
-            ${data.trend.direction.toUpperCase()} ${NumberFormatter.formatPercentage(Math.abs(data.trend.change))}
-          </span>
-          <span class="current-price">Current: ${priceDisplay}</span>
-        </div>
-        <div class="trend-levels">
-          <span class="support">Support: ${NumberFormatter.formatPrice(data.trend.support)}</span>
-          <span class="resistance">Resistance: ${NumberFormatter.formatPrice(data.trend.resistance)}</span>
-        </div>
-        <div class="trend-explanation">
-          ${data.explanation}
-        </div>
-      </div>
-    `;
+    // Just return the explanation directly since it's already properly formatted
+    return data.explanation || data.response || `${data.symbol} analysis not available.`;
   }
 
   formatPortfolioAnalysis(data) {
     const { metrics, insights, recommendations } = data;
 
-    return `
-      <div class="portfolio-analysis">
-        <h3>Portfolio Analysis</h3>
-        
-        <div class="portfolio-summary">
-          <div class="metric-card">
-            <span class="label">Total Value</span>
-            <span class="value">${NumberFormatter.formatPrice(parseFloat(metrics.totalValue))}</span>
-          </div>
-          <div class="metric-card ${parseFloat(metrics.totalGainPercent) >= 0 ? "positive" : "negative"}">
-            <span class="label">Total Return</span>
-            <span class="value">${NumberFormatter.formatPercentage(parseFloat(metrics.totalGainPercent))}</span>
-            <span class="sub-value">${NumberFormatter.formatPrice(parseFloat(metrics.totalGain))}</span>
-          </div>
-        </div>
-        
-        <div class="portfolio-insights">
-          <h4>Key Insights</h4>
-          <p>${insights.summary}</p>
-          
-          ${
-            insights.performance.best
-              ? `
-            <div class="performance-highlight">
-              <span class="best">Best: ${insights.performance.best.symbol} (${NumberFormatter.formatPercentage(insights.performance.best.changePercent)})</span>
-              <span class="worst">Worst: ${insights.performance.worst.symbol} (${NumberFormatter.formatPercentage(insights.performance.worst.changePercent)})</span>
-            </div>
-          `
-              : ""
-          }
-          
-          <p>${insights.concentration.message}</p>
-          <p>${insights.risk.suggestion}</p>
-        </div>
-        
-        ${
-          recommendations.length > 0
-            ? `
-          <div class="portfolio-recommendations">
-            <h4>Recommendations</h4>
-            ${recommendations
-              .map(
-                (rec) => `
-              <div class="recommendation ${rec.type}">
-                <span class="rec-type">${rec.type.toUpperCase()}</span>
-                <span class="rec-action">${rec.action}</span>
-              </div>
-            `,
-              )
-              .join("")}
-          </div>
-        `
-            : ""
-        }
-      </div>
-    `;
+    let result = `**Portfolio Analysis**\n\n`;
+    
+    // Portfolio summary
+    result += `**Total Value**: ${NumberFormatter.formatPrice(parseFloat(metrics.totalValue))}\n`;
+    result += `**Total Return**: ${NumberFormatter.formatPercentage(parseFloat(metrics.totalGainPercent))} (${NumberFormatter.formatPrice(parseFloat(metrics.totalGain))})\n\n`;
+    
+    // Key insights
+    result += `**Key Insights**\n`;
+    result += `${insights.summary}\n\n`;
+    
+    // Performance highlights
+    if (insights.performance.best) {
+      result += `**Best**: ${insights.performance.best.symbol} (${NumberFormatter.formatPercentage(insights.performance.best.changePercent)})\n`;
+      result += `**Worst**: ${insights.performance.worst.symbol} (${NumberFormatter.formatPercentage(insights.performance.worst.changePercent)})\n\n`;
+    }
+    
+    result += `${insights.concentration.message}\n`;
+    result += `${insights.risk.suggestion}\n\n`;
+    
+    // Recommendations
+    if (recommendations.length > 0) {
+      result += `**Recommendations**\n`;
+      recommendations.forEach(rec => {
+        result += `• **${rec.type.toUpperCase()}**: ${rec.action}\n`;
+      });
+    }
+
+    return result;
   }
 
   generateNaturalComparisonHeader(symbols) {

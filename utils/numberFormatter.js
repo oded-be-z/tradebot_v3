@@ -43,11 +43,17 @@ class NumberFormatter {
    */
   static formatPercentage(value, decimals = 2) {
     if (value === null || value === undefined || isNaN(value)) {
-      return '+0.00%';
+      return '0.00%';
     }
 
-    const sign = value >= 0 ? '+' : '';
-    return sign + value.toFixed(decimals) + '%';
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      return '0.00%';
+    }
+
+    const sign = num >= 0 ? '+' : '';
+    const arrow = num >= 0 ? ' ▲' : ' ▼';
+    return sign + num.toFixed(decimals) + '%' + arrow;
   }
 
   /**
@@ -57,22 +63,26 @@ class NumberFormatter {
    * @returns {string} - Formatted volume string (e.g., "42.3M shares")
    */
   static formatVolume(value, unit = 'shares') {
-    if (value === null || value === undefined || isNaN(value)) {
-      return '0 ' + unit;
-    }
-
-    let volumeStr;
-    if (value >= 1000000000) {
-      volumeStr = (value / 1000000000).toFixed(1) + 'B';
-    } else if (value >= 1000000) {
-      volumeStr = (value / 1000000).toFixed(1) + 'M';
-    } else if (value >= 1000) {
-      volumeStr = (value / 1000).toFixed(1) + 'K';
+    if (!value) return 'N/A';
+    
+    const cleanedValue = value.toString().replace(/,/g, '');
+    const num = parseFloat(cleanedValue);
+    if (isNaN(num)) return 'N/A';
+    
+    let formatted;
+    
+    if (num >= 1e9) {
+      formatted = (num / 1e9).toFixed(1) + 'B';
+    } else if (num >= 1e6) {
+      formatted = (num / 1e6).toFixed(1) + 'M';
+    } else if (num >= 1e3) {
+      formatted = (num / 1e3).toFixed(1) + 'K';
     } else {
-      volumeStr = value.toLocaleString();
+      formatted = Math.round(num).toLocaleString();
     }
-
-    return volumeStr + ' ' + unit;
+    
+    // NEVER add $ sign to volume!
+    return `${formatted} ${unit}`;
   }
 
   /**

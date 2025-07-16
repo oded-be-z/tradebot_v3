@@ -1256,8 +1256,7 @@
         // Add response content based on type
         if (
           type === "comparison_table" ||
-          type === "portfolio_analysis" ||
-          type === "trend_analysis"
+          type === "portfolio_analysis"
         ) {
           contentDiv.innerHTML = response; // Already formatted HTML
         } else {
@@ -1623,9 +1622,19 @@ Your portfolio is now loaded and ready for analysis!`;
             : isNegative
               ? "#FF3366"
               : "#8B92A3";
-          const arrow = isPositive ? "▲" : isNegative ? "▼" : "−";
-          const formattedPercent = isPositive ? `+${match}` : match;
-          return `<span style="color: ${color}; font-weight: 700;">${formattedPercent} ${arrow}</span>`;
+          
+          // Don't add arrow if it's part of a larger pattern like "50.0% trading range"
+          const isStandalone = !match.match(/\d+\.?\d*%\s*(trading range|volatility|weight)/i);
+          
+          if (isStandalone) {
+            const arrow = isPositive ? "▲" : isNegative ? "▼" : "−";
+            // Don't add another + if the match already has one
+            const formattedPercent = match.includes('+') ? match : (isPositive ? `+${match}` : match);
+            return `<span style="color: ${color}; font-weight: 700;">${formattedPercent} ${arrow}</span>`;
+          } else {
+            // For non-standalone percentages, just color them without arrows
+            return `<span style="color: ${color}; font-weight: 700;">${match}</span>`;
+          }
         });
 
         // Enhanced ticker formatting - only format standalone tickers
@@ -1654,8 +1663,8 @@ Your portfolio is now loaded and ready for analysis!`;
 
         // Format large numbers (millions/billions)
         formatted = formatted.replace(
-          /\b(\d+(?:,\d{3})*(?:\.\d+)?)\s*(million|billion|trillion|M|B|T)\b/gi,
-          (match, number, unit) => {
+          /\b(\d+(?:,\d{3})*(?:\.\d+)?)\s*(million|billion|trillion|M|B|T)\b(?:\s+(shares?|contracts?|coins?|BTC|ETH|units?))?/gi,
+          (match, number, unit, assetUnit) => {
             const cleanNumber = number.replace(/,/g, "");
             const numValue = parseFloat(cleanNumber);
             let multiplier = 1;
@@ -1685,7 +1694,12 @@ Your portfolio is now loaded and ready for analysis!`;
               maximumFractionDigits: 2,
             });
 
-            return `<span style="color: #00D4FF; font-weight: 700;">$${formattedValue}</span>`;
+            // Only add $ if it's not followed by volume units
+            if (assetUnit) {
+              return `<span style="color: #00D4FF; font-weight: 700;">${number}${suffix} ${assetUnit}</span>`;
+            } else {
+              return `<span style="color: #00D4FF; font-weight: 700;">$${formattedValue}</span>`;
+            }
           },
         );
 

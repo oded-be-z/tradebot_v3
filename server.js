@@ -1383,7 +1383,23 @@ class EnhancedQueryAnalyzer {
   determineQueryType(message, extractedSymbol = null) {
     const lowerMessage = message.toLowerCase();
 
-    // First check if we have an extracted symbol
+    // 1. Check for portfolio queries FIRST (before symbol extraction)
+    const portfolioKeywords = ['portfolio', 'investment', 'improve', 'optimize', 'holdings', 'investments', 'diversify', 'allocation'];
+    if (portfolioKeywords.some(keyword => lowerMessage.includes(keyword))) {
+      return "portfolio";
+    }
+
+    // 2. Check for non-financial queries (before symbol extraction)
+    const nonFinancialPatterns = [
+      'who is', 'what is', 'explain', 'tell me about',
+      'how does', 'why is', 'when did', 'where is',
+      'define', 'meaning of', 'history of'
+    ];
+    if (nonFinancialPatterns.some(pattern => lowerMessage.includes(pattern))) {
+      return "general";
+    }
+
+    // 3. First check if we have an extracted symbol
     if (extractedSymbol) {
       if (
         ["CL", "NG", "GC", "SI", "HG", "PL", "PA", "BZ", "RB", "HO"].includes(
@@ -1467,11 +1483,6 @@ class EnhancedQueryAnalyzer {
       )
     )
       return "crypto";
-    if (
-      lowerMessage.includes("portfolio") ||
-      lowerMessage.includes("investment")
-    )
-      return "portfolio";
     return "general";
   }
 
@@ -3127,6 +3138,10 @@ app.post("/api/chat", async (req, res) => {
     let chartData = null;
 
     switch (response.type) {
+      case "greeting":
+        formattedResponse = response.response;
+        break;
+        
       case "comparison_table":
         formattedResponse = responseFormatter.formatComparisonTable(response);
         break;
