@@ -1,0 +1,28 @@
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '22.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install
+    npm start &
+    sleep 5
+  displayName: 'npm install and start'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: '$(System.DefaultWorkingDirectory)'
+    artifactName: 'node-app-artifacts'
+  displayName: 'Publish app artifacts'
+
+- script: |
+    echo "Pipeline completed successfully!"
+  displayName: 'Finish: Log pipeline completion'
+  condition: succeeded()
