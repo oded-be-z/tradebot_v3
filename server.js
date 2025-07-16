@@ -8,6 +8,7 @@ const dotenv = require("dotenv");
 const path = require("path");
 const multer = require("multer");
 const Papa = require("papaparse");
+const NumberFormatter = require("./utils/numberFormatter");
 const fs = require("fs").promises;
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
@@ -663,7 +664,7 @@ class PortfolioAnalyzer {
               generateLabels: function (chart) {
                 const data = chart.data;
                 return data.labels.map((label, i) => ({
-                  text: `${holdings[i].symbol}: $${holdings[i].value.toLocaleString()} (${holdings[i].weight.toFixed(1)}%)`,
+                  text: `${holdings[i].symbol}: ${NumberFormatter.formatNumber(holdings[i].value, 'price')} (${holdings[i].weight.toFixed(1)}%)`,
                   fillStyle: data.datasets[0].backgroundColor[i],
                   strokeStyle: data.datasets[0].borderColor,
                   lineWidth: data.datasets[0].borderWidth,
@@ -678,7 +679,7 @@ class PortfolioAnalyzer {
             callbacks: {
               label: function (context) {
                 const holding = holdings[context.dataIndex];
-                return `${holding.symbol}: $${holding.value.toLocaleString()} (${holding.weight.toFixed(1)}%)`;
+                return `${holding.symbol}: ${NumberFormatter.formatNumber(holding.value, 'price')} (${holding.weight.toFixed(1)}%)`;
               },
             },
           },
@@ -1753,10 +1754,15 @@ class ConciseFormatter {
     const rsiEmoji = rsi > 70 ? "⚠️" : rsi < 30 ? "🔄" : "✅";
 
     // Professional Bloomberg-style response
-    return `• **${symbol}** $${price.toFixed(2)} ${change >= 0 ? "+" : ""}${change.toFixed(2)}% ${trendEmoji} ${sentiment}
-• **Technicals** RSI: ${rsi.toFixed(0)} ${rsiEmoji} Vol: ${volumeRatio.toFixed(1)}x ${volumeEmoji} ${volatility} volatility
-• **Levels** Support: $${supportLevel.toFixed(2)} | Resistance: $${resistanceLevel.toFixed(2)} ${technicalLevel}
-• **Outlook** ${catalyst} | ${riskReward} | ${this.getProfessionalRecommendation(change, rsi, volumeRatio)}`;
+    const priceFormatted = NumberFormatter.formatPrice(price);
+    const changeFormatted = NumberFormatter.formatPercentage(change);
+    const supportFormatted = NumberFormatter.formatPrice(supportLevel);
+    const resistanceFormatted = NumberFormatter.formatPrice(resistanceLevel);
+    
+    return `• **${symbol}** ${priceFormatted} ${changeFormatted} ${trendEmoji} ${sentiment}
+• RSI: ${rsi.toFixed(0)} ${rsiEmoji} Vol: ${volumeRatio.toFixed(1)}x ${volumeEmoji} ${volatility} volatility
+• Support: ${supportFormatted} | Resistance: ${resistanceFormatted} ${technicalLevel}
+• ${catalyst} | ${riskReward} | ${this.getProfessionalRecommendation(change, rsi, volumeRatio)}`;
   }
 
   formatCryptoResponse(data, symbol) {
@@ -1807,10 +1813,15 @@ class ConciseFormatter {
     const rsiEmoji = rsi > 70 ? "⚠️" : rsi < 30 ? "🔄" : "✅";
 
     // Professional Bloomberg-style response
-    return `• **${symbol}** $${price.toFixed(2)} ${change >= 0 ? "+" : ""}${change.toFixed(2)}% ${trendEmoji} ${sentiment}
-• **Technicals** RSI: ${rsi.toFixed(0)} ${rsiEmoji} Vol: ${volumeRatio.toFixed(1)}x ${volumeEmoji} ${volatility} volatility
-• **Levels** Support: $${supportLevel.toFixed(2)} | Resistance: $${resistanceLevel.toFixed(2)} ${technicalLevel}
-• **Outlook** ${catalyst} | ${dominanceContext} | ${this.getProfessionalRecommendation(change, rsi, volumeRatio)}`;
+    const priceFormatted = NumberFormatter.formatPrice(price);
+    const changeFormatted = NumberFormatter.formatPercentage(change);
+    const supportFormatted = NumberFormatter.formatPrice(supportLevel);
+    const resistanceFormatted = NumberFormatter.formatPrice(resistanceLevel);
+    
+    return `• **${symbol}** ${priceFormatted} ${changeFormatted} ${trendEmoji} ${sentiment}
+• RSI: ${rsi.toFixed(0)} ${rsiEmoji} Vol: ${volumeRatio.toFixed(1)}x ${volumeEmoji} ${volatility} volatility
+• Support: ${supportFormatted} | Resistance: ${resistanceFormatted} ${technicalLevel}
+• ${catalyst} | ${dominanceContext} | ${this.getProfessionalRecommendation(change, rsi, volumeRatio)}`;
   }
 
   formatCommodityResponse(data, symbol) {
@@ -1857,10 +1868,15 @@ class ConciseFormatter {
     const rsiEmoji = rsi > 70 ? "⚠️" : rsi < 30 ? "🔄" : "✅";
 
     // Professional Bloomberg-style response
-    return `• **${symbol}** $${price.toFixed(2)}/${unit} ${change >= 0 ? "+" : ""}${change.toFixed(2)}% ${trendEmoji} ${sentiment}
-• **Technicals** RSI: ${rsi.toFixed(0)} ${rsiEmoji} Vol: ${volumeRatio.toFixed(1)}x ${volumeEmoji} ${volatility} volatility
-• **Levels** Support: $${supportLevel.toFixed(2)} | Resistance: $${resistanceLevel.toFixed(2)} ${technicalLevel}
-• **Outlook** ${catalyst} | ${supplyContext} | ${this.getProfessionalRecommendation(change, rsi, volumeRatio)}`;
+    const priceFormatted = NumberFormatter.formatPrice(price);
+    const changeFormatted = NumberFormatter.formatPercentage(change);
+    const supportFormatted = NumberFormatter.formatPrice(supportLevel);
+    const resistanceFormatted = NumberFormatter.formatPrice(resistanceLevel);
+    
+    return `• **${symbol}** ${priceFormatted}/${unit} ${changeFormatted} ${trendEmoji} ${sentiment}
+• RSI: ${rsi.toFixed(0)} ${rsiEmoji} Vol: ${volumeRatio.toFixed(1)}x ${volumeEmoji} ${volatility} volatility
+• Support: ${supportFormatted} | Resistance: ${resistanceFormatted} ${technicalLevel}
+• ${catalyst} | ${supplyContext} | ${this.getProfessionalRecommendation(change, rsi, volumeRatio)}`;
   }
 
   formatPortfolioSummary(content) {
@@ -1871,10 +1887,14 @@ class ConciseFormatter {
     const dayChange = portfolio.dayChange || 0;
     const riskLevel = portfolio.riskAssessment?.level || "MEDIUM";
 
-    return `• **Value** $${totalValue.toFixed(2)} (${dayChange >= 0 ? "+" : ""}${dayChange.toFixed(2)}%)
-• **Risk** ${riskLevel} Sharpe: ${portfolio.sharpeRatio || 0}
-• **Top** ${portfolio.topHoldings?.[0]?.symbol || "N/A"} (${portfolio.topHoldings?.[0]?.weight.toFixed(1) || 0}%)
-• **Advice** ${portfolio.recommendations?.[0] || "Monitor positions"}`;
+    const totalValueFormatted = NumberFormatter.formatPrice(totalValue);
+    const dayChangeFormatted = NumberFormatter.formatPercentage(dayChange);
+    const topWeight = portfolio.topHoldings?.[0]?.weight || 0;
+    
+    return `• Portfolio value: ${totalValueFormatted} (${dayChangeFormatted})
+• Risk level: ${riskLevel} Sharpe: ${NumberFormatter.formatLargeNumber(portfolio.sharpeRatio || 0, 2)}
+• Top holding: ${portfolio.topHoldings?.[0]?.symbol || "N/A"} (${topWeight.toFixed(1)}%)
+• Recommendation: ${portfolio.recommendations?.[0] || "Monitor positions"}`;
   }
 
   formatGenericResponse(content, queryInfo) {
@@ -2062,11 +2082,16 @@ class ModernResponseFormatter {
   formatPortfolioResponse(analysis) {
     const portfolio = analysis.portfolio;
 
-    const content = `**Portfolio Summary**
-• Value: $${portfolio.totalValue.toLocaleString()} (${portfolio.dayChange.toFixed(2)}%)
-• Assets: ${portfolio.metadata.assetCount} positions
-• Risk: ${portfolio.riskAssessment.level} (Sharpe ${portfolio.sharpeRatio})
-• Top: ${portfolio.topHoldings[0]?.symbol} (${portfolio.topHoldings[0]?.weight.toFixed(1)}%)`;
+    const totalValueFormatted = NumberFormatter.formatPrice(portfolio.totalValue);
+    const dayChangeFormatted = NumberFormatter.formatPercentage(portfolio.dayChange);
+    const sharpeFormatted = NumberFormatter.formatLargeNumber(portfolio.sharpeRatio, 2);
+    const topWeight = portfolio.topHoldings[0]?.weight || 0;
+    
+    const content = `Portfolio Overview
+• Total value: ${totalValueFormatted} (${dayChangeFormatted})
+• Holdings: ${portfolio.metadata.assetCount} positions
+• Risk level: ${portfolio.riskAssessment.level} (Sharpe ${sharpeFormatted})
+• Largest position: ${portfolio.topHoldings[0]?.symbol} (${topWeight.toFixed(1)}%)`;
 
     return {
       content: content,
@@ -2608,15 +2633,15 @@ ${
           )
           .join("\n")
       : `
-- ${symbol}: $${realTimeData.price.toFixed(2)}
-- Change: ${realTimeData.changePercent >= 0 ? "+" : ""}${realTimeData.changePercent.toFixed(2)}%
-- Volume: ${(realTimeData.volume / 1000000).toFixed(2)}M
+- ${symbol}: ${NumberFormatter.formatNumber(realTimeData.price, 'price')}
+- Change: ${NumberFormatter.formatNumber(realTimeData.changePercent, 'percentage')}
+- Volume: ${NumberFormatter.formatNumber(realTimeData.volume, 'volume')}
 - Source: ${realTimeData.source}
 - Updated: ${new Date(realTimeData.timestamp).toLocaleTimeString()}
 ${
   realTimeData.additionalData && realTimeData.additionalData.QQQ
     ? `
-- QQQ: $${realTimeData.additionalData.QQQ.price.toFixed(2)} (${realTimeData.additionalData.QQQ.changePercent >= 0 ? "+" : ""}${realTimeData.additionalData.QQQ.changePercent.toFixed(2)}%)
+- QQQ: ${NumberFormatter.formatNumber(realTimeData.additionalData.QQQ.price, 'price')} (${NumberFormatter.formatNumber(realTimeData.additionalData.QQQ.changePercent, 'percentage')})
 `
     : ""
 }
@@ -2738,15 +2763,15 @@ Current query: ${topic}`;
         realTimeData.changePercent >= 0 ? "📈 trending up" : "📉 trending down";
       const change = realTimeData.changePercent >= 0 ? "+" : "";
       const volumeStr = realTimeData.volume
-        ? `Volume: ${(realTimeData.volume / 1000000).toFixed(2)}M`
+        ? `Volume: ${NumberFormatter.formatNumber(realTimeData.volume, 'volume')}`
         : "";
 
-      let analysis = `• ${symbol} currently at $${realTimeData.price.toFixed(2)} (${change}${realTimeData.changePercent.toFixed(2)}% today)
+      let analysis = `• ${symbol} currently at ${NumberFormatter.formatNumber(realTimeData.price, 'price')} (${change}${NumberFormatter.formatNumber(Math.abs(realTimeData.changePercent), 'percentage')} today)
 • ${trend} based on recent market data
 `;
 
       if (lowerTopic.includes("trend") || lowerTopic.includes("lately")) {
-        analysis += `• Recent trends show ${Math.abs(realTimeData.changePercent).toFixed(2)}% movement
+        analysis += `• Recent trends show ${NumberFormatter.formatNumber(Math.abs(realTimeData.changePercent), 'percentage')} movement
 • ${volumeStr ? volumeStr + " indicates active trading" : "Market showing moderate activity"}
 `;
       } else if (

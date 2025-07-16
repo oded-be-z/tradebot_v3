@@ -1,4 +1,5 @@
 const MarketDataService = require("../src/knowledge/market-data-service");
+const NumberFormatter = require("../utils/numberFormatter");
 
 class IntelligentResponseGenerator {
   constructor() {
@@ -34,7 +35,10 @@ class IntelligentResponseGenerator {
     if (
       lowerQuery.includes(" vs ") ||
       lowerQuery.includes(" versus ") ||
-      lowerQuery.includes(" compared to ")
+      lowerQuery.includes(" compared to ") ||
+      lowerQuery.includes("compare") ||
+      lowerQuery.includes("better than") ||
+      lowerQuery.includes("comparison")
     ) {
       return "comparison";
     }
@@ -89,23 +93,23 @@ class IntelligentResponseGenerator {
         rows: [
           [
             "Current Price",
-            ...data.map((d) => (d.price ? `$${d.price.toFixed(2)}` : "N/A")),
+            ...data.map((d) => (d.price ? NumberFormatter.formatNumber(d.price, 'price') : "N/A")),
           ],
           [
             "Day Change",
             ...data.map((d) =>
-              d.changePercent ? `${d.changePercent}%` : "N/A",
+              d.changePercent ? NumberFormatter.formatNumber(d.changePercent, 'percentage') : "N/A",
             ),
           ],
           [
             "Volume",
-            ...data.map((d) => (d.volume ? d.volume.toLocaleString() : "N/A")),
+            ...data.map((d) => (d.volume ? NumberFormatter.formatNumber(d.volume, 'volume') : "N/A")),
           ],
           [
             "52-Week Range",
             ...data.map((d) => {
               if (d.low52 && d.high52) {
-                return `$${d.low52} - $${d.high52}`;
+                return `${NumberFormatter.formatPrice(d.low52)} - ${NumberFormatter.formatPrice(d.high52)}`;
               }
               return "N/A";
             }),
@@ -125,6 +129,8 @@ class IntelligentResponseGenerator {
       /(\w+)\s+vs\s+(\w+)/i,
       /(\w+)\s+versus\s+(\w+)/i,
       /compare\s+(\w+)\s+(?:and|to|with)\s+(\w+)/i,
+      /compare\s+(\w+)\s+(\w+)/i,  // Added: compare AAPL MSFT
+      /(\w+)\s+better\s+than\s+(\w+)/i,
     ];
 
     for (const pattern of patterns) {
@@ -145,15 +151,13 @@ class IntelligentResponseGenerator {
       const data1 = data[0];
       const data2 = data[1];
 
-      let analysis = `**${symbol1} vs ${symbol2} Analysis:**\n\n`;
+      let analysis = `Here's how ${symbol1} and ${symbol2} compare:\n\n`;
 
       // Always generate exactly 4 bullet points
       if (data1.price && data2.price) {
-        const priceDiff = (
-          ((data1.price - data2.price) / data2.price) *
-          100
-        ).toFixed(2);
-        analysis += `• ${symbol1} is ${priceDiff > 0 ? "trading higher" : "trading lower"} than ${symbol2}\n`;
+        const priceDiffNum = ((data1.price - data2.price) / data2.price) * 100;
+        const priceDiff = NumberFormatter.formatNumber(priceDiffNum, 'percentage');
+        analysis += `• ${symbol1} is ${priceDiffNum > 0 ? "trading higher" : "trading lower"} than ${symbol2}\n`;
       } else {
         analysis += `• Price comparison data unavailable for both assets\n`;
       }
@@ -293,36 +297,44 @@ class IntelligentResponseGenerator {
     // Get asset-specific information
     const assetInfo = this.getDetailedAssetInfo(symbol);
 
-    let analysis = `${symbol} Trend Analysis\n\n`;
+    // Format change percentage and amount using NumberFormatter
+    const priceFormatted = NumberFormatter.formatPrice(price);
+    const changeFormatted = NumberFormatter.formatPriceChange(changePercent, price);
 
-    // 1. Summary Card
-    analysis += `**Summary Card**\n`;
-    analysis += `Current price $${price.toFixed(2)} (${changePercent >= 0 ? "+" : ""}${changePercent.toFixed(2)}%).\n`;
-    analysis += `Support (price may stop falling): $${trendInfo.support.toFixed(2)}.\n`;
-    analysis += `Resistance (price may stop rising): $${trendInfo.resistance.toFixed(2)}.\n\n`;
+    // Start with current price and movement prominently
+    let analysis = `${symbol} is currently trading at ${priceFormatted}, ${changeFormatted.text} ${changeFormatted.amount}.\n\n`;
 
-    // 2. Key Metrics List
-    analysis += `**Key Metrics List**\n`;
-    const volumeStr =
-      volume > 1000000
-        ? (volume / 1000000).toFixed(1) + "M"
-        : volume.toLocaleString();
-    analysis += `Volume ${volumeStr} ${assetInfo.volumeUnit}.\n`;
-    analysis += `Moving averages (avg price over time to spot trends): 5-day $${movingAverages.sma5}, 10-day $${movingAverages.sma10}, 20-day $${movingAverages.sma20}, 50-day $${movingAverages.sma50}, 100-day $${movingAverages.sma100}, 200-day $${movingAverages.sma200}.\n\n`;
+    // Flow naturally into support/resistance levels
+    const supportFormatted = NumberFormatter.formatPrice(trendInfo.support);
+    const resistanceFormatted = NumberFormatter.formatPrice(trendInfo.resistance);
+    analysis += `The stock may find support around ${supportFormatted} and face resistance near ${resistanceFormatted}.\n\n`;
 
-    // 3. Valuable Info
-    analysis += `**Valuable Info**\n`;
-    analysis += `${symbol} is ${assetInfo.description}.\n`;
-    analysis += `${assetInfo.exchangeInfo}.\n`;
-    analysis += `Prices shift from supply/demand basics like ${assetInfo.influencingFactors}.\n\n`;
+    // Format volume using NumberFormatter
+    const volumeFormatted = NumberFormatter.formatVolume(volume, assetInfo.volumeUnit);
+    
+    // Volume and moving averages in separate sentences
+    analysis += `Today's trading volume reached ${volumeFormatted}.\n\n`;
+    analysis += `The stock's moving averages paint an interesting picture: `;
+    analysis += `5-day at ${NumberFormatter.formatMovingAverage(movingAverages.sma5)}, `;
+    analysis += `10-day at ${NumberFormatter.formatMovingAverage(movingAverages.sma10)}, `;
+    analysis += `20-day at ${NumberFormatter.formatMovingAverage(movingAverages.sma20)}, `;
+    analysis += `50-day at ${NumberFormatter.formatMovingAverage(movingAverages.sma50)}, `;
+    analysis += `100-day at ${NumberFormatter.formatMovingAverage(movingAverages.sma100)}, `;
+    analysis += `and 200-day at ${NumberFormatter.formatMovingAverage(movingAverages.sma200)}.\n\n`;
 
-    // 4. Historical Price Range
-    analysis += `**Historical Price Range**\n`;
+    // Present company context naturally
+    analysis += `${symbol} is ${assetInfo.description}. ${assetInfo.exchangeInfo}. `;
+    analysis += `Its price movements are influenced by ${assetInfo.influencingFactors}.\n\n`;
+
+    // Include price range data conversationally
     const high52 = currentData.high52Week || price * 1.2;
     const low52 = currentData.low52Week || price * 0.8;
-    analysis += `52-week high $${high52.toFixed(2)} (highest price in last year), low $${low52.toFixed(2)} (lowest). (Shows recent price variability for context.)\n\n`;
+    const priceRange = NumberFormatter.formatPriceRange(high52, low52);
+    const volatility = NumberFormatter.assessVolatility(high52, low52);
+    analysis += `Over the past 52 weeks, ${symbol} has traded between ${priceRange}, showing ${volatility} price volatility.\n\n`;
 
-    analysis += `Below: Real-time graph/charts.\n\n`;
+    // End with a note about charts naturally
+    analysis += `Real-time charts and detailed analysis are available below.\n\n`;
     analysis += `Data source: ${currentData.source || "Market Feed"} | Updated: ${new Date(currentData.timestamp).toLocaleTimeString()}`;
 
     return analysis;
@@ -355,7 +367,7 @@ class IntelligentResponseGenerator {
       // Commodities
       CL: {
         description: "West Texas Intermediate (WTI) crude oil futures",
-        volumeUnit: "(contracts traded today)",
+        volumeUnit: "contracts",
         exchangeInfo:
           "Trades on NYMEX/CME with each contract representing 1,000 barrels",
         influencingFactors:
@@ -363,7 +375,7 @@ class IntelligentResponseGenerator {
       },
       BZ: {
         description: "Brent crude oil futures (global benchmark)",
-        volumeUnit: "(contracts traded today)",
+        volumeUnit: "contracts",
         exchangeInfo:
           "Trades on ICE with each contract representing 1,000 barrels",
         influencingFactors:
@@ -371,7 +383,7 @@ class IntelligentResponseGenerator {
       },
       GC: {
         description: "gold futures (safe-haven precious metal)",
-        volumeUnit: "(contracts traded today)",
+        volumeUnit: "contracts",
         exchangeInfo:
           "Trades on COMEX/CME with each contract representing 100 troy ounces",
         influencingFactors:
@@ -379,7 +391,7 @@ class IntelligentResponseGenerator {
       },
       SI: {
         description: "silver futures (industrial and investment metal)",
-        volumeUnit: "(contracts traded today)",
+        volumeUnit: "contracts",
         exchangeInfo:
           "Trades on COMEX/CME with each contract representing 5,000 troy ounces",
         influencingFactors:
@@ -387,7 +399,7 @@ class IntelligentResponseGenerator {
       },
       NG: {
         description: "natural gas futures (energy commodity)",
-        volumeUnit: "(contracts traded today)",
+        volumeUnit: "contracts",
         exchangeInfo:
           "Trades on NYMEX/CME with each contract representing 10,000 MMBtu",
         influencingFactors:
@@ -398,7 +410,7 @@ class IntelligentResponseGenerator {
       BTC: {
         description:
           "Bitcoin, the first and largest cryptocurrency by market cap",
-        volumeUnit: "(BTC traded today)",
+        volumeUnit: "BTC",
         exchangeInfo:
           "Trades 24/7 on global exchanges like Coinbase, Binance, and Kraken",
         influencingFactors:
@@ -406,7 +418,7 @@ class IntelligentResponseGenerator {
       },
       ETH: {
         description: "Ethereum, the leading smart contract platform",
-        volumeUnit: "(ETH traded today)",
+        volumeUnit: "ETH",
         exchangeInfo:
           "Trades 24/7 on major crypto exchanges with DeFi integration",
         influencingFactors:
@@ -416,7 +428,7 @@ class IntelligentResponseGenerator {
       // Default for stocks
       DEFAULT: {
         description: "a publicly traded company",
-        volumeUnit: "(shares traded today)",
+        volumeUnit: "shares",
         exchangeInfo:
           "Trades on major exchanges during market hours (9:30 AM - 4:00 PM ET)",
         influencingFactors:
@@ -428,7 +440,7 @@ class IntelligentResponseGenerator {
     if (symbol === "AAPL") {
       return {
         description: "Apple Inc., the world's largest company by market cap",
-        volumeUnit: "(shares traded today)",
+        volumeUnit: "shares",
         exchangeInfo: "Trades on NASDAQ under ticker AAPL",
         influencingFactors:
           "iPhone sales, services growth, China exposure, product launches, and tech sector sentiment",
@@ -436,7 +448,7 @@ class IntelligentResponseGenerator {
     } else if (symbol === "TSLA") {
       return {
         description: "Tesla Inc., the leading electric vehicle manufacturer",
-        volumeUnit: "(shares traded today)",
+        volumeUnit: "shares",
         exchangeInfo: "Trades on NASDAQ under ticker TSLA",
         influencingFactors:
           "vehicle deliveries, production updates, autonomous driving progress, EV market competition, and Elon Musk tweets",
@@ -713,6 +725,16 @@ class IntelligentResponseGenerator {
   }
 
   extractSymbol(query) {
+    const commonWords = ['tell', 'show', 'what', 'how', 'explain', 'about', 'give', 'find', 'get', 'list'];
+    const cleaned = query.toLowerCase().trim();
+    
+    // Check if query starts with common word and has multiple words
+    const words = cleaned.split(' ');
+    if (words.length > 2 && commonWords.includes(words[0])) {
+      // This is likely a general query, not a stock lookup
+      return null;
+    }
+    
     // First, try natural language mappings
     const lowerQuery = query.toLowerCase();
     const symbolMappings = {
@@ -736,7 +758,7 @@ class IntelligentResponseGenerator {
       dogecoin: "DOGE",
       doge: "DOGE",
 
-      // Stocks
+      // Stocks - Company names
       apple: "AAPL",
       microsoft: "MSFT",
       google: "GOOGL",
@@ -745,6 +767,30 @@ class IntelligentResponseGenerator {
       nvidia: "NVDA",
       meta: "META",
       facebook: "META",
+      intel: "INTC",
+      
+      // Stocks - Ticker symbols (lowercase)
+      aapl: "AAPL",
+      msft: "MSFT",
+      googl: "GOOGL",
+      amzn: "AMZN",
+      tsla: "TSLA",
+      nvda: "NVDA",
+      intc: "INTC",
+      amd: "AMD",
+      spy: "SPY",
+      qqq: "QQQ",
+      iwm: "IWM",
+      gld: "GLD",
+      uso: "USO",
+      jpm: "JPM",
+      bac: "BAC",
+      dis: "DIS",
+      nflx: "NFLX",
+      gme: "GME",
+      amc: "AMC",
+      pltr: "PLTR",
+      arkk: "ARKK",
     };
 
     // Check for natural language matches - prioritize longer matches
@@ -760,9 +806,19 @@ class IntelligentResponseGenerator {
       }
     }
 
-    // Extract stock symbols from query (uppercase letters)
-    const match = query.match(/\b[A-Z]{1,5}\b/);
-    return match ? match[0] : null;
+    // Extract stock symbols from query (uppercase or lowercase letters)
+    const upperMatch = query.match(/\b[A-Z]{1,5}\b/);
+    if (upperMatch) {
+      return upperMatch[0];
+    }
+    
+    // Try lowercase symbols if uppercase not found
+    const lowerMatch = query.match(/\b[a-z]{2,5}\b/);
+    if (lowerMatch) {
+      return lowerMatch[0].toUpperCase();
+    }
+    
+    return null;
   }
 
   async generateStandardAnalysis(query, context) {
@@ -812,41 +868,51 @@ class IntelligentResponseGenerator {
 
     // Mock moving averages for basic analysis (in production, fetch from API)
     const mockMA = {
-      sma5: (data.price * 1.01).toFixed(2),
-      sma10: (data.price * 0.99).toFixed(2),
-      sma20: (data.price * 1.02).toFixed(2),
-      sma50: (data.price * 0.98).toFixed(2),
-      sma100: (data.price * 0.97).toFixed(2),
-      sma200: (data.price * 0.95).toFixed(2),
+      sma5: data.price * 1.01,
+      sma10: data.price * 0.99,
+      sma20: data.price * 1.02,
+      sma50: data.price * 0.98,
+      sma100: data.price * 0.97,
+      sma200: data.price * 0.95,
     };
 
-    let analysis = `${symbol} Analysis\n\n`;
+    // Format change percentage and amount using NumberFormatter
+    const priceFormatted = NumberFormatter.formatPrice(data.price);
+    const changeFormatted = NumberFormatter.formatPriceChange(data.changePercent, data.price);
 
-    // 1. Summary Card
-    analysis += `**Summary Card**\n`;
-    analysis += `Current price $${data.price.toFixed(2)} (${data.changePercent > 0 ? "+" : ""}${data.changePercent}%).\n`;
-    analysis += `Support (price may stop falling): $${(data.price * 0.95).toFixed(2)}.\n`;
-    analysis += `Resistance (price may stop rising): $${(data.price * 1.05).toFixed(2)}.\n\n`;
+    // Start with current price and movement prominently
+    let analysis = `${symbol} is currently trading at ${priceFormatted}, ${changeFormatted.text} ${changeFormatted.amount}.\n\n`;
 
-    // 2. Key Metrics List
-    analysis += `**Key Metrics List**\n`;
-    const volumeStr =
-      data.volume > 1000000
-        ? (data.volume / 1000000).toFixed(1) + "M"
-        : data.volume.toLocaleString();
-    analysis += `Volume ${volumeStr} ${assetInfo.volumeUnit}.\n`;
-    analysis += `Moving averages (avg price over time to spot trends): 5-day $${mockMA.sma5}, 10-day $${mockMA.sma10}, 20-day $${mockMA.sma20}, 50-day $${mockMA.sma50}, 100-day $${mockMA.sma100}, 200-day $${mockMA.sma200}.\n\n`;
+    // Flow naturally into support/resistance levels
+    const supportLevel = NumberFormatter.formatPrice(data.price * 0.95);
+    const resistanceLevel = NumberFormatter.formatPrice(data.price * 1.05);
+    analysis += `The asset may find support around ${supportLevel} and face resistance near ${resistanceLevel}.\n\n`;
 
-    // 3. Valuable Info
-    analysis += `**Valuable Info**\n`;
-    analysis += `${symbol} is ${assetInfo.description}. ${assetInfo.exchangeInfo}.\n`;
-    analysis += `Prices shift from supply/demand basics like ${assetInfo.influencingFactors}.\n\n`;
+    // Format volume using NumberFormatter
+    const volumeFormatted = NumberFormatter.formatVolume(data.volume, assetInfo.volumeUnit);
+    
+    // Volume and moving averages in separate sentences
+    analysis += `Current trading volume is ${volumeFormatted}.\n\n`;
+    analysis += `The moving averages tell an interesting story: `;
+    analysis += `5-day at ${NumberFormatter.formatMovingAverage(mockMA.sma5)}, `;
+    analysis += `10-day at ${NumberFormatter.formatMovingAverage(mockMA.sma10)}, `;
+    analysis += `20-day at ${NumberFormatter.formatMovingAverage(mockMA.sma20)}, `;
+    analysis += `50-day at ${NumberFormatter.formatMovingAverage(mockMA.sma50)}, `;
+    analysis += `100-day at ${NumberFormatter.formatMovingAverage(mockMA.sma100)}, `;
+    analysis += `and 200-day at ${NumberFormatter.formatMovingAverage(mockMA.sma200)}.\n\n`;
 
-    // 4. Historical Price Range
-    analysis += `**Historical Price Range**\n`;
-    analysis += `52-week high $${high52.toFixed(2)} (highest price in last year), low $${low52.toFixed(2)} (lowest). (Shows recent price variability for context.)\n\n`;
+    // Present company context naturally
+    analysis += `${symbol} is ${assetInfo.description}. ${assetInfo.exchangeInfo}. `;
+    analysis += `Price movements are typically driven by ${assetInfo.influencingFactors}.\n\n`;
 
-    analysis += `Below: Real-time graph/charts.`;
+    // Include price range data conversationally
+    const priceRange = NumberFormatter.formatPriceRange(high52, low52);
+    const volatility = NumberFormatter.assessVolatility(high52, low52);
+    const rangePct = NumberFormatter.formatLargeNumber(((high52 - low52) / low52 * 100), 1);
+    analysis += `Over the past 52 weeks, ${symbol} has ranged between ${priceRange}, representing a ${rangePct}% trading range with ${volatility} volatility.\n\n`;
+
+    // End with charts note naturally
+    analysis += `Live charts and additional market data are available below.`;
 
     return analysis;
   }
