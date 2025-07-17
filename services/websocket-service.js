@@ -2,6 +2,7 @@
 // Disabled WebSocket service - no real-time connections
 
 const EventEmitter = require("events");
+const logger = require("../utils/logger");
 
 class WebSocketService extends EventEmitter {
   constructor(options = {}) {
@@ -21,12 +22,12 @@ class WebSocketService extends EventEmitter {
     this.polygonWS = null;
     this.polygonReconnectAttempts = 0;
 
-    console.log("[WebSocketService] Initialized (WebSocket disabled)");
+    logger.debug("[WebSocketService] Initialized (WebSocket disabled)");
   }
 
   // All WebSocket methods are no-ops when disabled
   async connectToPolygon() {
-    console.log("[WebSocketService] Polygon WebSocket connection disabled");
+    logger.debug("[WebSocketService] Polygon WebSocket connection disabled");
     return false;
   }
 
@@ -55,7 +56,7 @@ class WebSocketService extends EventEmitter {
   }
 
   subscribeToSymbol(symbol) {
-    console.log(`[WebSocketService] Symbol subscription disabled for ${symbol}`);
+    logger.debug(`[WebSocketService] Symbol subscription disabled for ${symbol}`);
     return false;
   }
 
@@ -77,7 +78,7 @@ class WebSocketService extends EventEmitter {
     this.stats.totalConnections++;
     this.stats.activeConnections = this.connections.size;
 
-    console.log(
+    logger.debug(
       `[WebSocketService] Client ${clientId} connected (total: ${this.connections.size}) - No real-time data`,
     );
 
@@ -91,7 +92,7 @@ class WebSocketService extends EventEmitter {
     });
 
     ws.on("error", (error) => {
-      console.error(`[WebSocketService] Client ${clientId} error:`, error);
+      logger.error(`[WebSocketService] Client ${clientId} error:`, error);
       this.removeClient(clientId);
     });
   }
@@ -102,7 +103,7 @@ class WebSocketService extends EventEmitter {
       this.connections.delete(clientId);
       this.stats.activeConnections = this.connections.size;
 
-      console.log(
+      logger.debug(
         `[WebSocketService] Client ${clientId} disconnected (total: ${this.connections.size})`,
       );
     }
@@ -120,7 +121,7 @@ class WebSocketService extends EventEmitter {
         });
       }
     } catch (error) {
-      console.error(
+      logger.error(
         `[WebSocketService] Error handling client ${clientId} message:`,
         error,
       );
@@ -149,19 +150,19 @@ class WebSocketService extends EventEmitter {
   }
 
   async initialize() {
-    console.log("[WebSocketService] Initialization skipped - WebSocket disabled");
+    logger.debug("[WebSocketService] Initialization skipped - WebSocket disabled");
     return true;
   }
 
   async shutdown() {
-    console.log("[WebSocketService] Shutting down...");
+    logger.debug("[WebSocketService] Shutting down...");
 
     // Close all client connections
     this.connections.forEach((client, clientId) => {
       client.ws.close();
     });
 
-    console.log("[WebSocketService] Shutdown complete");
+    logger.debug("[WebSocketService] Shutdown complete");
   }
 }
 

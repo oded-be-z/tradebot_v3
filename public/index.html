@@ -1270,15 +1270,13 @@
         container.appendChild(messageEl);
 
         // Add chart if provided
-        if (chartData && chartData.config) {
+        if (chartData) {
+          console.log('[Frontend] Chart data received:', chartData);
           const chartEl = document.createElement("div");
           chartEl.className = "chart-container fade-in";
-          chartEl.innerHTML = `
-                    <div style="text-align: center; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 8px; margin: 10px 0;">
-                        <p style="color: #00d4ff;">📊 ${chartData.config.title || "Chart"}</p>
-                        <p style="color: #8B92A3; font-size: 12px;">Chart rendering available in full implementation</p>
-                    </div>
-                `;
+          
+          // Use the renderChart function to properly display the chart
+          renderChart(chartEl, chartData);
           container.appendChild(chartEl);
         }
 
@@ -2266,7 +2264,7 @@ Your portfolio is now loaded and ready for analysis!`;
         if (!chartData) return;
 
         // Handle base64 image charts from server-side rendering
-        if (chartData.type === "image" && chartData.imageUrl) {
+        if ((chartData.type === "image" || chartData.type === "chart_data") && chartData.imageUrl) {
           console.log("[ChartRenderer] Rendering server-generated chart image");
           renderImageChart(container, chartData);
           return;

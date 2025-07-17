@@ -1,16 +1,19 @@
 const MarketDataService = require("../src/knowledge/market-data-service");
 const NumberFormatter = require("../utils/numberFormatter");
+const safeSymbol = require("../src/utils/safeSymbol");
+const professionalAnalysis = require("./professionalAnalysis");
+const logger = require("../utils/logger");
 
 class IntelligentResponseGenerator {
   constructor() {
-    console.log("[IntelligentResponse] Initialized");
+    logger.debug("[IntelligentResponse] Initialized");
     this.marketDataService = new MarketDataService();
   }
 
   async generateResponse(query, context) {
     // Check for greetings first - before any other processing
     if (this.isGreeting(query)) {
-      console.log(`[IntelligentResponse] Greeting detected: "${query}"`);
+      logger.debug(`[IntelligentResponse] Greeting detected: "${query}"`);
       return {
         type: "greeting",
         response: this.getGreetingResponse()
@@ -18,9 +21,12 @@ class IntelligentResponseGenerator {
     }
     
     const responseType = this.analyzeQueryIntent(query, context);
-    console.log(`[IntelligentResponse] Query type: ${responseType}`);
+    logger.debug(`[IntelligentResponse] Query type: ${responseType}`);
 
     switch (responseType) {
+      case "non_financial":
+        return this.generateNonFinancialResponse(query);
+
       case "comparison":
         return await this.generateComparison(query, context);
 
@@ -40,6 +46,16 @@ class IntelligentResponseGenerator {
 
   analyzeQueryIntent(query, context) {
     const lowerQuery = query.toLowerCase();
+
+    // First check if this is a non-financial query
+    if (safeSymbol.isNonFinancialQuery(query)) {
+      return "non_financial";
+    }
+
+    // Check for portfolio intent using SafeSymbolExtractor
+    if (safeSymbol.detectPortfolioIntent(query)) {
+      return "portfolio_analysis";
+    }
 
     if (
       lowerQuery.includes(" vs ") ||
@@ -61,14 +77,6 @@ class IntelligentResponseGenerator {
     }
 
     if (
-      lowerQuery.includes("portfolio") ||
-      lowerQuery.includes("my stocks") ||
-      lowerQuery.includes("holdings")
-    ) {
-      return "portfolio_analysis";
-    }
-
-    if (
       lowerQuery.includes("market") &&
       (lowerQuery.includes("overview") || lowerQuery.includes("summary"))
     ) {
@@ -76,6 +84,16 @@ class IntelligentResponseGenerator {
     }
 
     return "standard";
+  }
+
+  generateNonFinancialResponse(query) {
+    logger.debug(`[IntelligentResponse] Non-financial query detected: "${query}"`);
+    return {
+      type: "refusal",
+      response: "I focus exclusively on financial markets and investing. I can help you with stock analysis, market trends, portfolio optimization, or investment strategies. What financial topic would you like to explore?",
+      originalQuery: query,
+      timestamp: new Date().toISOString()
+    };
   }
 
   async generateComparison(query, context) {
@@ -127,7 +145,8 @@ class IntelligentResponseGenerator {
         ],
       },
       analysis: await this.generateComparisonAnalysis(symbols, data),
-      chart: false, // Explicitly no chart for comparisons
+      needsChart: true, // Always show charts for comparisons
+      comparisonData: data, // Add data for chart generation
     };
 
     return comparison;
@@ -145,57 +164,107 @@ class IntelligentResponseGenerator {
     for (const pattern of patterns) {
       const match = query.match(pattern);
       if (match) {
-        return [match[1], match[2]].map((s) => s.toUpperCase());
+        // Map natural language to symbols
+        const symbol1 = this.mapToSymbol(match[1]);
+        const symbol2 = this.mapToSymbol(match[2]);
+        
+        if (symbol1 && symbol2) {
+          return [symbol1, symbol2];
+        }
       }
     }
 
     return [];
   }
 
-  async generateComparisonAnalysis(symbols, data) {
-    // Simple comparison analysis
-    try {
-      const symbol1 = symbols[0];
-      const symbol2 = symbols[1];
-      const data1 = data[0];
-      const data2 = data[1];
+  mapToSymbol(word) {
+    const lowerWord = word.toLowerCase();
+    const symbolMappings = {
+      // Commodities
+      'oil': 'CL',
+      'crude': 'CL',
+      'gold': 'GC',
+      'silver': 'SI',
+      'copper': 'HG',
+      'gas': 'NG',
+      'naturalgas': 'NG',
+      
+      // Crypto
+      'bitcoin': 'BTC',
+      'btc': 'BTC',
+      'ethereum': 'ETH',
+      'eth': 'ETH',
+      'dogecoin': 'DOGE',
+      'doge': 'DOGE',
+      
+      // Stocks - Company names
+      'apple': 'AAPL',
+      'microsoft': 'MSFT',
+      'google': 'GOOGL',
+      'amazon': 'AMZN',
+      'tesla': 'TSLA',
+      'nvidia': 'NVDA',
+      'meta': 'META',
+      'facebook': 'META'
+    };
 
-      let analysis = `Here's how ${symbol1} and ${symbol2} compare:\n\n`;
-
-      // Always generate exactly 4 bullet points
-      if (data1.price && data2.price) {
-        const priceDiffNum = ((data1.price - data2.price) / data2.price) * 100;
-        const priceDiff = NumberFormatter.formatNumber(priceDiffNum, 'percentage');
-        analysis += `• ${symbol1} is ${priceDiffNum > 0 ? "trading higher" : "trading lower"} than ${symbol2}\n`;
-      } else {
-        analysis += `• Price comparison data unavailable for both assets\n`;
-      }
-
-      if (data1.changePercent && data2.changePercent) {
-        const performer =
-          parseFloat(data1.changePercent) > parseFloat(data2.changePercent)
-            ? symbol1
-            : symbol2;
-        analysis += `• ${performer} is outperforming in today's session\n`;
-      } else {
-        analysis += `• Performance comparison data currently unavailable\n`;
-      }
-
-      if (data1.marketCap && data2.marketCap) {
-        const largerCap = data1.marketCap > data2.marketCap ? symbol1 : symbol2;
-        analysis += `• ${largerCap} has larger market capitalization\n`;
-      } else {
-        analysis += `• Market cap comparison data currently unavailable\n`;
-      }
-
-      analysis += `• Both assets carry different risk profiles\n`;
-
-      analysis += `\n**Investment Consideration**: Consider your investment timeline and risk tolerance.`;
-
-      return analysis;
-    } catch (error) {
-      return `**${symbols[0]} vs ${symbols[1]} Analysis:**\n\n• ${symbols[0]} is currently trading at $${data[0]?.price || "N/A"}\n• ${symbols[1]} is trading at $${data[1]?.price || "N/A"}\n• Both assets show different risk profiles\n• Consider your investment timeline carefully\n\n**Investment Consideration**: Different risk/reward profiles apply.`;
+    // First check natural language mappings
+    if (symbolMappings[lowerWord]) {
+      return symbolMappings[lowerWord];
     }
+
+    // Check if it's already a valid ticker symbol
+    if (/^[A-Z]{1,5}$/.test(word.toUpperCase())) {
+      return word.toUpperCase();
+    }
+
+    // If not found in mappings and not a valid ticker, return null
+    return null;
+  }
+
+  async generateComparisonAnalysis(symbols, data) {
+    // Use professionalAnalysis for consistent formatting
+    const professionalAnalysis = require('./professionalAnalysis');
+    const symbol1 = symbols[0];
+    const symbol2 = symbols[1];
+    const data1 = data[0];
+    const data2 = data[1];
+
+    // Generate professional analysis for both symbols
+    const analysis1 = professionalAnalysis.generateAnalysis(symbol1, data1, 'comparison');
+    const analysis2 = professionalAnalysis.generateAnalysis(symbol2, data2, 'comparison');
+    
+    // Create comparison header with emojis
+    let comparison = `📊 ${symbol1} vs ${symbol2} Comparison\n\n`;
+    
+    // Add prices
+    comparison += `💰 Current Prices:\n`;
+    comparison += `• ${symbol1}: ${NumberFormatter.formatPrice(data1.price)}\n`;
+    comparison += `• ${symbol2}: ${NumberFormatter.formatPrice(data2.price)}\n\n`;
+    
+    // Add performance
+    comparison += `📈 24h Performance:\n`;
+    comparison += `• ${symbol1}: ${data1.changePercent > 0 ? '+' : ''}${NumberFormatter.formatNumber(data1.changePercent, 'percentage')}\n`;
+    comparison += `• ${symbol2}: ${data2.changePercent > 0 ? '+' : ''}${NumberFormatter.formatNumber(data2.changePercent, 'percentage')}\n\n`;
+    
+    // Add key insights
+    comparison += `💡 Key Insights:\n`;
+    if (data1.price && data2.price) {
+      const ratio = data1.price / data2.price;
+      comparison += `• ${symbol1}/${symbol2} Ratio: ${ratio.toFixed(2)}\n`;
+      comparison += `• ${Math.abs(data1.changePercent) > Math.abs(data2.changePercent) ? symbol1 : symbol2} showing higher volatility\n`;
+    }
+    comparison += `• Both assets offer unique risk/reward profiles\n\n`;
+    
+    // Add investment strategy
+    comparison += `🎯 Strategy:\n`;
+    comparison += `• Consider portfolio allocation based on risk tolerance\n`;
+    comparison += `• ${symbol1} for ${data1.changePercent > data2.changePercent ? 'growth' : 'stability'}\n`;
+    comparison += `• ${symbol2} for ${data2.changePercent > data1.changePercent ? 'growth' : 'stability'}\n\n`;
+    
+    comparison += `⚠️ Risk: Diversification recommended across asset classes`;
+    
+    return comparison;
   }
 
   async generateTrendAnalysis(query, context) {
@@ -216,7 +285,7 @@ class IntelligentResponseGenerator {
     try {
       const marketDataService = new MarketDataService();
       currentData = await marketDataService.fetchMarketData(symbol, "auto");
-      console.log(
+      logger.debug(
         `[IntelligentResponse] Fetched real data for ${symbol}:`,
         currentData,
       );
@@ -229,7 +298,7 @@ class IntelligentResponseGenerator {
         };
       }
     } catch (error) {
-      console.log(
+      logger.debug(
         `[IntelligentResponse] Failed to fetch real data for ${symbol}:`,
         error.message,
       );
@@ -295,71 +364,9 @@ class IntelligentResponseGenerator {
   }
 
   async explainTrendWithRealData(symbol, trendInfo, currentData) {
-    const changePercent = currentData.changePercent || 0;
-    const volume = currentData.volume || 0;
-    const price = currentData.price;
-
-    // Calculate moving averages from historical data (simplified for now)
-    const historicalData = await this.getHistoricalData(symbol, 200);
-    const movingAverages = this.calculateMovingAverages(historicalData);
-
-    // Get asset-specific information
-    const assetInfo = this.getDetailedAssetInfo(symbol);
-
-    // Format values
-    const priceFormatted = NumberFormatter.formatPrice(price);
-    const changeFormatted = NumberFormatter.formatPriceChange(changePercent, price);
-    const supportFormatted = NumberFormatter.formatPrice(trendInfo.support);
-    const resistanceFormatted = NumberFormatter.formatPrice(trendInfo.resistance);
-    const volumeFormatted = NumberFormatter.formatVolume(volume, assetInfo.volumeUnit);
-    
-    // Calculate technical indicators
-    const volumeRatio = volume > 0 ? (volume / (volume * 0.85)).toFixed(1) : "1.0";
-    const rsi = this.calculateSimulatedRSI(changePercent);
-    const pricePosition = ((price - trendInfo.support) / (trendInfo.resistance - trendInfo.support) * 100).toFixed(0);
-    
-    // Determine trend strength
-    const trendStrength = Math.abs(changePercent) > 5 ? "strong" : Math.abs(changePercent) > 2 ? "moderate" : "weak";
-    const momentum = changePercent > 0 ? "bullish" : "bearish";
-    
-    // Build natural language analysis
-    let analysis = `${symbol} is currently trading at ${priceFormatted}, ${changeFormatted.text} ${changeFormatted.amount}.\n\n`;
-    
-    analysis += `The asset may find support around ${supportFormatted} and face resistance near ${resistanceFormatted}.\n\n`;
-    
-    analysis += `Current trading volume is ${volumeFormatted}.`;
-    
-    // Moving averages - only show key ones in natural language
-    const ma20 = movingAverages.sma20;
-    const ma50 = movingAverages.sma50;
-    const ma200 = movingAverages.sma200;
-    if (ma20 !== "N/A" && ma50 !== "N/A") {
-      analysis += ` The moving averages tell an interesting story: 5-day at ${NumberFormatter.formatPrice(ma20)}, 10-day at ${NumberFormatter.formatPrice(ma50)}, 20-day at ${NumberFormatter.formatPrice(ma20)}`;
-      if (ma50 !== "N/A") {
-        analysis += `, 50-day at ${NumberFormatter.formatPrice(ma50)}`;
-      }
-      if (ma200 !== "N/A") {
-        analysis += `, 100-day at ${NumberFormatter.formatPrice((ma50 + ma200) / 2)}, and 200-day at ${NumberFormatter.formatPrice(ma200)}`;
-      }
-      analysis += `.\n\n`;
-    } else {
-      analysis += `\n\n`;
-    }
-    
-    // Add asset-specific context
-    analysis += `${assetInfo.description}\n\n`;
-    
-    // Market drivers in natural language
-    const drivers = this.getMarketDrivers(symbol, assetInfo, changePercent);
-    if (drivers.length > 0) {
-      analysis += `Currently, ${drivers.join(', ').toLowerCase()}.\n\n`;
-    }
-    
-    // Add historical context
-    analysis += `Over the past 52 weeks, ${symbol} has ranged between ${NumberFormatter.formatPrice(trendInfo.resistance * 1.2)} - ${NumberFormatter.formatPrice(trendInfo.support * 0.8)}, representing a 50.0% trading range with ${Math.abs(changePercent) > 3 ? 'high' : 'low'} volatility.\n\n`;
-    
-    analysis += `Live charts and additional market data are available below.`;
-
+    // Use professionalAnalysis for consistent formatting across all response types
+    const professionalAnalysis = require('./professionalAnalysis');
+    const analysis = professionalAnalysis.generateAnalysis(symbol, currentData, 'trend');
     return analysis;
   }
 
@@ -823,99 +830,47 @@ class IntelligentResponseGenerator {
   }
 
   extractSymbol(query) {
-    const commonWords = ['tell', 'show', 'what', 'how', 'explain', 'about', 'give', 'find', 'get', 'list'];
-    const cleaned = query.toLowerCase().trim();
-    
-    // Check if query starts with common word and has multiple words
-    const words = cleaned.split(' ');
-    if (words.length > 2 && commonWords.includes(words[0])) {
-      // This is likely a general query, not a stock lookup
+    // First check if it's a non-financial query
+    if (safeSymbol.isNonFinancialQuery(query)) {
+      logger.debug(`[IntelligentResponse] Non-financial query detected, no symbol extraction`);
       return null;
     }
     
-    // First, try natural language mappings
+    // Use safe extraction
+    const symbols = safeSymbol.extractSafeSymbols(query);
+    
+    if (symbols.length > 0) {
+      logger.debug(`[IntelligentResponse] Safely extracted symbols: ${symbols.join(', ')}`);
+      return symbols[0]; // Return first valid symbol
+    }
+    
+    // Fallback to natural language mappings only for known phrases
     const lowerQuery = query.toLowerCase();
     const symbolMappings = {
-      // Commodities
-      oil: "CL",
-      crude: "CL",
-      "crude oil": "CL",
-      wti: "CL",
-      brent: "BZ",
-      gold: "GC",
-      silver: "SI",
-      copper: "HG",
-      "natural gas": "NG",
-      gas: "NG",
-
-      // Crypto
-      bitcoin: "BTC",
-      btc: "BTC",
-      ethereum: "ETH",
-      eth: "ETH",
-      dogecoin: "DOGE",
-      doge: "DOGE",
-
-      // Stocks - Company names
-      apple: "AAPL",
-      microsoft: "MSFT",
-      google: "GOOGL",
-      amazon: "AMZN",
-      tesla: "TSLA",
-      nvidia: "NVDA",
-      meta: "META",
-      facebook: "META",
-      intel: "INTC",
-      
-      // Stocks - Ticker symbols (lowercase)
-      aapl: "AAPL",
-      msft: "MSFT",
-      googl: "GOOGL",
-      amzn: "AMZN",
-      tsla: "TSLA",
-      nvda: "NVDA",
-      intc: "INTC",
-      amd: "AMD",
-      spy: "SPY",
-      qqq: "QQQ",
-      iwm: "IWM",
-      gld: "GLD",
-      uso: "USO",
-      jpm: "JPM",
-      bac: "BAC",
-      dis: "DIS",
-      nflx: "NFLX",
-      gme: "GME",
-      amc: "AMC",
-      pltr: "PLTR",
-      arkk: "ARKK",
+      // Only explicit financial terms
+      'oil prices': 'CL',
+      'crude oil': 'CL',
+      'gold prices': 'GC',
+      'silver prices': 'SI',
+      'bitcoin': 'BTC',
+      'ethereum': 'ETH',
+      'apple': 'AAPL',
+      'microsoft': 'MSFT',
+      'google': 'GOOGL',
+      'amazon': 'AMZN',
+      'tesla': 'TSLA',
+      'nvidia': 'NVDA',
+      'meta': 'META',
+      'facebook': 'META'
     };
-
-    // Check for natural language matches - prioritize longer matches
-    const sortedMappings = Object.entries(symbolMappings).sort(
-      ([a], [b]) => b.length - a.length,
-    ); // Sort by length descending
-
-    for (const [keyword, symbol] of sortedMappings) {
-      // Use word boundaries to ensure exact matches
-      const regex = new RegExp(`\\b${keyword}\\b`, "i");
-      if (regex.test(lowerQuery)) {
+    
+    for (const [phrase, symbol] of Object.entries(symbolMappings)) {
+      if (lowerQuery.includes(phrase)) {
         return symbol;
       }
     }
-
-    // Extract stock symbols from query (uppercase or lowercase letters)
-    const upperMatch = query.match(/\b[A-Z]{1,5}\b/);
-    if (upperMatch) {
-      return upperMatch[0];
-    }
     
-    // Try lowercase symbols if uppercase not found
-    const lowerMatch = query.match(/\b[a-z]{2,5}\b/);
-    if (lowerMatch) {
-      return lowerMatch[0].toUpperCase();
-    }
-    
+    logger.debug(`[IntelligentResponse] No valid symbol found in query`);
     return null;
   }
 
@@ -957,62 +912,8 @@ class IntelligentResponseGenerator {
       return `Unable to generate analysis for ${symbol}. Market data is currently unavailable.`;
     }
 
-    // Get asset-specific information
-    const assetInfo = this.getDetailedAssetInfo(symbol);
-
-    // Calculate or use existing 52-week data
-    const high52 = data.high52 || data.price * 1.2;
-    const low52 = data.low52 || data.price * 0.8;
-
-    // Mock moving averages for basic analysis (in production, fetch from API)
-    const mockMA = {
-      sma5: data.price * 1.01,
-      sma10: data.price * 0.99,
-      sma20: data.price * 1.02,
-      sma50: data.price * 0.98,
-      sma100: data.price * 0.97,
-      sma200: data.price * 0.95,
-    };
-
-    // Format change percentage and amount using NumberFormatter
-    const priceFormatted = NumberFormatter.formatPrice(data.price);
-    const changeFormatted = NumberFormatter.formatPriceChange(data.changePercent, data.price);
-
-    // Start with current price and movement prominently
-    let analysis = `${symbol} is currently trading at ${priceFormatted}, ${changeFormatted.text} ${changeFormatted.amount}.\n\n`;
-
-    // Flow naturally into support/resistance levels
-    const supportLevel = NumberFormatter.formatPrice(data.price * 0.95);
-    const resistanceLevel = NumberFormatter.formatPrice(data.price * 1.05);
-    analysis += `The asset may find support around ${supportLevel} and face resistance near ${resistanceLevel}.\n\n`;
-
-    // Format volume using NumberFormatter
-    const volumeFormatted = NumberFormatter.formatVolume(data.volume, assetInfo.volumeUnit);
-    
-    // Volume and moving averages in separate sentences
-    analysis += `Current trading volume is ${volumeFormatted}.\n\n`;
-    analysis += `The moving averages tell an interesting story: `;
-    analysis += `5-day at ${NumberFormatter.formatMovingAverage(mockMA.sma5)}, `;
-    analysis += `10-day at ${NumberFormatter.formatMovingAverage(mockMA.sma10)}, `;
-    analysis += `20-day at ${NumberFormatter.formatMovingAverage(mockMA.sma20)}, `;
-    analysis += `50-day at ${NumberFormatter.formatMovingAverage(mockMA.sma50)}, `;
-    analysis += `100-day at ${NumberFormatter.formatMovingAverage(mockMA.sma100)}, `;
-    analysis += `and 200-day at ${NumberFormatter.formatMovingAverage(mockMA.sma200)}.\n\n`;
-
-    // Present company context naturally
-    analysis += `${symbol} is ${assetInfo.description}. ${assetInfo.exchangeInfo}. `;
-    analysis += `Price movements are typically driven by ${assetInfo.influencingFactors}.\n\n`;
-
-    // Include price range data conversationally
-    const priceRange = NumberFormatter.formatPriceRange(high52, low52);
-    const volatility = NumberFormatter.assessVolatility(high52, low52);
-    const rangePct = NumberFormatter.formatLargeNumber(((high52 - low52) / low52 * 100), 1);
-    analysis += `Over the past 52 weeks, ${symbol} has ranged between ${priceRange}, representing a ${rangePct}% trading range with ${volatility} volatility.\n\n`;
-
-    // End with charts note naturally
-    analysis += `Live charts and additional market data are available below.`;
-
-    return analysis;
+    // Use professional analysis generator
+    return professionalAnalysis.generateAnalysis(symbol, data, 'standard');
   }
 
   getQuickMarketContext(symbol, changePercent) {
@@ -1057,30 +958,30 @@ class IntelligentResponseGenerator {
   async getMarketData(symbol) {
     // Normalize symbol first
     const normalizedSymbol = this.normalizeSymbol(symbol);
-    console.log(`[IntelligentResponse] getMarketData called with symbol: ${symbol}, normalized: ${normalizedSymbol}`);
+    logger.debug(`[IntelligentResponse] getMarketData called with symbol: ${symbol}, normalized: ${normalizedSymbol}`);
 
     try {
       // Detect asset type
       const assetType = this.detectAssetType(normalizedSymbol);
-      console.log(`[IntelligentResponse] Detected asset type: ${assetType} for ${normalizedSymbol}`);
+      logger.debug(`[IntelligentResponse] Detected asset type: ${assetType} for ${normalizedSymbol}`);
 
       // Try to get data from MarketDataService with proper method
       let dynamicData;
       if (assetType === "crypto") {
-        console.log(`[IntelligentResponse] Calling fetchCryptoPrice for ${normalizedSymbol}`);
+        logger.debug(`[IntelligentResponse] Calling fetchCryptoPrice for ${normalizedSymbol}`);
         dynamicData =
           await this.marketDataService.fetchCryptoPrice(normalizedSymbol);
       } else if (assetType === "commodity") {
-        console.log(`[IntelligentResponse] Calling fetchCommodityPrice for ${normalizedSymbol}`);
+        logger.debug(`[IntelligentResponse] Calling fetchCommodityPrice for ${normalizedSymbol}`);
         dynamicData =
           await this.marketDataService.fetchCommodityPrice(normalizedSymbol);
       } else {
-        console.log(`[IntelligentResponse] Calling fetchStockPrice for ${normalizedSymbol}`);
+        logger.debug(`[IntelligentResponse] Calling fetchStockPrice for ${normalizedSymbol}`);
         dynamicData =
           await this.marketDataService.fetchStockPrice(normalizedSymbol);
       }
 
-      console.log(`[IntelligentResponse] Dynamic data for ${normalizedSymbol}:`, dynamicData);
+      logger.debug(`[IntelligentResponse] Dynamic data for ${normalizedSymbol}:`, dynamicData);
       
       if (dynamicData && dynamicData.price && !dynamicData.error) {
         return {
@@ -1097,7 +998,7 @@ class IntelligentResponseGenerator {
         };
       }
     } catch (error) {
-      console.log(
+      logger.debug(
         `[IntelligentResponse] Dynamic data failed for ${normalizedSymbol}, trying Perplexity fallback`,
       );
     }
@@ -1109,7 +1010,7 @@ class IntelligentResponseGenerator {
         return perplexityData;
       }
     } catch (error) {
-      console.log(
+      logger.debug(
         `[IntelligentResponse] Perplexity fallback failed for ${normalizedSymbol}`,
       );
     }
@@ -1215,7 +1116,7 @@ class IntelligentResponseGenerator {
         };
       }
     } catch (error) {
-      console.error(
+      logger.error(
         `[IntelligentResponse] Perplexity API error: ${error.message}`,
       );
       throw error;
@@ -1230,9 +1131,9 @@ class IntelligentResponseGenerator {
       GOOGL: 155.25,
       AMZN: 185.5,
       TSLA: 245.75,
-      BTC: 95000,
-      ETH: 3500,
-      GC: 2050,
+      BTC: 102000,  // Aligned with AssetConfigManager for consistency
+      ETH: 3133,    // Aligned with AssetConfigManager for consistency
+      GC: 3350,
       SI: 24.5,
       CL: 78.5,
     };
@@ -1256,29 +1157,22 @@ class IntelligentResponseGenerator {
   }
 
   async getHistoricalData(symbol, days = 30) {
-    // Generate mock historical data
-    const currentPrice = (await this.getMarketData(symbol)).price;
-    const historical = [];
-
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-
-      const volatility = 0.02; // 2% daily volatility
-      const randomChange = (Math.random() - 0.5) * volatility;
-      const price = currentPrice * (1 + randomChange);
-
-      historical.push({
-        date: date.toISOString(),
-        close: price,
-        price: price,
-        high: price * 1.02,
-        low: price * 0.98,
-        volume: Math.floor(Math.random() * 50000000) + 10000000,
-      });
+    // CRITICAL: Fetch REAL historical data from API - NEVER use mock data
+    try {
+      logger.debug(`[IntelligentResponse] Fetching real historical data for ${symbol}`);
+      const historicalData = await this.marketDataService.fetchHistoricalData(symbol, days);
+      
+      if (!historicalData || historicalData.length === 0) {
+        logger.error(`[IntelligentResponse] No historical data available for ${symbol}`);
+        return [];
+      }
+      
+      logger.debug(`[IntelligentResponse] Retrieved ${historicalData.length} days of real historical data`);
+      return historicalData;
+    } catch (error) {
+      logger.error(`[IntelligentResponse] Failed to fetch historical data for ${symbol}:`, error.message);
+      return [];
     }
-
-    return historical;
   }
 }
 

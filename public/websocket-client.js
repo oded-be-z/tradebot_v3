@@ -3,7 +3,9 @@
 
 class WebSocketClient {
   constructor(options = {}) {
-    this.url = options.url || `ws://${window.location.host}/ws`;
+    // Use wss:// for HTTPS, ws:// for HTTP
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    this.url = options.url || `${protocol}//${window.location.host}/ws`;
     this.reconnectDelay = options.reconnectDelay || 1000;
     this.maxReconnectAttempts = options.maxReconnectAttempts || 5;
     this.heartbeatInterval = options.heartbeatInterval || 30000;
@@ -73,6 +75,11 @@ class WebSocketClient {
         console.error("[WebSocketClient] Error:", error);
         this.isConnecting = false;
         this.emit("error", error);
+        // Don't try to reconnect on certain errors
+        if (error.message && error.message.includes('401')) {
+          console.error("[WebSocketClient] Authentication error, not reconnecting");
+          return;
+        }
       };
     } catch (error) {
       console.error("[WebSocketClient] Connection failed:", error);
@@ -228,6 +235,12 @@ class WebSocketClient {
 
   // Schedule reconnection
   scheduleReconnect() {
+    // Don't reconnect if explicitly closed
+    if (this.ws && this.ws.readyState === WebSocket.CLOSED && this.ws.wasClean) {
+      console.log("[WebSocketClient] Connection closed cleanly, not reconnecting");
+      return;
+    }
+    
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error("[WebSocketClient] Max reconnection attempts reached");
       this.emit("maxReconnectAttemptsReached");

@@ -16,9 +16,10 @@ const Bottleneck = require("bottleneck");
 const pLimit = require("p-limit");
 const http = require("http");
 const WebSocket = require("ws");
+const logger = require("./utils/logger");
 
 // Load environment variables FIRST
-console.log("📁 Loading environment variables from .env file...");
+logger.info("📁 Loading environment variables from .env file...");
 dotenv.config();
 
 // Import new modules for real testing
@@ -53,34 +54,34 @@ const POLYGON_KEY = process.env.POLYGON_API_KEY;
 
 // Check keys and warn if missing (non-blocking)
 if (!PERPLEXITY_KEY || PERPLEXITY_KEY === "your_perplexity_api_key_here") {
-  console.warn("\n⚠️  WARNING: PERPLEXITY_API_KEY not configured properly");
-  console.warn("│ Server will operate in fallback mode without AI enhancement");
-  console.warn("│ To enable AI features:");
-  console.warn("│ 1. Get API key from: https://www.perplexity.ai/");
-  console.warn("│ 2. Update PERPLEXITY_API_KEY in .env file");
-  console.warn("│ 3. Restart server");
-  console.warn("└─ Continuing startup in fallback mode...\n");
+  logger.warn("\n⚠️  WARNING: PERPLEXITY_API_KEY not configured properly");
+  logger.warn("│ Server will operate in fallback mode without AI enhancement");
+  logger.warn("│ To enable AI features:");
+  logger.warn("│ 1. Get API key from: https://www.perplexity.ai/");
+  logger.warn("│ 2. Update PERPLEXITY_API_KEY in .env file");
+  logger.warn("│ 3. Restart server");
+  logger.warn("└─ Continuing startup in fallback mode...\n");
 } else {
-  console.log("🔑 Perplexity API key found - will validate on startup");
+  logger.info("🔑 Perplexity API key found - will validate on startup");
 }
 
 // Warn about optional keys (non-blocking)
 if (!ALPHA_VANTAGE_KEY) {
-  console.warn(
-    "⚠️  WARNING: ALPHA_VANTAGE_API_KEY not set. Some market data features may be limited.",
+  logger.warn(
+    "⚠️  WARNING: ALPHA_VANTAGE_API_KEY not set. Some market data features may be limited."
   );
-  console.warn("   Get one free at: https://www.alphavantage.co/");
+  logger.warn("   Get one free at: https://www.alphavantage.co/");
 }
 
 if (!POLYGON_KEY) {
-  console.warn(
-    "⚠️  WARNING: POLYGON_API_KEY not set. Advanced market data features disabled.",
+  logger.warn(
+    "⚠️  WARNING: POLYGON_API_KEY not set. Advanced market data features disabled."
   );
-  console.warn("   Get one at: https://polygon.io/");
+  logger.warn("   Get one at: https://polygon.io/");
 }
 
 // Success message for properly configured environment
-console.log("✅ Environment Check:", {
+logger.info("✅ Environment Check:", {
   NODE_ENV: process.env.NODE_ENV || "development",
   PORT: process.env.PORT || 3000,
   PERPLEXITY_KEY_EXISTS: !!PERPLEXITY_KEY,
@@ -95,14 +96,14 @@ console.log("✅ Environment Check:", {
 
 async function validatePerplexityAPI() {
   if (!PERPLEXITY_KEY || PERPLEXITY_KEY === "your_perplexity_api_key_here") {
-    console.log(
+    logger.debug(
       "⚠️  Perplexity API key not configured properly - using fallback mode",
     );
     return false;
   }
 
   try {
-    console.log("🔑 Validating Perplexity API key...");
+    logger.debug("🔑 Validating Perplexity API key...");
     const testResponse = await axios.post(
       "https://api.perplexity.ai/chat/completions",
       {
@@ -119,14 +120,14 @@ async function validatePerplexityAPI() {
       },
     );
 
-    console.log("✅ Perplexity API key validated successfully");
+    logger.debug("✅ Perplexity API key validated successfully");
     return true;
   } catch (error) {
-    console.warn(
+    logger.warn(
       "❌ Perplexity API validation failed:",
       error.response?.status || error.message,
     );
-    console.warn("   Operating in fallback mode without AI enhancement");
+    logger.warn("   Operating in fallback mode without AI enhancement");
     return false;
   }
 }
@@ -179,7 +180,7 @@ class SessionManager {
     };
 
     this.startCleanupJob();
-    console.log(
+    logger.debug(
       `[SessionManager] Initialized with capacity: ${this.maxSessions}, TTL: ${this.sessionTTL / 1000}s`,
     );
   }
@@ -224,7 +225,7 @@ class SessionManager {
     this.stats.totalCreated++;
     this.updateMemoryUsage();
 
-    console.log(
+    logger.debug(
       `[SessionManager] Created session ${sessionId} (total: ${this.storage.size})`,
     );
     return session;
@@ -239,7 +240,7 @@ class SessionManager {
     const now = Date.now();
 
     if (now - session.metadata.lastAccessed > this.sessionTTL) {
-      console.log(`[SessionManager] Session ${sessionId} expired, removing`);
+      logger.debug(`[SessionManager] Session ${sessionId} expired, removing`);
       this.remove(sessionId);
       this.stats.totalExpired++;
       return null;
@@ -288,7 +289,7 @@ class SessionManager {
     }
 
     if (oldestId) {
-      console.log(`[SessionManager] Evicting session ${oldestId} (LRU)`);
+      logger.debug(`[SessionManager] Evicting session ${oldestId} (LRU)`);
       this.remove(oldestId);
       this.stats.totalEvicted++;
       return true;
@@ -317,7 +318,7 @@ class SessionManager {
     this.stats.cleanupCount++;
 
     if (cleaned > 0) {
-      console.log(
+      logger.debug(
         `[SessionManager] Cleanup completed - removed ${cleaned} expired sessions`,
       );
     }
@@ -329,7 +330,7 @@ class SessionManager {
       try {
         this.cleanup();
       } catch (error) {
-        console.error("[SessionManager] Cleanup error:", error);
+        logger.error("[SessionManager] Cleanup error:", error);
       }
     }, this.cleanupInterval);
   }
@@ -353,7 +354,7 @@ class SessionManager {
     }
     this.storage.clear();
     this.accessOrder.clear();
-    console.log("[SessionManager] Shutdown completed");
+    logger.debug("[SessionManager] Shutdown completed");
   }
 }
 
@@ -396,7 +397,7 @@ class PortfolioAnalyzer {
       });
 
       if (parseResult.errors.length > 0) {
-        console.error(
+        logger.error(
           "[PortfolioAnalyzer] CSV parsing errors:",
           parseResult.errors,
         );
@@ -427,7 +428,7 @@ class PortfolioAnalyzer {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      console.error("[PortfolioAnalyzer] Error:", error);
+      logger.error("[PortfolioAnalyzer] Error:", error);
       throw error;
     }
   }
@@ -438,7 +439,7 @@ class PortfolioAnalyzer {
       const cacheAge = Date.now() - session.portfolioCache.timestamp;
       if (cacheAge < 300000) {
         // 5 minutes
-        console.log("[PortfolioAnalyzer] Using cached portfolio data");
+        logger.debug("[PortfolioAnalyzer] Using cached portfolio data");
         return session.portfolioCache.data;
       }
     }
@@ -505,7 +506,7 @@ class PortfolioAnalyzer {
             asset.changePercent = asset.change;
             asset.gain = asset.value * (asset.change / 100);
           } catch (error) {
-            console.log(
+            logger.debug(
               `Failed to fetch data for ${asset.symbol}, using fallback`,
             );
             // Fallback to realistic random changes
@@ -1487,92 +1488,16 @@ class EnhancedQueryAnalyzer {
   }
 
   extractTopic(message) {
-    const lowerMessage = message.toLowerCase();
-
-    // PHASE 1: Direct symbol mappings (highest priority)
-    // Check for multi-word phrases first (most specific)
-    const sortedMappings = Object.entries(this.symbolMappings).sort(
-      (a, b) => b[0].length - a[0].length,
-    ); // Longest phrases first
-
-    // Special handling for "vs" queries - extract first mentioned symbol
-    if (lowerMessage.includes(" vs ") || lowerMessage.includes(" versus ")) {
-      const beforeVs = lowerMessage.split(/ vs | versus /)[0];
-      for (const [phrase, symbol] of sortedMappings) {
-        if (beforeVs.includes(phrase)) {
-          console.log(
-            `[QueryAnalyzer] Comparison query - mapped first symbol "${phrase}" → ${symbol}`,
-          );
-          return symbol;
-        }
-      }
+    // Use SafeSymbolExtractor for consistent symbol extraction
+    const safeSymbol = require('./src/utils/safeSymbol');
+    const symbols = safeSymbol.extractSafeSymbols(message);
+    
+    if (symbols.length > 0) {
+      logger.debug(`[QueryAnalyzer] Using SafeSymbolExtractor: "${message}" → ${symbols[0]}`);
+      return symbols[0];
     }
-
-    for (const [phrase, symbol] of sortedMappings) {
-      if (lowerMessage.includes(phrase)) {
-        console.log(`[QueryAnalyzer] Mapped "${phrase}" → ${symbol}`);
-        return symbol;
-      }
-    }
-
-    // PHASE 2: Fuzzy matching for partial matches
-    const fuzzyMatches = this.fuzzyMatchSymbol(lowerMessage);
-    if (fuzzyMatches.length > 0) {
-      console.log(`[QueryAnalyzer] Fuzzy matched → ${fuzzyMatches[0]}`);
-      return fuzzyMatches[0];
-    }
-
-    // PHASE 3: Explicit symbol recognition (exact matches)
-    // Look for exact stock symbols
-    const stockMatch = this.stockSymbols.find((symbol) =>
-      lowerMessage.includes(symbol.toLowerCase()),
-    );
-    if (stockMatch) {
-      const mappedSymbol =
-        this.symbolMappings[stockMatch.toLowerCase()] ||
-        stockMatch.toUpperCase();
-      console.log(
-        `[QueryAnalyzer] Stock symbol match: ${stockMatch} → ${mappedSymbol}`,
-      );
-      return mappedSymbol;
-    }
-
-    // Look for exact crypto symbols
-    const cryptoMatch = this.cryptoSymbols.find((symbol) =>
-      lowerMessage.includes(symbol.toLowerCase()),
-    );
-    if (cryptoMatch) {
-      const mappedSymbol =
-        this.symbolMappings[cryptoMatch.toLowerCase()] ||
-        cryptoMatch.toUpperCase();
-      console.log(
-        `[QueryAnalyzer] Crypto symbol match: ${cryptoMatch} → ${mappedSymbol}`,
-      );
-      return mappedSymbol;
-    }
-
-    // Look for commodity symbols
-    const commodityMatch = this.commoditySymbols.find((symbol) =>
-      lowerMessage.includes(symbol.toLowerCase()),
-    );
-    if (commodityMatch) {
-      const mappedSymbol =
-        this.symbolMappings[commodityMatch.toLowerCase()] ||
-        commodityMatch.toUpperCase();
-      console.log(
-        `[QueryAnalyzer] Commodity symbol match: ${commodityMatch} → ${mappedSymbol}`,
-      );
-      return mappedSymbol;
-    }
-
-    // PHASE 4: Pattern-based extraction (uppercase symbols)
-    const symbolMatch = message.match(/\b([A-Z]{2,5})\b/);
-    if (symbolMatch) {
-      console.log(`[QueryAnalyzer] Pattern match: ${symbolMatch[1]}`);
-      return symbolMatch[1];
-    }
-
-    console.log(`[QueryAnalyzer] No symbol found in: "${message}"`);
+    
+    logger.debug(`[QueryAnalyzer] No symbol found in: "${message}"`);
     return null;
   }
 
@@ -2150,7 +2075,7 @@ class ChartGenerator {
         ChartJS.defaults.scales.linear.ticks.color = "#8B92A3";
       },
     });
-    console.log(
+    logger.debug(
       "[ChartGenerator] Initialized with server-side rendering capabilities",
     );
   }
@@ -2231,7 +2156,7 @@ class ChartGenerator {
     if (!queryInfo.needsChart) return null;
 
     try {
-      console.log(
+      logger.debug(
         `[ChartGenerator] Generating chart for ${queryInfo.queryType}: ${queryInfo.topic}`,
       );
 
@@ -2255,7 +2180,7 @@ class ChartGenerator {
           return await this.generateComparisonChart();
       }
     } catch (error) {
-      console.error("[ChartGenerator] Chart generation failed:", error.message);
+      logger.error("[ChartGenerator] Chart generation failed:", error.message);
       return this.generateFallbackChart(
         queryInfo.topic || "MARKET",
         marketData,
@@ -2282,7 +2207,7 @@ class ChartGenerator {
 
   async generatePriceChart(symbol, marketData = null) {
     try {
-      console.log(`[ChartGenerator] Fetching historical data for ${symbol}`);
+      logger.debug(`[ChartGenerator] Fetching historical data for ${symbol}`);
 
       // Fetch real historical data
       const historical = await marketDataService.fetchHistoricalData(
@@ -2371,12 +2296,12 @@ class ChartGenerator {
         };
 
         // Render chart to base64 image
-        console.log(`[ChartGenerator] Rendering chart to base64 for ${symbol}`);
+        logger.debug(`[ChartGenerator] Rendering chart to base64 for ${symbol}`);
         const imageBuffer =
           await this.chartJSNodeCanvas.renderToBuffer(chartConfig);
         const base64Image = imageBuffer.toString("base64");
 
-        console.log(
+        logger.debug(
           `[ChartGenerator] Chart created successfully for ${symbol} (${base64Image.length} chars)`,
         );
 
@@ -2392,7 +2317,7 @@ class ChartGenerator {
         };
       }
     } catch (error) {
-      console.error(
+      logger.error(
         `[ChartGenerator] Failed to generate chart for ${symbol}:`,
         error.message,
       );
@@ -2461,7 +2386,7 @@ class ChartGenerator {
         height: 400,
       };
     } catch (error) {
-      console.error(
+      logger.error(
         "[ChartGenerator] Failed to generate comparison chart:",
         error.message,
       );
@@ -2470,7 +2395,7 @@ class ChartGenerator {
   }
 
   generateFallbackChart(symbol, marketData = null) {
-    console.log(
+    logger.debug(
       `[ChartGenerator] Generating fallback ASCII chart for ${symbol}`,
     );
 
@@ -2557,7 +2482,7 @@ class EnhancedPerplexityClient {
           search_recency_filter: "day",
         };
 
-        console.log(
+        logger.debug(
           `[Perplexity] Request ${attempt}/${this.maxRetries} - Model: ${requestBody.model}`,
         );
 
@@ -2573,11 +2498,11 @@ class EnhancedPerplexityClient {
           },
         );
 
-        console.log(`[Perplexity] Request successful on attempt ${attempt}`);
+        logger.debug(`[Perplexity] Request successful on attempt ${attempt}`);
         return response.data;
       } catch (error) {
         lastError = error;
-        console.warn(
+        logger.warn(
           `[Perplexity] Attempt ${attempt}/${this.maxRetries} failed:`,
           {
             status: error.response?.status,
@@ -2617,12 +2542,12 @@ class EnhancedPerplexityClient {
       try {
         // Use the enhanced fetchMarketData that handles normalization
         realTimeData = await marketDataService.fetchMarketData(symbol, "auto");
-        console.log(
+        logger.debug(
           `[FinancialAnalysis] Got real-time data for ${symbol}:`,
           realTimeData,
         );
       } catch (e) {
-        console.log(
+        logger.debug(
           `[FinancialAnalysis] Failed to fetch real-time data for ${symbol}:`,
           e.message,
         );
@@ -2697,10 +2622,10 @@ Current query: ${topic}`;
         },
       };
     } catch (error) {
-      console.error("[Enhanced Perplexity Client] Error:", error);
+      logger.error("[Enhanced Perplexity Client] Error:", error);
 
       // Fallback mechanism - provide useful response with real-time data
-      console.log(
+      logger.debug(
         "[Enhanced Perplexity Client] Using fallback mode due to API failure",
       );
 
@@ -2731,36 +2656,14 @@ Current query: ${topic}`;
   }
 
   extractTopic(message) {
-    // First try to extract symbol matches
-    const matches = message.match(/\b([A-Z]{2,5})\b/g);
-    if (matches && matches.length > 0) {
-      return matches[0];
+    // Use SafeSymbolExtractor for consistent symbol extraction
+    const safeSymbol = require('./src/utils/safeSymbol');
+    const symbols = safeSymbol.extractSafeSymbols(message);
+    
+    if (symbols.length > 0) {
+      return symbols[0];
     }
-
-    // Enhanced crypto matching with full names
-    const cryptoMatches = message
-      .toLowerCase()
-      .match(
-        /\b(bitcoin|ethereum|dogecoin|cardano|solana|btc|eth|doge|ada|sol)\b/,
-      );
-    if (cryptoMatches) {
-      // Map full names to symbols
-      const cryptoMap = {
-        bitcoin: "BTC",
-        ethereum: "ETH",
-        dogecoin: "DOGE",
-        cardano: "ADA",
-        solana: "SOL",
-        btc: "BTC",
-        eth: "ETH",
-        doge: "DOGE",
-        ada: "ADA",
-        sol: "SOL",
-      };
-      const match = cryptoMatches[0].toLowerCase();
-      return cryptoMap[match] || match.toUpperCase();
-    }
-
+    
     return null;
   }
 
@@ -2845,11 +2748,11 @@ Current query: ${topic}`;
 let perplexityClient;
 try {
   perplexityClient = new EnhancedPerplexityClient();
-  console.log(
+  logger.debug(
     `✅ Enhanced Perplexity AI client initialized - ${perplexityClient.isConfigured ? "Configured" : "Fallback Mode"}`,
   );
 } catch (error) {
-  console.error("❌ Failed to initialize Perplexity client:", error.message);
+  logger.error("❌ Failed to initialize Perplexity client:", error.message);
   process.exit(1);
 }
 
@@ -2946,7 +2849,7 @@ app.get("/api/market-data", async (req, res) => {
           prices.push(data);
         }
       } catch (error) {
-        console.warn(`[MarketData] Failed to fetch ${symbol}:`, error.message);
+        logger.warn(`[MarketData] Failed to fetch ${symbol}:`, error.message);
       }
     }
 
@@ -2957,7 +2860,7 @@ app.get("/api/market-data", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[MarketData] API error:", error);
+    logger.error("[MarketData] API error:", error);
     res.status(500).json({
       success: false,
       error: "Failed to fetch market data",
@@ -2982,7 +2885,7 @@ app.get("/api/historical-data", async (req, res) => {
     );
     res.json({ success: true, data });
   } catch (error) {
-    console.error("[HistoricalData] Error:", error);
+    logger.error("[HistoricalData] Error:", error);
     res
       .status(500)
       .json({ success: false, error: "Failed to fetch historical data" });
@@ -2999,7 +2902,7 @@ app.get("/api/session/stats", (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[SessionManager] Failed to get stats:", error);
+    logger.error("[SessionManager] Failed to get stats:", error);
     res.status(500).json({
       success: false,
       error: "Failed to retrieve session statistics",
@@ -3020,7 +2923,7 @@ app.post("/api/session/init", (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[SessionManager] Failed to create session:", error);
+    logger.error("[SessionManager] Failed to create session:", error);
     res.status(500).json({
       success: false,
       error: "Failed to create session",
@@ -3036,7 +2939,7 @@ app.post("/api/portfolio/upload", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "Session ID required" });
     }
 
-    console.log(
+    logger.debug(
       `[Portfolio Upload] Processing portfolio.csv for session ${sessionId}`,
     );
 
@@ -3044,7 +2947,7 @@ app.post("/api/portfolio/upload", upload.single("file"), async (req, res) => {
     const result = await portfolioManager.parsePortfolio(csvContent, sessionId);
 
     if (result.success) {
-      console.log(`[Portfolio Upload] Success: ${result.message}`);
+      logger.debug(`[Portfolio Upload] Success: ${result.message}`);
       res.json({
         success: true,
         message: result.message,
@@ -3052,14 +2955,14 @@ app.post("/api/portfolio/upload", upload.single("file"), async (req, res) => {
         metrics: result.metrics,
       });
     } else {
-      console.error(`[Portfolio Upload] Error: ${result.error}`);
+      logger.error(`[Portfolio Upload] Error: ${result.error}`);
       res.status(400).json({
         success: false,
         error: result.error,
       });
     }
   } catch (error) {
-    console.error("[Portfolio Upload] Server error:", error);
+    logger.error("[Portfolio Upload] Server error:", error);
     res.status(500).json({
       success: false,
       error: "Failed to process portfolio file",
@@ -3078,14 +2981,14 @@ app.post("/api/chat", async (req, res) => {
 
     // Get or create session
     const existingSession = sessions.get(sessionId);
-    console.log(
+    logger.debug(
       "[Chat] Session lookup for",
       sessionId,
       "- existing:",
       !!existingSession,
     );
     if (existingSession) {
-      console.log(
+      logger.debug(
         "[Chat] Existing session has portfolio:",
         !!existingSession.portfolio,
       );
@@ -3103,7 +3006,7 @@ app.post("/api/chat", async (req, res) => {
     };
 
     // Classify intent first
-    console.log(`[Chat] Conversation history for intent classification:`, context.conversationHistory);
+    logger.debug(`[Chat] Conversation history for intent classification:`, context.conversationHistory);
     const intentClassification = intentClassifier.classifyIntent(
       message,
       context.conversationHistory || [],
@@ -3144,15 +3047,79 @@ app.post("/api/chat", async (req, res) => {
         
       case "comparison_table":
         formattedResponse = responseFormatter.formatComparisonTable(response);
+        if (response.needsChart && response.symbols && response.comparisonData) {
+          // Fetch real historical data for both symbols
+          try {
+            const marketDataService = require('./src/knowledge/market-data-service');
+            const mds = new marketDataService();
+            
+            logger.debug(`[Server] Fetching historical data for comparison: ${response.symbols.join(' vs ')}`);
+            
+            // Fetch historical data for both symbols in parallel
+            const historicalDataPromises = response.symbols.map(symbol => 
+              mds.fetchHistoricalData(symbol, 30)
+            );
+            
+            const historicalDataArrays = await Promise.all(historicalDataPromises);
+            
+            // Ensure we have data for both symbols
+            if (historicalDataArrays.every(data => data && data.length > 0)) {
+              // Format data for chart generator
+              const dataArray = historicalDataArrays.map((data, index) => ({
+                symbol: response.symbols[index],
+                dates: data.map(d => d.date),
+                prices: data.map(d => d.close || d.price),
+                currentPrice: response.comparisonData[index].price
+              }));
+              
+              logger.debug(`[Server] Generating comparison chart for ${response.symbols.join(' vs ')}`);
+              chartData = await chartGenerator.generateComparisonChart(
+                response.symbols,
+                dataArray
+              );
+            } else {
+              logger.error("[Server] Missing historical data for one or more symbols");
+              chartData = null;
+            }
+          } catch (error) {
+            logger.error("[Server] Failed to fetch comparison data:", error.message);
+            chartData = null;
+          }
+        }
         break;
 
       case "trend_analysis":
         formattedResponse = responseFormatter.formatTrendAnalysis(response);
-        if (response.needsChart) {
-          chartData = await chartGenerator.generateSmartChart(
-            response.symbol,
-            "trend",
-          );
+        if (response.needsChart && response.symbol) {
+          // CRITICAL: Fetch real historical data for chart
+          try {
+            const marketDataService = require('./src/knowledge/market-data-service');
+            const mds = new marketDataService();
+            const historicalData = await mds.fetchHistoricalData(response.symbol, 30);
+            
+            if (historicalData && historicalData.length > 0) {
+              // Format data for chart generator
+              const formattedData = {
+                symbol: response.symbol,
+                dates: historicalData.map(d => d.date),
+                prices: historicalData.map(d => d.close || d.price),
+                currentPrice: response.currentPrice
+              };
+              
+              chartData = await chartGenerator.generateSmartChart(
+                response.symbol,
+                "trend",
+                formattedData,
+                response.currentPrice
+              );
+            } else {
+              logger.error("[Server] No historical data available for chart");
+              chartData = null;
+            }
+          } catch (error) {
+            logger.error("[Server] Failed to fetch historical data:", error.message);
+            chartData = null;
+          }
         }
         break;
 
@@ -3174,10 +3141,35 @@ app.post("/api/chat", async (req, res) => {
           response.analysis || response.response,
         );
         if (response.needsChart && response.symbol) {
-          chartData = await chartGenerator.generateSmartChart(
-            response.symbol,
-            "price",
-          );
+          // CRITICAL: Fetch real historical data for chart
+          try {
+            const marketDataService = require('./src/knowledge/market-data-service');
+            const mds = new marketDataService();
+            const historicalData = await mds.fetchHistoricalData(response.symbol, 30);
+            
+            if (historicalData && historicalData.length > 0) {
+              // Format data for chart generator
+              const formattedData = {
+                symbol: response.symbol,
+                dates: historicalData.map(d => d.date),
+                prices: historicalData.map(d => d.close || d.price),
+                currentPrice: response.data && response.data.price ? response.data.price : null
+              };
+              
+              chartData = await chartGenerator.generateSmartChart(
+                response.symbol,
+                "price",
+                formattedData,
+                formattedData.currentPrice
+              );
+            } else {
+              logger.error("[Server] No historical data available for chart");
+              chartData = null;
+            }
+          } catch (error) {
+            logger.error("[Server] Failed to fetch historical data:", error.message);
+            chartData = null;
+          }
         }
     }
 
@@ -3209,7 +3201,7 @@ app.post("/api/chat", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[Chat] Error:", error);
+    logger.error("[Chat] Error:", error);
     res.status(500).json({
       success: false,
       error: "Failed to process chat message",
@@ -3237,38 +3229,76 @@ const server = http.createServer(app);
 // Initialize WebSocket service
 const webSocketService = new WebSocketService();
 
-// Create WebSocket server
+// Load WebSocket configuration
+const wsConfig = require('./config/websocket');
+
+// Create WebSocket server with configuration
 const wss = new WebSocket.Server({
   server,
-  path: "/ws",
+  ...wsConfig.server
 });
 
 // Handle WebSocket connections
 wss.on("connection", (ws, req) => {
   const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  console.log(`[WebSocket] New client connected: ${clientId}`);
+  logger.debug(`[WebSocket] New client connected: ${clientId}`);
 
+  // Mark connection as alive
+  ws.isAlive = true;
+  
   webSocketService.addClient(clientId, ws);
 
+  // Handle pong responses
+  ws.on("pong", () => {
+    ws.isAlive = true;
+  });
+
   ws.on("close", () => {
-    console.log(`[WebSocket] Client disconnected: ${clientId}`);
+    logger.debug(`[WebSocket] Client disconnected: ${clientId}`);
+  });
+
+  ws.on("error", (error) => {
+    logger.error(`[WebSocket] Client error for ${clientId}:`, error.message);
   });
 });
 
+// Handle WebSocket server errors
+wss.on("error", (error) => {
+  logger.error("[WebSocket] Server error:", error.message);
+});
+
+// Heartbeat mechanism to detect broken connections
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) {
+      logger.debug("[WebSocket] Terminating dead connection");
+      return ws.terminate();
+    }
+    
+    ws.isAlive = false;
+    ws.ping(() => {});
+  });
+}, 30000);
+
+// Clean up on server shutdown
+wss.on('close', () => {
+  clearInterval(heartbeatInterval);
+});
+
 server.listen(PORT, async () => {
-  console.log("\n🚀 FinanceBot Pro v4.0 Server Started Successfully!");
-  console.log("│");
-  console.log(`│ 🌐 Server running on: http://localhost:${PORT}`);
-  console.log(`│ 🔧 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`│ 🔐 Security: Enabled (no hardcoded API keys)`);
+  logger.debug("\n🚀 FinanceBot Pro v4.0 Server Started Successfully!");
+  logger.debug("│");
+  logger.debug(`│ 🌐 Server running on: http://localhost:${PORT}`);
+  logger.debug(`│ 🔧 Environment: ${process.env.NODE_ENV || "development"}`);
+  logger.debug(`│ 🔐 Security: Enabled (no hardcoded API keys)`);
 
   // Validate Perplexity API on startup
   if (perplexityClient && perplexityClient.isConfigured) {
-    console.log("🔑 Validating Perplexity API key...");
+    logger.debug("🔑 Validating Perplexity API key...");
     try {
       perplexityValidated = await validatePerplexityAPI();
     } catch (error) {
-      console.warn(
+      logger.warn(
         "⚠️  Perplexity API validation failed, continuing in fallback mode",
       );
       perplexityValidated = false;
@@ -3280,7 +3310,7 @@ server.listen(PORT, async () => {
   // Validate Polygon API on startup
   let polygonValidated = false;
   if (POLYGON_KEY) {
-    console.log("🔑 Validating Polygon API key...");
+    logger.debug("🔑 Validating Polygon API key...");
     try {
       const testResponse = await axios.get(
         "https://api.polygon.io/v2/aggs/ticker/AAPL/prev",
@@ -3290,45 +3320,45 @@ server.listen(PORT, async () => {
         },
       );
       polygonValidated = testResponse.status === 200;
-      console.log("✅ Polygon API validation successful");
+      logger.debug("✅ Polygon API validation successful");
     } catch (error) {
       if (error.response?.status === 401) {
-        console.warn("❌ Polygon API validation failed: 401 Unauthorized");
+        logger.warn("❌ Polygon API validation failed: 401 Unauthorized");
       } else {
-        console.warn(
+        logger.warn(
           "⚠️  Polygon API validation failed, using fallback data sources",
         );
       }
       polygonValidated = false;
     }
   } else {
-    console.log("ℹ️  Polygon API key not configured - using free data sources");
+    logger.debug("ℹ️  Polygon API key not configured - using free data sources");
   }
 
-  console.log(
+  logger.debug(
     `│ 🤖 AI Analysis: ${perplexityValidated ? "Ready" : "Fallback Mode"}`,
   );
-  console.log(
+  logger.debug(
     `│ 📊 Market Data: ${polygonValidated ? "Real-time (Polygon)" : "Free Sources (Yahoo)"}`,
   );
-  console.log(`│ 💬 Conversational: Enabled`);
-  console.log(`│ 🛡️  Trading Advice Filter: Active`);
-  console.log(`│ 📊 Session Manager: Active`);
-  console.log(`│ 📁 Portfolio Upload: Enabled`);
+  logger.debug(`│ 💬 Conversational: Enabled`);
+  logger.debug(`│ 🛡️  Trading Advice Filter: Active`);
+  logger.debug(`│ 📊 Session Manager: Active`);
+  logger.debug(`│ 📁 Portfolio Upload: Enabled`);
 
   // Initialize WebSocket service
-  console.log("│ 🔌 Initializing WebSocket service...");
+  logger.debug("│ 🔌 Initializing WebSocket service...");
   try {
     await webSocketService.initialize();
-    console.log(
+    logger.debug(
       `│ 🔌 WebSocket: Ready (${webSocketService.getStats().polygonConnected ? "Real-time data enabled" : "Basic mode"})`,
     );
   } catch (error) {
-    console.warn("│ 🔌 WebSocket: Failed to initialize real-time data");
+    logger.warn("│ 🔌 WebSocket: Failed to initialize real-time data");
   }
 
-  console.log("│");
-  console.log("└─ Ready to serve secure financial analysis requests!\n");
+  logger.debug("│");
+  logger.debug("└─ Ready to serve secure financial analysis requests!\n");
 });
 
 // ================================================================
@@ -3336,29 +3366,29 @@ server.listen(PORT, async () => {
 // ================================================================
 
 const gracefulShutdown = (signal) => {
-  console.log(
+  logger.debug(
     `\n[${new Date().toISOString()}] ${signal} received. Starting graceful shutdown...`,
   );
 
   server.close((err) => {
     if (err) {
-      console.error("Error during server shutdown:", err);
+      logger.error("Error during server shutdown:", err);
     } else {
-      console.log("✅ Server closed successfully");
+      logger.debug("✅ Server closed successfully");
     }
 
     sessions.shutdown();
 
     // Shutdown WebSocket service
     webSocketService.shutdown();
-    console.log("✅ WebSocket service shutdown completed");
+    logger.debug("✅ WebSocket service shutdown completed");
 
-    console.log("✅ Graceful shutdown completed");
+    logger.debug("✅ Graceful shutdown completed");
     process.exit(err ? 1 : 0);
   });
 
   setTimeout(() => {
-    console.error(
+    logger.error(
       "❌ Could not close connections in time, forcefully shutting down",
     );
     process.exit(1);
@@ -3371,13 +3401,13 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 // Handle uncaught exceptions gracefully
 process.on("uncaughtException", (error) => {
-  console.error("Uncaught Exception:", error);
+  logger.error("Uncaught Exception:", error);
   sessions.shutdown();
   process.exit(1);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  logger.error("Unhandled Rejection at:", promise, "reason:", reason);
   sessions.shutdown();
   process.exit(1);
 });
