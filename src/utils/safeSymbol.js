@@ -1,5 +1,13 @@
 class SafeSymbolExtractor {
   constructor() {
+    // Common tickers for fuzzy matching
+    this.commonTickers = [
+      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA',
+      'JPM', 'BAC', 'WMT', 'HD', 'V', 'MA', 'DIS', 'NFLX', 'AMD',
+      'BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'DOGE', 'XRP', 'MATIC',
+      'SPY', 'QQQ', 'DIA', 'IWM', 'VTI', 'GLD', 'USO'
+    ];
+    
     // Common English words that should NEVER be tickers
     this.stopWords = new Set([
       'who', 'what', 'when', 'where', 'why', 'how', 'can', 'could', 'would', 'should',
@@ -24,7 +32,13 @@ class SafeSymbolExtractor {
       // Critical additions to fix the bug
       'chart', 'graph', 'trend', 'display', 'analysis', 'data', 'info', 'report',
       // Fix "what's happening" bug
-      'whats', 'happening', 'doing', 'saying', 'happening', 'going', 'on'
+      'whats', 'happening', 'doing', 'saying', 'happening', 'going', 'on',
+      // Fix temporal words being treated as tickers
+      'date', 'time', 'today', 'tomorrow', 'yesterday', 'now', 
+      'week', 'month', 'year', 'day', 'hour', 'minute', 'second',
+      'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+      'january', 'february', 'march', 'april', 'may', 'june', 
+      'july', 'august', 'september', 'october', 'november', 'december'
     ]);
 
     // Valid ticker patterns
@@ -55,6 +69,7 @@ class SafeSymbolExtractor {
       'gas': 'NG',
       'naturalgas': 'NG',
       'natural gas': 'NG',
+      'nat gas': 'NG',
       'copper': 'HG',
       'platinum': 'PL',
       'palladium': 'PA',
@@ -109,6 +124,55 @@ class SafeSymbolExtractor {
     ];
   }
 
+  // Fuzzy matching with Levenshtein distance
+  fuzzyMatchTicker(input) {
+    // Levenshtein distance implementation
+    function levenshtein(a, b) {
+      const matrix = [];
+      for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+      }
+      for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+      }
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b.charAt(i - 1) === a.charAt(j - 1)) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j - 1] + 1,
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j] + 1
+            );
+          }
+        }
+      }
+      return matrix[b.length][a.length];
+    }
+    
+    const upperInput = input.toUpperCase();
+    
+    // Check exact match first
+    if (this.commonTickers.includes(upperInput)) {
+      return upperInput;
+    }
+    
+    // Find closest match with Levenshtein distance
+    let bestMatch = null;
+    let bestDistance = Infinity;
+    
+    for (const ticker of this.commonTickers) {
+      const distance = levenshtein(upperInput, ticker);
+      if (distance < bestDistance && distance <= 1) { // Max 1 character difference
+        bestDistance = distance;
+        bestMatch = ticker;
+      }
+    }
+    
+    return bestMatch;
+  }
+
   isValidTicker(symbol) {
     if (!symbol || typeof symbol !== 'string') return false;
     
@@ -145,6 +209,13 @@ class SafeSymbolExtractor {
         console.log(`[SafeSymbol] Rejected '${symbol}' - common word as ticker`);
         return false;
       }
+      
+      // Check fuzzy matching for potential typos
+      const fuzzyMatch = this.fuzzyMatchTicker(upperSymbol);
+      if (fuzzyMatch && fuzzyMatch !== upperSymbol) {
+        console.log(`[SafeSymbol] Fuzzy match found: '${symbol}' → '${fuzzyMatch}'`);
+        return false; // Will be handled in extractSafeSymbols
+      }
     }
     
     console.log(`[SafeSymbol] Accepted '${symbol}' as valid ticker`);
@@ -178,6 +249,14 @@ class SafeSymbolExtractor {
       // Check for plain symbol
       else if (this.isValidTicker(cleaned)) {
         symbols.push(cleaned.toUpperCase());
+      }
+      // Try fuzzy matching if not found
+      else if (cleaned.length >= 3 && cleaned.length <= 5) {
+        const fuzzyMatch = this.fuzzyMatchTicker(cleaned);
+        if (fuzzyMatch) {
+          console.log(`[SafeSymbol] Fuzzy matched '${cleaned}' to '${fuzzyMatch}'`);
+          symbols.push(fuzzyMatch);
+        }
       }
     }
     
@@ -223,10 +302,11 @@ class SafeSymbolExtractor {
     
     // Hard negative patterns - definitely not financial
     const nonFinancialPatterns = [
-      /^(who|what|when|where)\s+is\s+(?!.*(stock|price|trading|market))/i,
-      /\b(recipe|cook|food|weather|movie|music|book|game|sport)/i,
-      /\b(president|politician|celebrity|actor|singer|athlete)/i,
+      /^(who|what|when|where)\s+is\s+(?!.*(stock|price|trading|market|CEO|founded|company))/i,
+      /\b(recipe|cook|food|weather|movie|music|book|game|sport)\b/i,
+      /\b(president|politician|celebrity|actor|singer|athlete)\b/i,
       /\b(define|explain|meaning of)\s+(?!.*(stock|market|trading|financial))/i
+      // REMOVED date/time patterns - these should be handled as financial queries
     ];
     
     for (const pattern of nonFinancialPatterns) {

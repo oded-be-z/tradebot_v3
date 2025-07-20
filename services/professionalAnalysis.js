@@ -72,30 +72,27 @@ class ProfessionalAnalysisGenerator {
     const strength = Math.abs(data.changePercent) > 5 ? 'strong' : Math.abs(data.changePercent) > 2 ? 'moderate' : 'weak';
     const momentum = data.changePercent > 0 ? 'bullish' : 'bearish';
     
-    return `${symbol} Trading Analysis
+    // Warm, conversational opening
+    const warmGreeting = [
+      `Let me check ${symbol} for you...`,
+      `Great question about ${symbol}!`,
+      `Looking at ${symbol} now...`,
+      `I'm on it! Checking ${symbol}...`
+    ][Math.floor(Math.random() * 4)];
+    
+    return `${warmGreeting}
 
-📊 Current Price: ${price}
-📈 24h Change: ${change.text === 'up' ? '+' : ''}${NumberFormatter.formatNumber(data.changePercent, 'percentage')} (${change.amount})
-📉 Direction: ${strength.charAt(0).toUpperCase() + strength.slice(1)} ${trend} momentum
+Here's what I'm seeing: ${symbol} is trading at ${price}, ${change.text === 'up' ? 'up' : 'down'} ${NumberFormatter.formatNumber(Math.abs(data.changePercent), 'percentage')} today. ${Math.abs(data.changePercent) > 3 ? "That's a significant move!" : ""}
 
-💡 Market Insight:
-${symbol} is currently trading at ${price}, showing ${strength} ${trend} momentum. This represents a ${Math.abs(data.changePercent) > 3 ? 'significant' : 'modest'} move from yesterday's close. ${insight}
+${insight}
 
-📍 Key Levels Explained:
-• Support: ${this.formatMicroPrice(support)} - This is the price floor where buyers typically step in to prevent further decline
-• Resistance: ${this.formatMicroPrice(resistance)} - The ceiling where sellers often emerge to take profits
+The key levels to watch are support at ${this.formatMicroPrice(support)} (where buyers often step in) and resistance at ${this.formatMicroPrice(resistance)} (where we might see some selling pressure).
 
-🎯 Trading Strategy:
-${strategy}
-
-💰 What This Means:
 ${data.changePercent > 0 ? 
-  `The ${momentum} trend suggests potential for continued upside. Consider entering positions on minor pullbacks rather than chasing the current move.` :
-  `The current consolidation phase offers opportunity to accumulate at better prices. Patient buyers may find value near support levels.`}
+  `The momentum looks positive, but I'd be patient here. Rather than jumping in at current levels, you might want to wait for a small pullback to the ${this.formatMicroPrice(support * 1.01)} area for a better risk/reward setup.` :
+  `We're in a consolidation phase, which actually creates opportunity. If you believe in ${symbol} long-term, accumulating near ${this.formatMicroPrice(support)} could be strategic.`}
 
-⚠️ Risk Factors:
-${risk}
-Remember: Never invest more than you can afford to lose. Crypto markets are highly volatile.`;
+Want me to show you the chart or compare ${symbol} with other cryptos?`;
   }
 
   generateCommodityAnalysis(symbol, data) {
@@ -145,30 +142,25 @@ Remember: Never invest more than you can afford to lose. Crypto markets are high
     const momentum = data.changePercent > 0 ? 'bullish' : 'bearish';
     const commodityName = this.getCommodityFullName(symbol);
     
-    return `${symbol} Trading Analysis - ${commodityName}
+    // Friendly commodity-specific greeting
+    const commodityGreeting = commodityName === 'Gold' ? `Ah, the eternal safe haven! Let's see what gold is telling us...` :
+                             commodityName === 'Crude Oil' ? `Oil - the lifeblood of the global economy. Here's what's moving it...` :
+                             commodityName === 'Silver' ? `Silver's got that dual personality - precious metal and industrial commodity. Let's dive in...` :
+                             `Looking at ${commodityName}? Good choice - let me show you what's happening...`;
+    
+    return `${commodityGreeting}
 
-📊 Current Price: ${price} per ${data.unit || 'unit'}
-📈 24h Change: ${data.changePercent > 0 ? '+' : ''}${NumberFormatter.formatNumber(data.changePercent, 'percentage')} (${change.amount})
-📉 Direction: ${strength.charAt(0).toUpperCase() + strength.slice(1)} ${trend} momentum
+Here's what I'm seeing: ${commodityName} is trading at ${price}, ${data.changePercent > 0 ? 'up' : 'down'} ${NumberFormatter.formatNumber(Math.abs(data.changePercent), 'percentage')} today. ${Math.abs(data.changePercent) > 2 ? "That's catching traders' attention!" : ""}
 
-💡 Market Insight:
-${commodityName} is currently trading at ${price}, showing ${strength} ${trend} momentum. This represents a ${Math.abs(data.changePercent) > 2 ? 'significant' : 'modest'} move from yesterday's close. ${insight}
+${insight}
 
-📍 Key Levels Explained:
-• Support: ${this.formatMicroPrice(support)} - Price level where buying interest typically increases
-• Resistance: ${this.formatMicroPrice(resistance)} - Price level where selling pressure often emerges
+The key trading levels to watch are support around ${this.formatMicroPrice(support)} (where buyers historically show interest) and resistance near ${this.formatMicroPrice(resistance)} (where profit-taking often kicks in).
 
-🎯 Trading Strategy:
-${strategy}
-
-💰 What This Means:
 ${data.changePercent > 0 ? 
-  `The ${momentum} trend in ${commodityName} suggests increasing demand. This could be driven by economic factors, supply constraints, or market sentiment.` :
-  `Current weakness in ${commodityName} may present accumulation opportunities for longer-term investors. Watch for stabilization near support levels.`}
+  `With this upward momentum, I'd be cautious about chasing. If you're bullish on ${commodityName}, waiting for a pullback to ${this.formatMicroPrice(support)} might offer a better entry.` :
+  `This pullback in ${commodityName} could be an opportunity if you've been waiting to get in. The ${this.formatMicroPrice(support)} level looks interesting for accumulation.`}
 
-⚠️ Risk Factors:
-${risk}
-Note: Commodity markets are influenced by global economic conditions, weather, and geopolitical events.`;
+Want me to compare ${commodityName} to other commodities, or would you like to see its longer-term trend?`;
   }
 
   generateStockAnalysis(symbol, data) {
@@ -210,30 +202,25 @@ Note: Commodity markets are influenced by global economic conditions, weather, a
     const momentum = data.changePercent > 0 ? 'bullish' : 'bearish';
     const companyName = this.getCompanyName(symbol);
     
-    return `${symbol} Trading Analysis - ${companyName}
+    // Company-specific warm opening
+    const stockGreeting = symbol === 'AAPL' ? `Apple - the tech titan everyone's watching! Let me share what I'm seeing...` :
+                         symbol === 'TSLA' ? `Tesla - never a dull moment with this one! Here's the latest...` :
+                         symbol === 'NVDA' ? `NVIDIA - riding the AI wave! Let's look at how it's doing...` :
+                         `${companyName} - let me help you understand what's happening with ${symbol}...`;
+    
+    return `${stockGreeting}
 
-📊 Current Price: ${price}
-📈 24h Change: ${data.changePercent > 0 ? '+' : ''}${NumberFormatter.formatNumber(data.changePercent, 'percentage')} (${change.amount})
-📉 Direction: ${strength.charAt(0).toUpperCase() + strength.slice(1)} ${trend} momentum
+Here's what I'm seeing: ${symbol} is currently at ${price}, ${data.changePercent > 0 ? 'up' : 'down'} ${NumberFormatter.formatNumber(Math.abs(data.changePercent), 'percentage')} for the day. ${Math.abs(data.changePercent) > 2 ? "That's definitely moving the needle!" : ""}
 
-💡 Market Insight:
-${companyName} (${symbol}) is currently trading at ${price}, showing ${strength} ${trend} momentum. This represents a ${Math.abs(data.changePercent) > 2 ? 'significant' : 'modest'} move from yesterday's close. ${insight}
+${insight}
 
-📍 Key Levels Explained:
-• Support: ${this.formatMicroPrice(support)} - A price level where the stock has historically found buying interest
-• Resistance: ${this.formatMicroPrice(resistance)} - A price ceiling where selling pressure typically increases
+The key price points to watch are support at ${this.formatMicroPrice(support)} (where buyers have stepped in before) and resistance at ${this.formatMicroPrice(resistance)} (watch for potential selling here).
 
-🎯 Trading Strategy:
-${strategy}
-
-💰 What This Means:
 ${data.changePercent > 0 ? 
-  `The ${momentum} trend suggests investor confidence in ${companyName}. ${catalyst ? `${catalyst} is driving positive sentiment.` : 'Market conditions favor continued upside.'}` :
-  `Current weakness may offer entry opportunities for long-term investors. ${catalyst ? `Despite ${catalyst.toLowerCase()}, the stock faces near-term pressure.` : 'Watch for signs of stabilization.'}`}
+  `${companyName} is showing strength today. ${catalyst ? catalyst : ''} If you're interested in buying, I'd suggest waiting for a small dip rather than chasing. The ${this.formatMicroPrice(entryLow)}-${this.formatMicroPrice(entryHigh)} range could offer a better entry point.` :
+  `We're seeing some pressure on ${symbol} today. ${catalyst ? `${catalyst} However,` : 'But'} for long-term investors, this weakness might be an opportunity. The ${this.formatMicroPrice(support)} area looks particularly interesting if it holds.`}
 
-⚠️ Risk Factors:
-${risk}
-Always diversify your portfolio and never invest based on a single analysis.`;
+Would you like me to compare ${symbol} with its competitors, or shall we look at the broader tech sector?`;
   }
 
   generateStandardAnalysis(symbol, data) {

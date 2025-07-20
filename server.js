@@ -2829,6 +2829,128 @@ app.get("/api/health", (req, res) => {
   res.json(healthData);
 });
 
+// Debug endpoints for testing fixes
+app.post("/api/debug/extract-context", async (req, res) => {
+  try {
+    const { query, history } = req.body;
+    const intelligentResponseGen = intelligentResponse;
+    
+    // Convert history format if needed
+    const formattedHistory = intelligentResponseGen.formatConversationHistory(history || []);
+    
+    // Test Azure OpenAI symbol extraction with context
+    let symbols = [];
+    try {
+      const azureOpenAI = require('./services/azureOpenAI');
+      symbols = await azureOpenAI.extractStockSymbols(query, formattedHistory);
+    } catch (error) {
+      logger.error('[Debug] Azure OpenAI extraction failed:', error.message);
+    }
+    
+    res.json({
+      query,
+      historyProvided: history?.length || 0,
+      formattedHistory: formattedHistory,
+      extractedSymbols: symbols,
+      debug: {
+        historyFormat: history?.length > 0 ? Object.keys(history[0]) : [],
+        formattedFormat: formattedHistory.length > 0 ? Object.keys(formattedHistory[0]) : []
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/debug/diagnose", async (req, res) => {
+  const { message } = req.body;
+  
+  console.log('\n=== DIAGNOSTIC START ===');
+  console.log('Query:', message);
+  
+  // Check local classification
+  const intentClass = intentClassifier.classifyIntent(message);
+  console.log('Local intent:', JSON.stringify(intentClass, null, 2));
+  
+  // Check if blocked by safeSymbol
+  const isNonFinancial = safeSymbol.isNonFinancialQuery(message);
+  console.log('SafeSymbol non-financial check:', isNonFinancial);
+  
+  // Check LLM analysis
+  try {
+    const azureOpenAI = require('./services/azureOpenAI');
+    const llmAnalysis = await azureOpenAI.analyzeQuery(message, []);
+    console.log('LLM analysis:', JSON.stringify(llmAnalysis, null, 2));
+  } catch (e) {
+    console.log('LLM error:', e.message);
+  }
+  
+  console.log('=== DIAGNOSTIC END ===\n');
+  
+  res.json({ status: 'diagnostic complete - check server logs' });
+});
+
+app.post("/api/debug/classify-intent", async (req, res) => {
+  try {
+    const { query, history } = req.body;
+    
+    // Test intent classification
+    const intentResult = intentClassifier.classifyIntent(query, history || []);
+    
+    // Test Azure OpenAI classification if available
+    let azureIntent = null;
+    try {
+      const azureOpenAI = require('./services/azureOpenAI');
+      const formattedHistory = intelligentResponse.formatConversationHistory(history || []);
+      azureIntent = await azureOpenAI.classifyIntent(query, formattedHistory);
+    } catch (error) {
+      logger.error('[Debug] Azure OpenAI classification failed:', error.message);
+    }
+    
+    res.json({
+      query,
+      localClassification: intentResult,
+      azureClassification: azureIntent,
+      shouldRespond: intentClassifier.shouldAllowResponse(
+        intentResult.classification,
+        intentResult.confidence,
+        intentResult.details?.contextScore || 0
+      )
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/debug/test-scenarios", async (req, res) => {
+  const testScenarios = [
+    {
+      name: "Context tracking - compare them",
+      history: [
+        { query: "bitcoin", response: "Bitcoin is trading at $45,000..." },
+        { query: "what about ethereum?", response: "Ethereum is at $2,500..." }
+      ],
+      query: "compare them"
+    },
+    {
+      name: "Date/time query",
+      history: [],
+      query: "what date is it now?"
+    },
+    {
+      name: "Group analysis - FAANG",
+      history: [],
+      query: "analyze FAANG stocks"
+    }
+  ];
+  
+  res.json({
+    message: "Test scenarios for debugging",
+    scenarios: testScenarios,
+    usage: "POST these scenarios to /api/debug/extract-context or /api/debug/classify-intent"
+  });
+});
+
 // Market data endpoint
 app.get("/api/market-data", async (req, res) => {
   try {
@@ -3005,36 +3127,78 @@ app.post("/api/chat", async (req, res) => {
       timestamp: Date.now(),
     };
 
-    // Classify intent first
-    logger.debug(`[Chat] Conversation history for intent classification:`, context.conversationHistory);
-    const intentClassification = intentClassifier.classifyIntent(
-      message,
-      context.conversationHistory || [],
-    );
-
-    // Check if query is non-financial and should be refused
-    if (
-      intentClassification.classification === "non-financial" &&
-      intentClassification.confidence > 0.6
-    ) {
-      return res.json({
-        success: true,
-        response:
-          "I focus exclusively on financial markets and investing. Please ask about stocks, crypto, or market analysis!",
-        chartData: null,
-        type: "refusal",
-        metadata: {
-          hasPortfolio: !!session.portfolio,
-          intentClassification: intentClassification,
-        },
+    // LLM-FIRST APPROACH: Let the LLM decide everything first
+    logger.info(`[LLM-FIRST] Processing query with intelligent response: "${message}"`);
+    
+    let response;
+    let intentClassification = null;
+    
+    try {
+      // Skip ALL local classification initially - go straight to intelligent response
+      response = await intelligentResponse.generateResponse(
+        message,
+        context,
+      );
+      logger.info(`[LLM-FIRST] Response generated - Type: ${response.type}`);
+      
+      // The LLM will determine if it's financial or not - trust its judgment completely
+      if (response.type === 'non_financial_refusal') {
+        // Only refuse if LLM says it's truly non-financial
+        logger.info('[Server] Non-financial query refused by LLM', {
+          query: message,
+          sessionId: session.sessionId
+        });
+        return res.json({
+          success: true,
+          response: "I'm a financial assistant - let's talk about markets! What stock or crypto would you like to analyze?",
+          chartData: null,
+          type: "refusal",
+          metadata: {
+            hasPortfolio: !!session.portfolio,
+            llmDetermined: true,
+          },
+        });
+      }
+      
+    } catch (error) {
+      // ONLY use local classification as emergency fallback
+      logger.error('[LLM-FIRST] Primary LLM classification failed, falling back to local:', error.message);
+      
+      // Emergency fallback to local classification
+      intentClassification = intentClassifier.classifyIntent(
+        message,
+        context.conversationHistory || [],
+      );
+      logger.info(`[LLM-FIRST] Fallback local classification result:`, {
+        classification: intentClassification.classification,
+        confidence: intentClassification.confidence,
       });
+      
+      // Only block if very confident it's non-financial
+      if (
+        intentClassification.classification === "non-financial" &&
+        intentClassification.confidence > 0.8  // Higher threshold for fallback
+      ) {
+        return res.json({
+          success: true,
+          response: "I'm a financial assistant - let's talk about markets! What stock or crypto would you like to analyze?",
+          chartData: null,
+          type: "refusal",
+          metadata: {
+            hasPortfolio: !!session.portfolio,
+            intentClassification: intentClassification,
+            fallbackUsed: true,
+          },
+        });
+      }
+      
+      // If fallback isn't sure, try to generate a response anyway
+      response = await intelligentResponse.generateResponse(
+        message,
+        context,
+      );
     }
-
-    // Generate intelligent response
-    const response = await intelligentResponse.generateResponse(
-      message,
-      context,
-    );
+    logger.info(`[INTENT-CHAIN] Response generated - Type: ${response.type}`);
 
     // Format response based on type
     let formattedResponse;
@@ -3045,9 +3209,14 @@ app.post("/api/chat", async (req, res) => {
         formattedResponse = response.response;
         break;
         
+      case "date_time":
+        formattedResponse = response.response;
+        break;
+        
+      case "comparison":
       case "comparison_table":
-        formattedResponse = responseFormatter.formatComparisonTable(response);
-        if (response.needsChart && response.symbols && response.comparisonData) {
+        formattedResponse = response.response || responseFormatter.formatComparisonTable(response);
+        if (response.needsChart && response.symbols && response.symbols.length >= 2) {
           // Fetch real historical data for both symbols
           try {
             const marketDataService = require('./src/knowledge/market-data-service');
@@ -3069,7 +3238,7 @@ app.post("/api/chat", async (req, res) => {
                 symbol: response.symbols[index],
                 dates: data.map(d => d.date),
                 prices: data.map(d => d.close || d.price),
-                currentPrice: response.comparisonData[index].price
+                currentPrice: response.comparisonData?.[index]?.price || data[data.length - 1]?.close || data[data.length - 1]?.price
               }));
               
               logger.debug(`[Server] Generating comparison chart for ${response.symbols.join(' vs ')}`);
@@ -3132,6 +3301,38 @@ app.post("/api/chat", async (req, res) => {
         }
         break;
 
+      case "group_analysis":
+        formattedResponse = response.response;
+        if (response.needsChart && response.symbols && response.symbols.length > 0) {
+          // For group analysis, create a comparison chart for the first 2 symbols
+          try {
+            const marketDataService = require('./src/knowledge/market-data-service');
+            const mds = new marketDataService();
+            
+            logger.debug(`[Server] Generating group analysis chart for: ${response.symbols.join(', ')}`);
+            
+            // Fetch historical data for all symbols (limit to first 5 for performance)
+            const symbolsToChart = response.symbols.slice(0, 5);
+            const historicalDataPromises = symbolsToChart.map(symbol => 
+              mds.fetchHistoricalData(symbol, 30)
+            );
+            
+            const allHistoricalData = await Promise.all(historicalDataPromises);
+            
+            // Format data for multi-line chart
+            const datasets = symbolsToChart.map((symbol, index) => ({
+              label: symbol,
+              data: allHistoricalData[index] || []
+            }));
+            
+            chartData = await chartGenerator.generateMultiLineChart(datasets, 'Group Analysis - 30 Day Performance');
+            
+          } catch (error) {
+            logger.error('[Server] Failed to generate group analysis chart:', error.message);
+          }
+        }
+        break;
+
       case "error":
         formattedResponse = response.message;
         break;
@@ -3189,12 +3390,14 @@ app.post("/api/chat", async (req, res) => {
       lastTopic: newLastTopic,
     });
 
-    // Send response
+    // Send response with suggestions
     res.json({
       success: true,
       response: formattedResponse,
       chartData: chartData,
+      symbols: response.symbols, // Include symbols array for testing
       type: response.type,
+      suggestions: response.suggestions || [], // Include follow-up suggestions
       metadata: {
         symbol: response.symbol,
         hasPortfolio: !!session.portfolio,

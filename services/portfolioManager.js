@@ -42,13 +42,13 @@ class PortfolioManager {
 
               if (!hasSymbol) {
                 throw new Error(
-                  `CSV must contain a symbol/ticker/stock column`,
+                  `📁 I see your file but need a symbol column! Use: 'symbol', 'ticker', or 'stock' as your header. Example: symbol,shares,purchase_price`,
                 );
               }
 
               if (!hasShares) {
                 throw new Error(
-                  `CSV must contain a shares/quantity/amount column`,
+                  `📁 I see your file but need a shares column! Use: 'shares', 'quantity', or 'amount' as your header. Example: symbol,shares,purchase_price`,
                 );
               }
 
@@ -93,7 +93,7 @@ class PortfolioManager {
                 .filter((h) => h !== null);
 
               if (holdings.length === 0) {
-                throw new Error("No valid holdings found in portfolio");
+                throw new Error("📁 I couldn't find any valid holdings in your file. Make sure you have valid stock symbols and positive share amounts. Need help with the format?");
               }
 
               // Fetch current prices
@@ -132,7 +132,7 @@ class PortfolioManager {
                 success: true,
                 holdings: holdings,
                 metrics: metrics,
-                message: `Successfully loaded ${holdings.length} holdings`,
+                message: `🎉 Great! I've loaded your ${holdings.length} holdings worth $${parseFloat(metrics.totalValue).toLocaleString()}. Here's what stands out...`,
               });
             } catch (error) {
               resolve({
@@ -173,7 +173,7 @@ class PortfolioManager {
           ).toFixed(2);
         }
       } catch (error) {
-        console.log(`[Portfolio] Could not fetch price for ${holding.symbol}: ${error.message}`);
+        console.log(`[Portfolio] Couldn't find current price for ${holding.symbol} - this might be delisted or incorrect symbol`);
       }
     });
 

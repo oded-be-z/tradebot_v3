@@ -29,6 +29,11 @@ class WebSocketClient {
     console.log("[WebSocketClient] Initialized");
   }
 
+  // Add getter for connection status
+  get isConnected() {
+    return this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
+
   // Connect to WebSocket server
   async connect() {
     if (

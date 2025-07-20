@@ -1234,9 +1234,44 @@
       let uploadedPortfolio = null;
       let wsClient = null;
 
+      // Debug mode flag
+      const debugMode = new URLSearchParams(window.location.search).has('debug');
+
+      // Response Integrity Monitor
+      function logResponseIntegrity(response, data) {
+        if (!debugMode) return;
+        
+        const debugInfo = {
+          fullLength: response ? response.length : 0,
+          actualText: response,
+          endsWithPunctuation: response ? /[.!?]$/.test(response.trim()) : false,
+          hasChart: data.chartData ? true : false,
+          chartDataValid: data.chartData ? !!data.chartData.url || !!data.chartData.data : false,
+          timestamp: Date.now(),
+          type: data.type,
+          metadata: data.metadata
+        };
+        
+        console.log('[DEBUG] Response received:', debugInfo);
+        
+        // Check for potential truncation
+        if (response && !debugInfo.endsWithPunctuation && response.length > 100) {
+          console.warn('[DEBUG] Possible truncation detected - response does not end with punctuation');
+        }
+        
+        // Store in session storage for analysis
+        const debugHistory = JSON.parse(sessionStorage.getItem('debugHistory') || '[]');
+        debugHistory.push(debugInfo);
+        if (debugHistory.length > 50) debugHistory.shift(); // Keep last 50
+        sessionStorage.setItem('debugHistory', JSON.stringify(debugHistory));
+      }
+
       // Handle new response types
       function handleNewResponse(data) {
         const { response, chartData, type, metadata } = data;
+
+        // Debug logging
+        logResponseIntegrity(response, data);
 
         // Create message element
         const messageEl = document.createElement("div");
@@ -1258,9 +1293,17 @@
           type === "comparison_table" ||
           type === "portfolio_analysis"
         ) {
-          contentDiv.innerHTML = response; // Already formatted HTML
+          contentDiv.innerHTML = formatBotMessage(response); // Format with line breaks
         } else {
           contentDiv.innerHTML = formatBotMessage(response);
+        }
+
+        // Add truncation indicator if needed
+        if (debugMode && response && !response.trim().match(/[.!?]$/)) {
+          const truncationWarning = document.createElement("div");
+          truncationWarning.style.cssText = "color: orange; font-size: 12px; margin-top: 5px; font-style: italic;";
+          truncationWarning.textContent = "⚠️ Response may be truncated";
+          contentDiv.appendChild(truncationWarning);
         }
 
         wrapperDiv.appendChild(contentDiv);
@@ -1275,9 +1318,24 @@
           const chartEl = document.createElement("div");
           chartEl.className = "chart-container fade-in";
           
-          // Use the renderChart function to properly display the chart
-          renderChart(chartEl, chartData);
-          container.appendChild(chartEl);
+          // Monitor chart loading
+          const chartLoadStart = Date.now();
+          
+          try {
+            // Use the renderChart function to properly display the chart
+            renderChart(chartEl, chartData);
+            container.appendChild(chartEl);
+            
+            if (debugMode) {
+              console.log('[DEBUG] Chart rendered successfully in', Date.now() - chartLoadStart, 'ms');
+            }
+          } catch (error) {
+            console.error('[DEBUG] Chart rendering failed:', error);
+            if (debugMode) {
+              chartEl.innerHTML = `<div style="color: red; padding: 10px;">Chart loading failed: ${error.message}</div>`;
+              container.appendChild(chartEl);
+            }
+          }
         }
 
         // Update UI based on metadata
@@ -2688,6 +2746,14 @@ Your portfolio is now loaded and ready for analysis!`;
         }, 100);
       }
 
+      // Quick action helper for welcome screen buttons
+      function quickAction(query) {
+        const input = document.getElementById("chat-input");
+        input.value = query;
+        autoResize(input);
+        sendMessage();
+      }
+
       function autoResize(textarea) {
         textarea.style.height = "auto";
         textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
@@ -2871,7 +2937,123 @@ Your portfolio is now loaded and ready for analysis!`;
         wsClient.connect();
 
         console.log("App initialized, all features ready");
+        
+        // Initialize debug overlay if in debug mode
+        if (debugMode) {
+          initDebugOverlay();
+        }
       });
+
+      // Debug Overlay System
+      function initDebugOverlay() {
+        // Create debug overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'debug-overlay';
+        overlay.style.cssText = `
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          background: rgba(0, 0, 0, 0.9);
+          color: #00ff00;
+          padding: 15px;
+          border-radius: 8px;
+          font-family: monospace;
+          font-size: 12px;
+          max-width: 300px;
+          z-index: 10000;
+          border: 1px solid #00ff00;
+        `;
+        
+        overlay.innerHTML = `
+          <div style="font-weight: bold; margin-bottom: 10px;">🔧 DEBUG MODE</div>
+          <div id="debug-stats"></div>
+          <div style="margin-top: 10px;">
+            <button onclick="downloadDebugLog()" style="background: #00ff00; color: black; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px;">Download Debug Log</button>
+          </div>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        // Update debug stats every second
+        setInterval(updateDebugStats, 1000);
+      }
+      
+      function updateDebugStats() {
+        const stats = document.getElementById('debug-stats');
+        if (!stats) return;
+        
+        const debugHistory = JSON.parse(sessionStorage.getItem('debugHistory') || '[]');
+        const lastResponse = debugHistory[debugHistory.length - 1];
+        const wsStatus = wsClient && wsClient.isConnected ? 'Connected' : 'Disconnected';
+        
+        stats.innerHTML = `
+          <div>WebSocket: <span style="color: ${wsClient && wsClient.isConnected ? '#00ff00' : '#ff0000'}">${wsStatus}</span></div>
+          <div>Responses: ${debugHistory.length}</div>
+          ${lastResponse ? `
+            <div>Last Response: ${new Date(lastResponse.timestamp).toLocaleTimeString()}</div>
+            <div>Length: ${lastResponse.fullLength} chars</div>
+            <div>Truncated: <span style="color: ${lastResponse.endsWithPunctuation ? '#00ff00' : '#ff9900'}">${!lastResponse.endsWithPunctuation ? 'Maybe' : 'No'}</span></div>
+            <div>Has Chart: ${lastResponse.hasChart ? 'Yes' : 'No'}</div>
+          ` : ''}
+        `;
+      }
+      
+      function downloadDebugLog() {
+        const debugHistory = JSON.parse(sessionStorage.getItem('debugHistory') || '[]');
+        const log = {
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          sessionId: sessionId,
+          history: debugHistory
+        };
+        
+        const blob = new Blob([JSON.stringify(log, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `financebot-debug-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      // Network Health Monitor
+      let networkHealthMonitor = {
+        connectionDrops: 0,
+        lastDropTime: null,
+        responseTimeouts: 0,
+        averageResponseTime: 0,
+        responseTimes: []
+      };
+      
+      // Override fetch to monitor network health
+      const originalFetch = window.fetch;
+      window.fetch = function(...args) {
+        const startTime = Date.now();
+        
+        return originalFetch.apply(this, args)
+          .then(response => {
+            const responseTime = Date.now() - startTime;
+            networkHealthMonitor.responseTimes.push(responseTime);
+            if (networkHealthMonitor.responseTimes.length > 20) {
+              networkHealthMonitor.responseTimes.shift();
+            }
+            networkHealthMonitor.averageResponseTime = 
+              networkHealthMonitor.responseTimes.reduce((a, b) => a + b, 0) / networkHealthMonitor.responseTimes.length;
+            
+            if (debugMode) {
+              console.log('[DEBUG] Network response time:', responseTime, 'ms');
+            }
+            
+            return response;
+          })
+          .catch(error => {
+            networkHealthMonitor.responseTimeouts++;
+            if (debugMode) {
+              console.error('[DEBUG] Network request failed:', error);
+            }
+            throw error;
+          });
+      };
 
       // Make sendMessage globally available
       window.sendMessage = sendMessage;
