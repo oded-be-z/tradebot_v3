@@ -24,6 +24,8 @@ steps:
     NODE_ENV: $(NODE_ENV)
     ALPHA_VANTAGE_API_KEY: $(ALPHA_VANTAGE_API_KEY)
     POLYGON_API_KEY: $(POLYGON_API_KEY)
+    AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
+    AZURE_OPENAI_KEY: $(AZURE_OPENAI_KEY)
 
 - task: Bash@3
   displayName: 'Sending Telegram Notification'
