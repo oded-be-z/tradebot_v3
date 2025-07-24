@@ -2,7 +2,7 @@ trigger:
 - master
 
 variables:
-- group: TradeBot keys    # <-- Links your variable group
+- group: TradeBot keys    # Uses your secured secrets
 
 pool:
   vmImage: ubuntu-latest
@@ -18,9 +18,9 @@ steps:
 
 - script: |
     npm ci
-    # If you have a frontend, add: npm run build
-    # If not, this will do nothing (but won't fail)
-  displayName: 'Install dependencies and build (if needed)'
+    # If you use React/Vue/Next/other frontend that needs a build step, uncomment the next line:
+    # npm run build
+  displayName: 'Install dependencies and build frontend (if any)'
   env:
     PERPLEXITY_API_KEY: $(PERPLEXITY_API_KEY)
     ALPHA_VANTAGE_API_KEY: $(ALPHA_VANTAGE_API_KEY)
@@ -37,18 +37,24 @@ steps:
 - script: |
     npm start &
     sleep 5
-    # Add here any healthcheck, e.g.: curl http://localhost:3000/health
-  displayName: 'Start the app and run a basic smoke test'
+    # Optionally, you can healthcheck your app here:
+    # curl http://localhost:3000/health || echo "Healthcheck failed"
+  displayName: 'Start server and smoke test'
 
 - script: |
-    ls -lh build || true
-    ls -lh dist || true
+    echo "== Root directory =="
+    ls -lh
+    echo "== public =="
     ls -lh public || true
-  displayName: 'List build/public/dist folders'
+    echo "== build =="
+    ls -lh build || true
+    echo "== dist =="
+    ls -lh dist || true
+  displayName: 'List folders for debug'
 
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: 'public'  # Change to 'build' or 'dist' if that's your output
+    PathtoPublish: 'public'    # Change to build/dist if you have those after build step
     ArtifactName: 'app'
     publishLocation: 'Container'
   condition: succeededOrFailed()
@@ -76,3 +82,8 @@ steps:
     BUILD_REQUESTEDFOR: $(Build.RequestedFor)
     BUILD_BUILDURI: $(Build.BuildUri)
   condition: always()
+
+- script: |
+    echo "Pipeline completed successfully! Artifacts ready for Azure App Service deployment."
+  displayName: 'Finish: Log pipeline completion'
+  condition: succeeded()
