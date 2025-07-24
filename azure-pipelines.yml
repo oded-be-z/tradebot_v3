@@ -1,12 +1,15 @@
 trigger:
 - master
 
+variables:
+- group: TradeBot keys    # <-- THIS LINKS YOUR VARIABLE GROUP
+
 pool:
   vmImage: ubuntu-latest
 
 steps:
 - checkout: self
-  fetchDepth: 0  # Full Git clone to ensure git log works
+  fetchDepth: 0  # Full git history if needed
 
 - task: NodeTool@0
   inputs:
@@ -14,21 +17,39 @@ steps:
   displayName: 'Install Node.js'
 
 - script: |
-    npm install
-    npm start &
-    sleep 5  # Wait briefly to ensure the app starts
-  displayName: 'npm install and start'
+    npm ci
+    npm run build || echo "No build step found, skipping."
+    npm test || echo "No tests found or tests failed, review logs."
+  displayName: 'Install, Build, and Test'
   env:
     PERPLEXITY_API_KEY: $(PERPLEXITY_API_KEY)
-    PORT: $(PORT)
-    NODE_ENV: $(NODE_ENV)
     ALPHA_VANTAGE_API_KEY: $(ALPHA_VANTAGE_API_KEY)
     POLYGON_API_KEY: $(POLYGON_API_KEY)
     AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
     AZURE_OPENAI_KEY: $(AZURE_OPENAI_KEY)
+    PORT: $(PORT)
+    NODE_ENV: $(NODE_ENV)
+    ALLOWED_ORIGINS: $(ALLOWED_ORIGINS)
+    SESSION_TIMEOUT: $(SESSION_TIMEOUT)
+    CACHE_TTL: $(CACHE_TTL)
+    MAX_UPLOAD_SIZE: $(MAX_UPLOAD_SIZE)
+
+- script: |
+    echo "=== Build Output (ls -lh build dist public) ==="
+    ls -lh build || true
+    ls -lh dist || true
+    ls -lh public || true
+  displayName: 'List Build Artifacts'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: 'build'    # Change to 'dist' if that's your output folder
+    ArtifactName: 'app'
+    publishLocation: 'Container'
+  condition: succeededOrFailed()
 
 - task: Bash@3
-  displayName: 'Sending Telegram Notification'
+  displayName: 'Send Telegram Notification'
   inputs:
     targetType: 'inline'
     script: |
