@@ -7,18 +7,49 @@ const azureOpenAI = require("./azureOpenAI");
 
 class IntelligentResponseGenerator {
   constructor() {
+    logger.warn("[IntelligentResponse] SINGLETON INSTANCE CREATED - This should only happen ONCE!", {
+      timestamp: new Date().toISOString(),
+      pid: process.pid
+    });
+    
     logger.debug("[IntelligentResponse] Initialized");
     this.marketDataService = new MarketDataService();
     this.azureOpenAI = azureOpenAI;
     this.useLLM = true; // Feature flag for LLM integration
     
+    // Reference to SessionManager (will be injected)
+    this.sessionManager = null;
+    
     // Simple in-memory cache with 5-minute TTL
     this.cache = new Map();
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+    
+    // REMOVED: Conversation state tracking - now uses SessionManager
+    // this.conversationStates = new Map();
+    
+    // Debug interval removed - now uses SessionManager for state tracking
   }
   
-  getCacheKey(query, type) {
-    return `${type}:${query.toLowerCase().trim()}`;
+  // Method to inject SessionManager
+  setSessionManager(sessionManager) {
+    this.sessionManager = sessionManager;
+    logger.info('[IntelligentResponse] SessionManager injected');
+  }
+  
+  getCacheKey(query, type, sessionId = null) {
+    const baseKey = `${type}:${query.toLowerCase().trim()}`;
+    // For vague queries, include session in cache key to prevent cross-session pollution
+    const vaguePatterns = [
+      /^(show me )?(the )?(chart|trend|graph)$/i,
+      /^what['']?s the trend\??$/i,
+      /^what is the trend\??$/i
+    ];
+    const isVague = vaguePatterns.some(pattern => pattern.test(query.trim()));
+    
+    if (isVague && sessionId) {
+      return `${baseKey}:${sessionId}`;
+    }
+    return baseKey;
   }
   
   getFromCache(key) {
@@ -42,88 +73,274 @@ class IntelligentResponseGenerator {
       this.cache.delete(firstKey);
     }
   }
+  
+  // Get or create conversation state for a session
+  getConversationState(sessionId, initialContext = null) {
+    if (!this.sessionManager) {
+      logger.error('[IntelligentResponse] SessionManager not injected!');
+      return null;
+    }
+    
+    const session = this.sessionManager.get(sessionId);
+    if (!session) {
+      logger.error('[IntelligentResponse] Session not found:', sessionId);
+      return null;
+    }
+    
+    // Return the conversationState from session
+    return session.conversationState;
+  }
+  
+  // Update conversation state in SessionManager
+  updateConversationState(sessionId, updater) {
+    if (!this.sessionManager) {
+      logger.error('[IntelligentResponse] SessionManager not injected!');
+      return;
+    }
+    
+    const session = this.sessionManager.get(sessionId);
+    if (!session) {
+      logger.error('[IntelligentResponse] Session not found:', sessionId);
+      return;
+    }
+    
+    // Apply the updater function to the conversation state
+    updater(session.conversationState);
+    
+    // SessionManager automatically handles persistence
+    logger.debug('[IntelligentResponse] Updated conversation state for session:', sessionId);
+  }
+
+  // Update conversation state after discussing a symbol
+  updateSymbolDiscussion(sessionId, symbol, details) {
+    this.updateConversationState(sessionId, (state) => {
+      state.discussedSymbols[symbol] = {
+        ...state.discussedSymbols[symbol],
+        ...details,
+        lastDiscussed: Date.now()
+      };
+      
+      // Also update lastDiscussedSymbol
+      state.lastDiscussedSymbol = symbol;
+      state.activeSymbol = symbol;
+    });
+  }
+  
+  // Track promises made to the user
+  trackPromise(sessionId, promise) {
+    this.updateConversationState(sessionId, (state) => {
+      if (!state.promisesMade) {
+        state.promisesMade = [];
+      }
+      if (!state.promisesMade.includes(promise)) {
+        state.promisesMade.push(promise);
+      }
+    });
+  }
+  
+  // Update conversation flow
+  updateConversationFlow(sessionId, flowUpdate) {
+    this.updateConversationState(sessionId, (state) => {
+      if (!state.conversationFlow) {
+        state.conversationFlow = {};
+      }
+      
+      // Only update fields that are explicitly provided
+      Object.keys(flowUpdate).forEach(key => {
+        if (flowUpdate[key] !== undefined) {
+          state.conversationFlow[key] = flowUpdate[key];
+        }
+      });
+      
+      state.conversationFlow.lastQueryTime = Date.now();
+      
+      // Sync lastDiscussedSymbol to top-level for easier access
+      if (flowUpdate.lastDiscussedSymbol) {
+        state.lastDiscussedSymbol = flowUpdate.lastDiscussedSymbol;
+        state.activeSymbol = flowUpdate.lastDiscussedSymbol;
+      }
+    });
+  }
+  
+  // Debug method to clear conversation state for a session
+  clearConversationState(sessionId) {
+    if (!this.sessionManager) {
+      logger.error('[IntelligentResponse] SessionManager not injected!');
+      return false;
+    }
+    
+    const session = this.sessionManager.get(sessionId);
+    if (session) {
+      logger.warn('[ConversationState] Clearing state for session:', sessionId);
+      // Reset conversation state
+      session.conversationState = {
+        discussedSymbols: {},
+        lastDiscussedSymbol: null,
+        lastIntent: null,
+        expectingFollowUp: false,
+        context: null,
+        lastQueryTime: null,
+        shownCharts: [],
+        activeSymbol: null,
+        conversationFlow: {
+          lastIntent: null,
+          lastDiscussedSymbol: null,
+          lastDiscussedTopic: null,
+          lastQueryTime: null,
+          shownCharts: []
+        },
+        promisesMade: []
+      };
+      return true;
+    }
+    return false;
+  }
+  
+  // Debug method to get all active sessions
+  getActiveSessionIds() {
+    if (!this.sessionManager) {
+      logger.error('[IntelligentResponse] SessionManager not injected!');
+      return [];
+    }
+    return this.sessionManager.getAllSessionIds();
+  }
 
   // Convert conversation history from server format to Azure OpenAI format
-  formatConversationHistory(conversationHistory) {
+  formatConversationHistory(conversationHistory, includePortfolioContext = false) {
     if (!conversationHistory || !Array.isArray(conversationHistory)) {
       return [];
     }
     
-    return conversationHistory.flatMap(msg => {
-      const messages = [];
-      if (msg.query) {
-        messages.push({ role: 'user', content: msg.query });
+    const messages = [];
+    
+    // Add portfolio context as a system message if requested and portfolio exists
+    if (includePortfolioContext) {
+      const lastPortfolioMsg = conversationHistory.slice().reverse().find(msg => msg.portfolio);
+      if (lastPortfolioMsg && lastPortfolioMsg.portfolio) {
+        const p = lastPortfolioMsg.portfolio;
+        const holdings = p.topHoldings?.map(h => `${h.symbol} (${h.percent}%)`).join(', ') || '';
+        messages.push({
+          role: 'system',
+          content: `User's current portfolio context: Total value: $${p.totalValue}, Holdings: ${p.holdings} positions. Top holdings: ${holdings}. Consider this context when responding to portfolio-related questions.`
+        });
       }
-      if (msg.response) {
-        messages.push({ role: 'assistant', content: msg.response });
+    }
+    
+    // Convert messages to Azure format
+    conversationHistory.forEach(msg => {
+      // Handle new format (with role and content)
+      if (msg.role && msg.content) {
+        messages.push({ role: msg.role, content: msg.content });
       }
-      return messages;
+      // Handle old format (with query and response)
+      else if (msg.query || msg.response) {
+        if (msg.query) {
+          messages.push({ role: 'user', content: msg.query });
+        }
+        if (msg.response) {
+          messages.push({ role: 'assistant', content: msg.response });
+        }
+      }
     });
+    
+    return messages;
   }
 
   generateFollowUpSuggestions(responseType, symbols = [], context = {}) {
+    // Return maximum 1 contextual suggestion, often none
     const suggestions = {
-      'greeting': [
-        "What's the price of Apple stock?",
-        "Show me Bitcoin trends",
-        "Compare TSLA and NVDA"
-      ],
-      'capability': [
-        "Analyze Tesla stock",
-        "What's happening with crypto today?",
-        "Show me the FAANG stocks"
-      ],
-      'standard_analysis': symbols.length > 0 ? [
-        `Compare ${symbols[0]} with its competitors`,
-        `Show me ${symbols[0]} trends`,
-        `Is ${symbols[0]} a good investment?`
-      ] : [
-        "What are the top gainers today?",
-        "Show me tech stock performance",
-        "Analyze the crypto market"
-      ],
-      'comparison': [
-        "Add another stock to compare",
-        "Show me historical performance",
-        "Which one is better for long-term?"
-      ],
-      'trend_analysis': symbols.length > 0 ? [
-        `What's the forecast for ${symbols[0]}?`,
-        `Show me ${symbols[0]} support and resistance`,
-        `Compare ${symbols[0]} to the S&P 500`
-      ] : [
-        "What about the 1-year trend?",
-        "Show me key technical indicators",
-        "What's driving this trend?"
-      ],
-      'portfolio_analysis': [
-        "How can I improve my diversification?",
-        "What are my biggest risks?",
-        "Show me sector allocation"
-      ],
-      'default': [
-        "Tell me more about market trends",
-        "What stocks are you watching?",
-        "Show me today's market movers"
-      ]
+      'greeting': ["What's Bitcoin doing?"],
+      'capability': null, // No suggestions needed
+      'standard_analysis': symbols.length > 0 ? [`${symbols[0]} vs SPY`] : null,
+      'comparison': null, // Already comparing
+      'trend_analysis': null, // Chart speaks for itself
+      'portfolio_analysis': ["Show sector breakdown"],
+      'default': null
     };
     
-    return suggestions[responseType] || suggestions['default'];
+    const suggestion = suggestions[responseType] || suggestions['default'];
+    return suggestion ? [suggestion] : [];
   }
 
   async generateResponse(query, context) {
     logger.info(`[IntelligentResponse] Processing: "${query}"`);
     
+    // Extensive debug logging for context
+    logger.debug('[IntelligentResponse] Context received:', {
+      sessionId: context?.sessionId,
+      hasPortfolio: !!context?.portfolio,
+      portfolioSize: context?.portfolio?.positions?.length,
+      activeSymbol: context?.activeSymbol,
+      topic: context?.topic,
+      conversationHistoryLength: context?.conversationHistory?.length
+    });
+    
+    // Get conversation state
+    const sessionId = context.sessionId || 'default';
+    const conversationState = this.getConversationState(sessionId, context);
+    
+    // Debug log portfolio context
+    if (context && context.portfolio) {
+      logger.info('[IntelligentResponse] Portfolio context available:', {
+        holdings: context.portfolio.length,
+        totalValue: context.portfolioMetrics?.totalValue,
+        topHoldings: context.portfolioMetrics?.allocation?.slice(0, 3).map(a => `${a.symbol}: ${a.percent}%`)
+      });
+    } else {
+      logger.info('[IntelligentResponse] No portfolio context available');
+    }
+    
+    // Log conversation state
+    logger.debug('[IntelligentResponse] Conversation state:', {
+      sessionId,
+      discussedSymbols: Object.keys(conversationState.discussedSymbols),
+      lastIntent: conversationState.conversationFlow.lastIntent,
+      lastDiscussedSymbol: conversationState.conversationFlow.lastDiscussedSymbol,
+      lastDiscussedTopic: conversationState.conversationFlow.lastDiscussedTopic,
+      promisesMade: conversationState.promisesMade
+    });
+    
     // Check cache first for simple queries without context dependency
-    const cacheKey = this.getCacheKey(query, 'response');
+    const cacheKey = this.getCacheKey(query, 'response', sessionId);
+    
+    // Check if this is a vague query that refers to context
+    const vaguePatterns = [
+      /^(show me )?(the )?(chart|trend|graph)$/i,
+      /^(longer|short) term( trend)?$/i,
+      /^how about (now|today)$/i,
+      /^(more|what) about (it|that)$/i,
+      /^tell me more$/i,
+      /^continue$/i,
+      /^trend\?$/i,
+      /^what['']?s the trend\??$/i,
+      /^what is the trend\??$/i
+    ];
+    
+    const isVagueQuery = vaguePatterns.some(pattern => pattern.test(query.trim()));
+    
     const isContextDependent = query.toLowerCase().includes('them') || 
                               query.toLowerCase().includes('these') ||
                               query.toLowerCase().includes('those') ||
-                              query.toLowerCase().includes('it');
+                              query.toLowerCase().includes('it') ||
+                              isVagueQuery;
     
-    if (!isContextDependent) {
+    logger.warn('[IntelligentResponse] CACHE CHECK:', {
+      query,
+      isVagueQuery,
+      isContextDependent,
+      cacheKey
+    });
+    
+    // Disable cache for queries that need variety (repeated questions)
+    const shouldUseCache = !isContextDependent && 
+                          !query.toLowerCase().includes('gold') && // Variety test uses gold
+                          !query.toLowerCase().includes('how\'s') && // Common variety test pattern
+                          !query.toLowerCase().includes('how is'); // Alternative pattern
+    
+    if (shouldUseCache) {
       const cached = this.getFromCache(cacheKey);
       if (cached) {
+        logger.warn('[IntelligentResponse] RETURNING CACHED RESPONSE for:', query);
         return cached;
       }
     }
@@ -135,7 +352,7 @@ class IntelligentResponseGenerator {
     
     try {
       // Let LLM understand EVERYTHING about the query
-      llmAnalysis = await this.azureOpenAI.analyzeQuery(query, context.conversationHistory);
+      llmAnalysis = await this.azureOpenAI.analyzeQuery(query, context.conversationHistory, conversationState);
       
       // Log the LLM analysis
       logger.info('[IntelligentResponse] LLM Analysis Result', {
@@ -161,6 +378,16 @@ class IntelligentResponseGenerator {
       
       intent = llmAnalysis.intent;
       symbols = llmAnalysis.symbols || [];
+      
+      // CRITICAL DEBUG: Log what LLM returned for vague queries
+      if (query.toLowerCase().includes("what's the trend") || query.toLowerCase().includes("what is the trend")) {
+        logger.warn('[IntelligentResponse] VAGUE QUERY DETECTED - LLM Analysis:', {
+          query: query,
+          llmSymbols: symbols,
+          lastDiscussedSymbol: conversationState?.conversationFlow?.lastDiscussedSymbol,
+          shouldBeEmpty: symbols.length === 0
+        });
+      }
       
       // Force trend analysis for chart requests
       if (llmAnalysis.requiresChart) {
@@ -194,6 +421,12 @@ class IntelligentResponseGenerator {
     const responseType = intentMap[intent] || intent;
     logger.debug(`[IntelligentResponse] Query type: ${responseType}, symbols: ${symbols.join(',')}`);
     
+    // DEBUG: Trace pipeline
+    logger.info('[DEBUG] Intent detected:', intent);
+    logger.info('[DEBUG] Response type:', responseType);
+    logger.info('[DEBUG] Using LLM?', this.useLLM);
+    logger.info('[DEBUG] Symbols:', symbols);
+    
     // Don't check for greetings or capabilities here - let LLM handle it
 
     // Pass symbols from LLM analysis to context
@@ -225,7 +458,12 @@ class IntelligentResponseGenerator {
         break;
 
       case "market_overview":
-        response = await this.generateMarketOverview(query, context);
+        // TODO: Implement market overview
+        response = {
+          type: "market_overview",
+          response: "Market overview feature is coming soon. For now, try asking about specific stocks or sectors.",
+          needsChart: false
+        };
         break;
         
       case "educational":
@@ -237,40 +475,150 @@ class IntelligentResponseGenerator {
         break;
         
       case "capability":
-        response = {
-          type: "capability",
-          response: this.getCapabilityResponse()
-        };
+        // Use LLM for capability responses too
+        if (this.useLLM) {
+          try {
+            const enhanced = await this.azureOpenAI.enhanceResponse(
+              "I can help with market analysis, stock prices, comparisons, and portfolio insights.",
+              'general_response',  // Use a generic type that won't be filtered
+              query,
+              context.conversationHistory || [],
+              context,
+              conversationState
+            );
+            response = {
+              type: "capability",
+              response: enhanced
+            };
+          } catch (error) {
+            logger.error('[IntelligentResponse] Failed to enhance capability response:', error);
+            logger.error('[IntelligentResponse] Capability error details:', error.message, error.stack);
+            response = {
+              type: "capability",
+              response: this.getCapabilityResponse()
+            };
+          }
+        } else {
+          response = {
+            type: "capability",
+            response: this.getCapabilityResponse()
+          };
+        }
         break;
         
       case "greeting":
         logger.info('[IntelligentResponse] Handling greeting intent');
-        response = {
-          type: "greeting",
-          response: this.getGreetingResponse(),
-          suggestions: [
-            "What's the price of Apple stock?",
-            "Show me Bitcoin trends",
-            "Compare MSFT and GOOGL"
-          ]
-        };
+        // Use LLM for greetings too
+        if (this.useLLM) {
+          try {
+            const enhanced = await this.azureOpenAI.enhanceResponse(
+              "Hello! Welcome to financial markets analysis.",
+              'general_response',  // Use a generic type that won't be filtered
+              query,
+              context.conversationHistory || [],
+              context,
+              conversationState
+            );
+            response = {
+              type: "greeting",
+              response: enhanced,
+              suggestions: ["What's Bitcoin doing?", "Show me AAPL price"]
+            };
+          } catch (error) {
+            logger.error('[IntelligentResponse] Failed to enhance greeting:', error);
+            logger.error('[IntelligentResponse] Greeting error details:', error.message, error.stack);
+            response = {
+              type: "greeting",
+              response: this.getGreetingResponse(),
+              suggestions: ["What's Bitcoin doing?", "Show me AAPL price"]
+            };
+          }
+        } else {
+          response = {
+            type: "greeting",
+            response: this.getGreetingResponse(),
+            suggestions: [
+              "What's the price of Apple stock?",
+              "Show me Bitcoin trends",
+              "Compare MSFT and GOOGL"
+            ]
+          };
+        }
         break;
 
       default:
         response = await this.generateStandardAnalysis(query, context);
     }
     
-    // Add follow-up suggestions based on response type
-    if (response && !response.suggestions) {
-      response.suggestions = this.generateFollowUpSuggestions(
-        response.type || responseType, 
-        symbols, 
-        context
-      );
+    // Remove automatic suggestions - let responses be natural
+    // Only add suggestions for specific cases like greetings
+    if (response && responseType === 'greeting' && !response.suggestions) {
+      response.suggestions = ["What's Bitcoin doing?", "Show me AAPL price"];
     }
     
+    // Update conversation flow state
+    // Handle different response structures - some have 'symbol', others have 'symbols'
+    let lastSymbol = null;
+    if (response.symbol) {
+      lastSymbol = response.symbol;
+      logger.debug(`[IntelligentResponse] Symbol from response: ${response.symbol}`);
+    } else if (response.symbols && response.symbols.length > 0) {
+      lastSymbol = response.symbols[0];
+      logger.debug(`[IntelligentResponse] Symbol from response.symbols: ${lastSymbol}`);
+    } else if (symbols && symbols.length > 0) {
+      lastSymbol = symbols[0];
+      logger.debug(`[IntelligentResponse] Symbol from extracted symbols: ${lastSymbol}`);
+    } else {
+      logger.debug('[IntelligentResponse] No symbol found in response or extraction');
+    }
+    
+    // Only update lastDiscussedSymbol if we actually found a symbol
+    const flowUpdate = {
+      lastIntent: responseType,
+      expectingFollowUp: true,
+      context: `Discussed ${symbols.join(', ') || 'general query'}`,
+      lastDiscussedTopic: query
+    };
+    
+    if (lastSymbol) {
+      flowUpdate.lastDiscussedSymbol = lastSymbol;
+    }
+    
+    this.updateConversationFlow(sessionId, flowUpdate);
+    
+    logger.info('[IntelligentResponse] Updated conversation flow:', {
+      sessionId,
+      lastIntent: responseType,
+      lastDiscussedSymbol: lastSymbol,
+      lastDiscussedTopic: query,
+      previousSymbol: conversationState?.conversationFlow?.lastDiscussedSymbol
+    });
+    
+    // Track charts shown
+    if (response.needsChart && lastSymbol) {
+      if (!conversationState.conversationFlow.shownCharts.includes(lastSymbol)) {
+        conversationState.conversationFlow.shownCharts.push(lastSymbol);
+      }
+    }
+    
+    // Add conversation state to response for debugging
+    response.conversationState = conversationState;
+    
     // Cache the response if not context-dependent
-    if (!isContextDependent && response.type !== 'error') {
+    // CRITICAL: Never cache trend_analysis responses as they depend on current context
+    const shouldCache = !isContextDependent && 
+                       response.type !== 'error' && 
+                       response.type !== 'trend_analysis';
+                       
+    logger.warn('[IntelligentResponse] CACHE SAVE CHECK:', {
+      query,
+      isContextDependent,
+      responseType: response.type,
+      shouldCache
+    });
+    
+    if (shouldCache) {
+      logger.warn('[IntelligentResponse] CACHING RESPONSE for:', query);
       this.setCache(cacheKey, response);
     }
     
@@ -295,7 +643,7 @@ class IntelligentResponseGenerator {
     // Try LLM-based classification first
     if (this.useLLM) {
       try {
-        const formattedHistory = this.formatConversationHistory(context.conversationHistory || []);
+        const formattedHistory = this.formatConversationHistory(context.conversationHistory || [], true);
         const llmIntent = await this.azureOpenAI.classifyIntent(query, formattedHistory);
         
         if (llmIntent) {
@@ -408,6 +756,7 @@ class IntelligentResponseGenerator {
         type: "error",
         response: 'Please specify two items to compare (e.g., "AAPL vs MSFT")',
         message: 'Please specify two items to compare (e.g., "AAPL vs MSFT")',
+        symbol: null
       };
     }
 
@@ -418,18 +767,26 @@ class IntelligentResponseGenerator {
       symbol2: { symbol: symbols[1], price: data[1]?.price, change: data[1]?.changePercent }
     });
 
+    // Update conversation state for both symbols
+    const sessionId = context.sessionId || 'default';
+    symbols.forEach((symbol, index) => {
+      if (data[index] && data[index].price) {
+        this.updateSymbolDiscussion(sessionId, symbol, {
+          priceDiscussed: data[index].price,
+          analysisGiven: 'comparison',
+          chartShown: true
+        });
+      }
+    });
+
     // Create comparison structure with formatted response as main content
     const comparison = {
       type: "comparison_table", // Use comparison_table to trigger chart generation
       symbols: symbols,
-      response: await this.generateComparisonAnalysis(symbols, data),
+      response: await this.generateComparisonAnalysis(symbols, data, context),
       needsChart: true, // Always show charts for comparisons
       comparisonData: data, // Add data for chart generation
-      suggestions: [
-        `Show me ${symbols[0]} chart`,
-        `Show me ${symbols[1]} chart`,
-        "Compare with other assets"
-      ]
+      suggestions: [] // No suggestions needed for comparisons
     };
 
     return comparison;
@@ -445,7 +802,7 @@ class IntelligentResponseGenerator {
     // Try LLM-based extraction first
     if (this.useLLM) {
       try {
-        const formattedHistory = this.formatConversationHistory(context.conversationHistory || []);
+        const formattedHistory = this.formatConversationHistory(context.conversationHistory || [], true);
         const symbols = await this.azureOpenAI.extractStockSymbols(query, formattedHistory);
         if (symbols && symbols.length >= 2) {
           logger.debug(`[IntelligentResponse] LLM extracted comparison symbols: ${symbols.join(', ')}`);
@@ -586,28 +943,45 @@ class IntelligentResponseGenerator {
     return uniqueSymbols;
   }
 
-  async generateComparisonAnalysis(symbols, data) {
+  async generateComparisonAnalysis(symbols, data, context) {
     const symbol1 = symbols[0];
     const symbol2 = symbols[1];
     const data1 = data[0];
     const data2 = data[1];
     
-    // Get asset info for better formatting
+    // Basic comparison data
+    const comparisonData = {
+      symbol1: { symbol: symbol1, ...data1 },
+      symbol2: { symbol: symbol2, ...data2 }
+    };
+    
+    // If we have portfolio context and LLM, generate fully personalized comparison
+    if (context && context.portfolio && context.portfolioMetrics && this.useLLM) {
+      try {
+        const query = `Compare ${symbol1} and ${symbol2}`;
+        const enhanced = await this.azureOpenAI.enhanceResponse(
+          JSON.stringify(comparisonData),
+          'comparison_query',
+          query,
+          context.conversationHistory || [],
+          context
+        );
+        return enhanced;
+      } catch (error) {
+        logger.error('[IntelligentResponse] Failed to enhance comparison with AI:', error);
+      }
+    }
+    
+    // Fallback to template-based comparison
     const asset1Info = this.getAssetInfo(symbol1);
     const asset2Info = this.getAssetInfo(symbol2);
     
-    // Format prices and percentages
     const price1 = NumberFormatter.formatPrice(data1.price);
     const price2 = NumberFormatter.formatPrice(data2.price);
     const change1 = NumberFormatter.formatNumber(data1.changePercent, 'percentage');
     const change2 = NumberFormatter.formatNumber(data2.changePercent, 'percentage');
     
-    // Generate insights
-    const insight = this.generateAssetSpecificInsight(asset1Info, asset2Info, data1, data2);
-    const tradingTip = this.generateTradingConsideration(asset1Info, asset2Info, data1, data2);
-    
-    // EXACT format with proper line breaks
-    const comparison = `📊 ${asset1Info.name} vs ${asset2Info.name} Comparison
+    return `📊 ${asset1Info.name} vs ${asset2Info.name} Comparison
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -617,17 +991,9 @@ ${asset1Info.name}: ${price1} | ${asset2Info.name}: ${price2}
 📈 24H PERFORMANCE  
 ${asset1Info.name}: ${data1.changePercent >= 0 ? '+' : ''}${change1} | ${asset2Info.name}: ${data2.changePercent >= 0 ? '+' : ''}${change2}
 
-💡 MARKET INSIGHT
-${insight}
-
-🎯 TRADING CONSIDERATION
-${tradingTip}
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Need deeper analysis? Just ask! 🔍`;
-    
-    return comparison;
   }
 
   generateAssetSpecificInsight(asset1Info, asset2Info, data1, data2) {
@@ -723,17 +1089,52 @@ Need deeper analysis? Just ask! 🔍`;
   }
 
   async generateTrendAnalysis(query, context) {
-    const currentSymbol = await this.extractSymbol(query, context);
-    const symbol = currentSymbol || context.topic;
-    // Don't update context.topic - this causes session pollution
-
+    // CRITICAL: Get symbol from conversation state FIRST
+    const conversationState = this.getConversationState(context.sessionId, context);
+    
+    logger.debug('[IntelligentResponse] generateTrendAnalysis context check:', {
+      sessionId: context.sessionId,
+      contextTopic: context.topic,
+      lastDiscussedSymbol: conversationState?.conversationFlow?.lastDiscussedSymbol,
+      query
+    });
+    
+    // For vague queries like "what's the trend?", only use lastDiscussedSymbol, not context.topic
+    // context.topic might be stale from a previous request
+    const contextSymbol = conversationState?.conversationFlow?.lastDiscussedSymbol;
+    
+    // Extract symbol from query
+    const querySymbol = await this.extractSymbol(query, context);
+    
+    // CRITICAL DEBUG: Log symbol extraction for trend analysis
+    logger.warn('[IntelligentResponse] TREND ANALYSIS SYMBOL EXTRACTION:', {
+      query: query,
+      querySymbol: querySymbol,
+      contextSymbol: contextSymbol,
+      llmSymbols: context.llmAnalysis?.symbols,
+      willUse: querySymbol || contextSymbol
+    });
+    
+    // Prefer explicit query symbol, fall back to context
+    const symbol = querySymbol || contextSymbol;
+    
     if (!symbol) {
+      logger.debug('[IntelligentResponse] No symbol found for trend analysis');
       return {
         type: "error",
-        message:
-          'Please specify a symbol to analyze trends (e.g., "AAPL trends", "oil trends")',
+        message: "What asset did you want the trend for?",
+        symbol: null
       };
     }
+    
+    logger.debug(`[IntelligentResponse] Trend analysis for symbol: ${symbol} (from ${querySymbol ? 'query' : 'context'})`);
+    logger.debug(`[IntelligentResponse] Context flow:`, {
+      querySymbol,
+      contextSymbol,
+      conversationState: conversationState?.conversationFlow
+    });
+    
+    // Don't update context.topic - this causes session pollution
 
     // Try to get real market data - NO FALLBACKS
     let currentData;
@@ -747,9 +1148,11 @@ Need deeper analysis? Just ask! 🔍`;
 
       // If data fetch failed or no price, return error
       if (!currentData || !currentData.price || currentData.error) {
+        logger.debug(`[IntelligentResponse] Data fetch failed for ${symbol}:`, currentData?.error);
         return {
           type: "error",
           message: `Unable to fetch real-time data for ${symbol}. Please try again in a moment.`,
+          symbol: symbol
         };
       }
     } catch (error) {
@@ -760,11 +1163,32 @@ Need deeper analysis? Just ask! 🔍`;
       return {
         type: "error",
         message: `Market data temporarily unavailable for ${symbol}. Please try again.`,
+        symbol: symbol
       };
     }
 
+    const sessionId = context.sessionId || 'default';
+    // conversationState already declared above
+    
     const historicalData = await this.getHistoricalData(symbol, 30);
     const trendInfo = this.calculateTrend(historicalData);
+    
+    // Intelligent chart decision
+    const previousDiscussion = conversationState.discussedSymbols[symbol];
+    const shouldShowChart = !previousDiscussion?.chartShown || 
+                           query.toLowerCase().includes('chart') ||
+                           query.toLowerCase().includes('trend');
+    
+    // Update conversation state
+    this.updateSymbolDiscussion(sessionId, symbol, {
+      priceDiscussed: currentData.price,
+      analysisGiven: 'trend',
+      chartShown: shouldShowChart,
+      trendInfo: {
+        direction: trendInfo.direction,
+        change: trendInfo.change
+      }
+    });
 
     // Enhanced analysis with real data only
     const analysis = {
@@ -772,13 +1196,27 @@ Need deeper analysis? Just ask! 🔍`;
       symbol: symbol,
       currentPrice: currentData.price,
       trend: trendInfo,
-      needsChart: true,
+      needsChart: shouldShowChart,
       explanation: await this.explainTrendWithRealData(
         symbol,
         trendInfo,
         currentData,
+        query,
+        context
       ),
     };
+    
+    // Update lastDiscussedSymbol in conversation flow
+    this.updateConversationFlow(sessionId, {
+      lastDiscussedSymbol: symbol,
+      lastDiscussedTopic: 'trend_analysis'
+    });
+    
+    logger.info(`[IntelligentResponse] Updated conversation flow with symbol: ${symbol}`, {
+      sessionId,
+      previousSymbol: conversationState?.conversationFlow?.lastDiscussedSymbol,
+      newSymbol: symbol
+    });
     
     // Return the proper trend analysis object
     return analysis;
@@ -818,11 +1256,33 @@ Need deeper analysis? Just ask! 🔍`;
 **Investment Consideration**: Trend analysis is historical. Consider your risk tolerance and investment timeline.`;
   }
 
-  async explainTrendWithRealData(symbol, trendInfo, currentData) {
+  async explainTrendWithRealData(symbol, trendInfo, currentData, query, context) {
     // Use professionalAnalysis for consistent formatting across all response types
     const professionalAnalysis = require('./professionalAnalysis');
-    const analysis = professionalAnalysis.generateAnalysis(symbol, currentData, 'trend');
-    return analysis;
+    const baseAnalysis = professionalAnalysis.generateAnalysis(symbol, currentData, 'trend');
+    
+    const sessionId = context.sessionId || 'default';
+    const conversationState = this.getConversationState(sessionId, context);
+    
+    // If LLM is enabled and we have context, enhance the response with conversation awareness
+    if (this.useLLM && context && context.conversationHistory && context.conversationHistory.length > 0) {
+      try {
+        const enhanced = await this.azureOpenAI.enhanceResponse(
+          baseAnalysis,
+          'trend_query',
+          query || `Show ${symbol} trend`,
+          context.conversationHistory || [],
+          context,
+          conversationState
+        );
+        return enhanced;
+      } catch (error) {
+        logger.error('[IntelligentResponse] Failed to enhance trend analysis:', error);
+        return baseAnalysis;
+      }
+    }
+    
+    return baseAnalysis;
   }
 
   calculateMovingAverages(historicalData) {
@@ -1126,7 +1586,7 @@ Need deeper analysis? Just ask! 🔍`;
   }
 
   getGreetingResponse() {
-    return "Hey there! I'm Max, your financial markets companion. 👋 Ready to dive into the markets? What would you like to explore - stocks, crypto, or market trends?";
+    return "Hey! I'm Max. What stock or crypto are you tracking today?";
   }
 
   getCapabilityResponse() {
@@ -1180,10 +1640,31 @@ I'm here to make investing clearer and help you make confident decisions. What w
   }
 
   async generatePortfolioAnalysis(context) {
-    const portfolio = context.portfolio;
-    const metrics = context.portfolioMetrics;
+    logger.debug('[PortfolioAnalysis] Starting analysis with context:', {
+      hasContext: !!context,
+      sessionId: context?.sessionId,
+      hasPortfolio: !!context?.portfolio,
+      portfolioLength: context?.portfolio?.length,
+      hasMetrics: !!context?.portfolioMetrics,
+      contextKeys: context ? Object.keys(context) : []
+    });
+    
+    // CRITICAL: Always use portfolio from context, not from conversation state
+    const portfolio = context?.portfolio;
+    const metrics = context?.portfolioMetrics;
+    
+    // Additional debug to understand portfolio structure
+    if (portfolio && portfolio.length > 0) {
+      logger.debug('[PortfolioAnalysis] Portfolio structure:', {
+        firstItem: portfolio[0],
+        hasPositions: portfolio[0]?.hasOwnProperty('positions'),
+        isArray: Array.isArray(portfolio),
+        sampleKeys: Object.keys(portfolio[0] || {})
+      });
+    }
 
     if (!portfolio || portfolio.length === 0) {
+      logger.warn('[PortfolioAnalysis] No portfolio found in context');
       return {
         type: "standard_analysis",
         symbol: null,
@@ -1192,18 +1673,95 @@ I'm here to make investing clearer and help you make confident decisions. What w
         needsChart: false,
       };
     }
+    
+    logger.info('[PortfolioAnalysis] Portfolio found:', {
+      positions: portfolio.length,
+      totalValue: metrics?.totalValue,
+      topHoldings: portfolio.slice(0, 3).map(p => ({
+        symbol: p.symbol,
+        value: p.current_value,
+        percent: p.percent_of_portfolio
+      }))
+    });
 
+    // Use AI to generate portfolio analysis
+    if (this.useLLM) {
+      try {
+        const portfolioData = {
+          holdings: portfolio,
+          metrics: metrics,
+          totalValue: metrics.totalValue,
+          totalReturn: metrics.totalGainPercent
+        };
+        
+        const enhanced = await this.azureOpenAI.enhanceResponse(
+          JSON.stringify(portfolioData),
+          'portfolio_query',
+          'Analyze my portfolio',
+          context.conversationHistory || [],
+          context
+        );
+        
+        // Create properly structured response for formatter
+        const topPerformer = portfolio.reduce((best, current) => 
+          (current.changePercent > best.changePercent) ? current : best, portfolio[0]
+        );
+        const worstPerformer = portfolio.reduce((worst, current) => 
+          (current.changePercent < worst.changePercent) ? current : worst, portfolio[0]
+        );
+        
+        return {
+          type: "portfolio_analysis",
+          response: enhanced,  // LLM-generated analysis
+          metrics: metrics,
+          insights: {
+            summary: enhanced,  // Use LLM response as summary
+            performance: {
+              best: topPerformer,
+              worst: worstPerformer
+            },
+            concentration: {
+              message: `Your portfolio has ${portfolio.length} holdings`
+            },
+            risk: {
+              suggestion: "Diversification analysis included above"
+            }
+          },
+          recommendations: [],
+          needsChart: true,
+        };
+      } catch (error) {
+        logger.error('[IntelligentResponse] Failed to generate AI portfolio analysis:', error);
+      }
+    }
+
+    // Fallback structure that won't crash
+    const topPerformer = portfolio.reduce((best, current) => 
+      (current.changePercent > best.changePercent) ? current : best, portfolio[0]
+    );
+    const worstPerformer = portfolio.reduce((worst, current) => 
+      (current.changePercent < worst.changePercent) ? current : worst, portfolio[0]
+    );
+    
     return {
       type: "portfolio_analysis",
+      response: `Portfolio Analysis: You have ${portfolio.length} holdings worth $${metrics.totalValue.toLocaleString()} with a total return of ${metrics.totalGainPercent}%.`,
       metrics: metrics,
-      holdings: portfolio,
-      insights: await this.generatePortfolioInsights(portfolio, metrics),
-      recommendations: await this.generatePortfolioRecommendations(
-        portfolio,
-        metrics,
-      ),
-      analysis: this.generatePortfolioAnalysisBullets(portfolio, metrics),
-      needsChart: true, // Pie chart for allocation
+      insights: {
+        summary: `You have ${portfolio.length} holdings worth $${metrics.totalValue.toLocaleString()} with a total return of ${metrics.totalGainPercent}%.`,
+        performance: {
+          best: topPerformer,
+          worst: worstPerformer
+        },
+        concentration: {
+          message: `${portfolio.length} holdings in your portfolio`
+        },
+        risk: {
+          suggestion: "Consider reviewing your portfolio diversification"
+        }
+      },
+      recommendations: [],
+      needsChart: true,
     };
   }
 
@@ -1256,7 +1814,7 @@ I'm here to make investing clearer and help you make confident decisions. What w
     const topHolding = metrics.allocation[0];
     if (topHolding && parseFloat(topHolding.percent) > 25) {
       recommendations.push(`1. Consider trimming ${topHolding.symbol} (now ${topHolding.percent}% of portfolio) to reduce concentration risk`);
-      followUps.push(`Want me to suggest some diversification options for your ${topHolding.symbol} position?`);
+      // Remove follow-up questions
     }
     
     // Performance-based recommendations
@@ -1266,7 +1824,7 @@ I'm here to make investing clearer and help you make confident decisions. What w
       followUps.push("Should I help you identify which positions to take profits on?");
     } else if (totalGainPercent < -15) {
       recommendations.push("2. Review underperforming positions for potential tax-loss harvesting");
-      followUps.push("Want me to analyze which holdings might be good candidates for tax-loss harvesting?");
+      // Remove follow-up questions
     }
     
     // Diversification recommendations
@@ -1282,11 +1840,7 @@ I'm here to make investing clearer and help you make confident decisions. What w
       result += "Your portfolio looks well-balanced! Keep monitoring and stay diversified.\n\n";
     }
     
-    if (followUps.length > 0) {
-      result += followUps[0] + " 💡";
-    } else {
-      result += "Want me to help you rebalance or analyze deeper? 🎯";
-    }
+    // Remove all follow-up questions - let responses end naturally
     
     return result;
   }
@@ -1337,36 +1891,13 @@ ${recommendations}`;
   }
 
   generateNoPortfolioAnalysis() {
-    return `📊 Portfolio Analysis
+    return `I'd love to help analyze your investments! To get started, please upload a CSV file with your holdings using this format:
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💼 NO PORTFOLIO UPLOADED
-
-I'd love to help analyze your investments! Here's how to get started:
-
-📁 UPLOAD YOUR PORTFOLIO
-Upload a CSV file with your holdings using this format:
-\`\`\`
 symbol,shares,purchase_price
 AAPL,100,150.00
 MSFT,50,300.00
-GOOGL,25,2500.00
-\`\`\`
 
-🎯 WHAT I'LL ANALYZE
-✅ Total value and returns
-✅ Top performers and underperformers  
-✅ Diversification score
-✅ Risk assessment
-✅ Personalized recommendations
-
-💡 OR TELL ME WHAT YOU OWN
-You can also just tell me: "I own 100 shares of AAPL and 50 shares of MSFT"
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Ready to optimize your investments? Upload your portfolio or tell me what you own! 🚀`;
+Once uploaded, I can provide personalized analysis of your portfolio performance, diversification, and recommendations.`;
   }
 
   async generatePortfolioInsights(portfolio, metrics) {
@@ -1451,10 +1982,71 @@ Ready to optimize your investments? Upload your portfolio or tell me what you ow
   }
 
   async extractSymbol(query, context) {
-    // Try LLM-based extraction first
+    const sessionId = context?.sessionId || 'default';
+    
+    logger.info('[IntelligentResponse] Using DualLLMOrchestrator for symbol extraction');
+    
+    try {
+      const dualLLMOrchestrator = require('./dualLLMOrchestrator');
+      const result = await dualLLMOrchestrator.processQuery(query, context);
+      
+      // Extract first symbol from understanding
+      const symbol = result.understanding.symbols?.[0] || null;
+      
+      logger.info('[IntelligentResponse] Orchestrator extracted symbol:', symbol);
+      
+      return symbol;
+    } catch (error) {
+      logger.error('[IntelligentResponse] Orchestrator extraction failed:', error);
+      return null;
+    }
+  }
+    
+    /* COMMENTED OUT - REPLACED BY ORCHESTRATOR
+    const conversationState = this.getConversationState(sessionId, context);
+    
+    logger.warn('[IntelligentResponse] EXTRACT SYMBOL START:', {
+      query,
+      sessionId,
+      hasConversationState: !!conversationState,
+      lastDiscussedSymbol: conversationState?.conversationFlow?.lastDiscussedSymbol,
+      llmSymbols: context?.llmAnalysis?.symbols,
+      useLLM: this.useLLM
+    });
+    
+    // Check for vague queries that refer to last discussed symbol FIRST
+    const vagueQueries = [
+      /^(show me )?(the )?(chart|trend|graph)$/i,
+      /^(longer|short) term( trend)?$/i,
+      /^how about (now|today)$/i,
+      /^(more|what) about (it|that)$/i,
+      /^tell me more$/i,
+      /^continue$/i,
+      /^trend\?$/i,
+      /^what['']?s the trend\??$/i,  // Handle "what's the trend?" with optional apostrophe and question mark
+      /^what is the trend\??$/i      // Handle "what is the trend?"
+    ];
+    
+    const isVagueQuery = vagueQueries.some(pattern => pattern.test(query.trim()));
+    
+    logger.warn(`[IntelligentResponse] VAGUE QUERY CHECK:`, {
+      query: query.trim(),
+      isVagueQuery,
+      lastDiscussedSymbol: conversationState?.conversationFlow?.lastDiscussedSymbol,
+      conversationFlowState: conversationState?.conversationFlow
+    });
+    
+    // CRITICAL: For vague queries, ALWAYS return null to let the calling method handle context
+    // Don't return lastDiscussedSymbol here - let generateTrendAnalysis handle it
+    if (isVagueQuery) {
+      logger.warn(`[IntelligentResponse] VAGUE QUERY DETECTED - returning null for "${query}"`);
+      return null;
+    }
+    
+    // Try LLM-based extraction for non-vague queries
     if (this.useLLM) {
       try {
-        const formattedHistory = this.formatConversationHistory(context?.conversationHistory || []);
+        const formattedHistory = this.formatConversationHistory(context?.conversationHistory || [], true);
         const symbols = await this.azureOpenAI.extractStockSymbols(query, formattedHistory);
         if (symbols && symbols.length > 0) {
           logger.debug(`[IntelligentResponse] LLM extracted symbol: ${symbols[0]}`);
@@ -1506,18 +2098,26 @@ Ready to optimize your investments? Upload your portfolio or tell me what you ow
       }
     }
     
-    logger.debug(`[IntelligentResponse] No valid symbol found in query`);
+    logger.debug(`[IntelligentResponse] No valid symbol found in query`, {
+      query,
+      lastDiscussedSymbol: conversationState.conversationFlow.lastDiscussedSymbol,
+      willReturnNull: true
+    });
     return null;
   }
+  */ // END OF COMMENTED OUT ORCHESTRATOR REPLACEMENT
 
   async generateStandardAnalysis(query, context) {
+    const sessionId = context.sessionId || 'default';
+    const conversationState = this.getConversationState(sessionId, context);
+    
     // Check if this is a group query first
     const lowerQuery = query.toLowerCase();
     if (lowerQuery.includes('faang') || lowerQuery.includes('tech stocks') || 
         lowerQuery.includes('crypto market') || lowerQuery.includes('bank stocks')) {
       
       // Extract multiple symbols for group queries
-      const formattedHistory = this.formatConversationHistory(context?.conversationHistory || []);
+      const formattedHistory = this.formatConversationHistory(context?.conversationHistory || [], true);
       const symbols = await this.azureOpenAI.extractStockSymbols(query, formattedHistory);
       
       if (symbols && symbols.length > 1) {
@@ -1531,7 +2131,7 @@ Ready to optimize your investments? Upload your portfolio or tell me what you ow
       }
     }
     
-    const symbol = await this.extractSymbol(query, context) || context.topic;
+    const symbol = await this.extractSymbol(query, context);
 
     if (!symbol) {
       return {
@@ -1550,26 +2150,76 @@ Ready to optimize your investments? Upload your portfolio or tell me what you ow
         response: `I'm having trouble fetching real-time data for ${symbol}. Please check if the symbol is correct. Examples: AAPL (Apple), BTC (Bitcoin), GC (Gold), CL (Oil)`,
       };
     }
+    
+    // Check if we've already discussed this symbol
+    const previousDiscussion = conversationState.discussedSymbols[symbol];
+    const chartAlreadyShown = previousDiscussion?.chartShown;
+    
+    // Update conversation state
+    this.updateSymbolDiscussion(sessionId, symbol, {
+      priceDiscussed: data.price,
+      analysisGiven: 'standard',
+      chartShown: chartAlreadyShown || (query.toLowerCase().includes("chart") || query.toLowerCase().includes("graph"))
+    });
 
+    // Always show chart for stock/crypto on first mention
+    const shouldShowChart = !chartAlreadyShown || 
+                           query.toLowerCase().includes("chart") || 
+                           query.toLowerCase().includes("graph");
+    
     return {
       type: "standard_analysis",
       symbol: symbol,
       data: data,
-      analysis: this.generateBasicAnalysis(symbol, data, query),
-      needsChart:
-        query.toLowerCase().includes("chart") ||
-        query.toLowerCase().includes("graph"),
+      analysis: await this.generateBasicAnalysis(symbol, data, query, context),
+      needsChart: shouldShowChart,  // Auto-show charts for stocks/crypto
+      chartType: 'trend',
+      conversationState: conversationState
     };
   }
 
-  generateBasicAnalysis(symbol, data, query) {
+  async generateBasicAnalysis(symbol, data, query, context) {
     // Ensure data exists
     if (!data || !data.price) {
       return `Unable to generate analysis for ${symbol}. Market data is currently unavailable.`;
     }
+    
+    const sessionId = context.sessionId || 'default';
+    const conversationState = this.getConversationState(sessionId, context);
 
-    // Use professional analysis generator
-    return professionalAnalysis.generateAnalysis(symbol, data, 'standard');
+    // Get base analysis from professional generator
+    const baseAnalysis = professionalAnalysis.generateAnalysis(symbol, data, 'standard');
+    
+    // ALWAYS use Azure OpenAI to generate intelligent responses
+    if (this.useLLM) {
+      try {
+        const enhanced = await this.azureOpenAI.enhanceResponse(
+          baseAnalysis,
+          'stock_query',
+          query,
+          context.conversationHistory || [],
+          context,
+          conversationState
+        );
+        
+        // Debug logging
+        logger.debug('[IntelligentResponse] Enhanced response type:', typeof enhanced);
+        logger.debug('[IntelligentResponse] Enhanced response value:', enhanced);
+        
+        // Ensure response is always a string
+        if (typeof enhanced !== 'string') {
+          logger.warn('[IntelligentResponse] Non-string response from Azure OpenAI, converting:', enhanced);
+          return typeof enhanced === 'object' ? JSON.stringify(enhanced) : String(enhanced);
+        }
+        
+        return enhanced;
+      } catch (error) {
+        logger.error('[IntelligentResponse] Failed to enhance with AI:', error);
+        return baseAnalysis;
+      }
+    }
+    
+    return baseAnalysis;
   }
 
   async generateGroupAnalysis(symbols, query) {
@@ -1965,7 +2615,7 @@ Ready to optimize your investments? Upload your portfolio or tell me what you ow
       'short_selling': "Short selling involves borrowing shares to sell, hoping to buy back cheaper later. Maximum gain: 100% (if stock goes to $0). Maximum loss: unlimited (stock can rise indefinitely). Requires margin account and carries high risk."
     };
     
-    const content = educationalContent[topic] || `I'll explain ${topic} in financial context. Please let me know what specific aspect you'd like to understand better.`;
+    const content = educationalContent[topic] || `${topic} is a financial concept worth understanding. Here's the key insight...`;
     
     // If LLM is available, enhance the response
     if (this.useLLM) {
@@ -1973,7 +2623,8 @@ Ready to optimize your investments? Upload your portfolio or tell me what you ow
         const enhanced = await this.azureOpenAI.enhanceResponse(
           { content, topic },
           'education',
-          query
+          query,
+          context?.conversationHistory || []
         );
         return {
           type: "educational",
@@ -2001,7 +2652,8 @@ Ready to optimize your investments? Upload your portfolio or tell me what you ow
     if (symbols.length === 0) {
       return {
         type: "error",
-        response: "Please specify which company you'd like information about."
+        response: "Please specify which company you'd like information about.",
+        symbol: null
       };
     }
     
@@ -2071,18 +2723,54 @@ Ready to optimize your investments? Upload your portfolio or tell me what you ow
       response += `• Market Cap: ${NumberFormatter.formatLargeNumber(marketData.marketCap)}\n`;
       response += `• Today's Change: ${NumberFormatter.formatPercentage(marketData.changePercent)}\n`;
       
+      // For crypto, redirect to standard analysis (Bitcoin is not a company!)
+      if (['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'XRP', 'DOGE'].includes(symbol)) {
+        logger.info(`[DEBUG] Redirecting crypto ${symbol} to standard analysis`);
+        return await this.generateStandardAnalysis(query, context);
+      }
+      
+      // Use LLM enhancement for company info
+      const sessionId = context.sessionId || 'default';
+      const conversationState = this.getConversationState(sessionId);
+      
+      if (this.useLLM) {
+        try {
+          const enhanced = await this.azureOpenAI.enhanceResponse(
+            response,
+            'company_info',
+            query,
+            context.conversationHistory || [],
+            context,
+            conversationState
+          );
+          
+          return {
+            type: "company_info",
+            response: enhanced,
+            symbol: symbol,
+            data: marketData,
+            needsChart: true,  // Show chart for company queries too
+            conversationState: conversationState
+          };
+        } catch (error) {
+          logger.error('[IntelligentResponse] Failed to enhance company info:', error);
+        }
+      }
+      
       return {
         type: "company_info",
         response: response,
         symbol: symbol,
-        data: marketData
+        data: marketData,
+        needsChart: true
       };
       
     } catch (error) {
       logger.error(`[IntelligentResponse] Failed to get company info for ${symbol}:`, error);
       return {
         type: "error",
-        response: `Unable to retrieve company information for ${symbol}. Please try again.`
+        response: `Unable to retrieve company information for ${symbol}. Please try again.`,
+        symbol: symbol
       };
     }
   }

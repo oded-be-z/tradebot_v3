@@ -1,0 +1,68 @@
+{
+  "timestamp": "2025-07-22T14:25:22.023Z",
+  "summary": {
+    "total": 8,
+    "successful": 0,
+    "failed": 8,
+    "objectResponses": 0,
+    "avgResponseTime": 0
+  },
+  "results": [
+    {
+      "success": false,
+      "query": "BTC?",
+      "responseTime": 0,
+      "error": "connect ECONNREFUSED 127.0.0.1:3001",
+      "code": "ECONNREFUSED"
+    },
+    {
+      "success": false,
+      "query": "What is AAPL price?",
+      "responseTime": 0,
+      "error": "connect ECONNREFUSED 127.0.0.1:3001",
+      "code": "ECONNREFUSED"
+    },
+    {
+      "success": false,
+      "query": "How is MSFT doing?",
+      "responseTime": 0,
+      "error": "connect ECONNREFUSED 127.0.0.1:3001",
+      "code": "ECONNREFUSED"
+    },
+    {
+      "success": false,
+      "query": "Compare AAPL and GOOGL",
+      "responseTime": 0,
+      "error": "connect ECONNREFUSED 127.0.0.1:3001",
+      "code": "ECONNREFUSED"
+    },
+    {
+      "success": false,
+      "query": "Show me tech stocks",
+      "responseTime": 0,
+      "error": "connect ECONNREFUSED 127.0.0.1:3001",
+      "code": "ECONNREFUSED"
+    },
+    {
+      "success": false,
+      "query": "Hello",
+      "responseTime": 0,
+      "error": "connect ECONNREFUSED 127.0.0.1:3001",
+      "code": "ECONNREFUSED"
+    },
+    {
+      "success": false,
+      "query": "TSLA trend analysis",
+      "responseTime": 0,
+      "error": "connect ECONNREFUSED 127.0.0.1:3001",
+      "code": "ECONNREFUSED"
+    },
+    {
+      "success": false,
+      "query": "What time is it?",
+      "responseTime": 0,
+      "error": "connect ECONNREFUSED 127.0.0.1:3001",
+      "code": "ECONNREFUSED"
+    }
+  ]
+}

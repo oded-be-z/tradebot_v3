@@ -1,0 +1,154 @@
+trigger:
+- master
+
+variables:
+- group: TradeBot keys    # Uses your secured secrets
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- checkout: self
+  fetchDepth: 0
+
+- task: NodeTool@0
+  inputs:
+    versionSpec: '22.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm ci
+    # If you use React/Vue/Next/other frontend that needs a build step, uncomment the next line:
+    # npm run build
+  displayName: 'Install dependencies and build frontend (if any)'
+  env:
+    PERPLEXITY_API_KEY: $(PERPLEXITY_API_KEY)
+    ALPHA_VANTAGE_API_KEY: $(ALPHA_VANTAGE_API_KEY)
+    POLYGON_API_KEY: $(POLYGON_API_KEY)
+    AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
+    AZURE_OPENAI_KEY: $(AZURE_OPENAI_KEY)
+    PORT: $(PORT)
+    NODE_ENV: $(NODE_ENV)
+    ALLOWED_ORIGINS: $(ALLOWED_ORIGINS)
+    SESSION_TIMEOUT: $(SESSION_TIMEOUT)
+    CACHE_TTL: $(CACHE_TTL)
+    MAX_UPLOAD_SIZE: $(MAX_UPLOAD_SIZE)
+
+- script: |
+    echo "Starting server..."
+    npm start &
+    SERVER_PID=$!
+    echo "Server PID: $SERVER_PID"
+    
+    # Wait for server to be ready
+    echo "Waiting for server to start..."
+    for i in {1..30}; do
+      if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
+        echo "Server is ready!"
+        break
+      fi
+      echo "Waiting... (attempt $i/30)"
+      sleep 2
+    done
+    
+    # Verify server is running
+    if ! curl -f http://localhost:3000/api/health; then
+      echo "Server failed to start!"
+      kill $SERVER_PID 2>/dev/null || true
+      exit 1
+    fi
+  displayName: 'Start server and wait for ready'
+  env:
+    PERPLEXITY_API_KEY: $(PERPLEXITY_API_KEY)
+    ALPHA_VANTAGE_API_KEY: $(ALPHA_VANTAGE_API_KEY)
+    POLYGON_API_KEY: $(POLYGON_API_KEY)
+    AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
+    AZURE_OPENAI_KEY: $(AZURE_OPENAI_KEY)
+    AZURE_OPENAI_API_KEY: $(AZURE_OPENAI_KEY)
+    AZURE_OPENAI_DEPLOYMENT_NAME: gpt-4o
+    PORT: 3000
+    NODE_ENV: test
+
+- script: |
+    echo "Running smoke tests..."
+    npm run test:smoke --verbose
+    SMOKE_RESULT=$?
+    
+    echo "Running unit tests..."
+    npm test
+    UNIT_RESULT=$?
+    
+    # Kill the server
+    pkill -f "node server.js" || true
+    
+    # Exit with failure if any test failed
+    if [ $SMOKE_RESULT -ne 0 ] || [ $UNIT_RESULT -ne 0 ]; then
+      echo "Tests failed!"
+      exit 1
+    fi
+    
+    echo "All tests passed!"
+  displayName: 'Run smoke and unit tests'
+  timeoutInMinutes: 5  # 5 minute timeout for tests
+
+- script: |
+    echo "== Root directory =="
+    ls -lh
+    echo "== public =="
+    ls -lh public || true
+    echo "== build =="
+    ls -lh build || true
+    echo "== dist =="
+    ls -lh dist || true
+  displayName: 'List folders for debug'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: 'public'    # Change to build/dist if you have those after build step
+    ArtifactName: 'app'
+    publishLocation: 'Container'
+  condition: succeededOrFailed()
+
+- task: Bash@3
+  displayName: 'Send Telegram Notification'
+  inputs:
+    targetType: 'inline'
+    script: |
+      BUILD_STATUS=$(if [ "$BUILD_BUILDSTATUS" == "Succeeded" ]; then echo "✅ Succeeded"; else echo "❌ Failed"; fi)
+      DEPLOY_TIME=$(date +"%Y-%m-%d %H:%M:%S")
+      COMMIT_AUTHOR=$(git log --format='%an' -n 1)
+      COMMIT_MESSAGE=$(git log --format='%B' -n 1 | tr -d '\n"\\`' | head -c 100)
+      COMMIT_SHA=$(git log --format='%h' -n 1)
+      
+      MSG="🚀 Azure Deploy Finished!
+
+      📊 Deploy Details:
+      Status: $BUILD_STATUS
+      Pipeline: $BUILD_DEFINITIONNAME
+      Branch: $BUILD_SOURCEBRANCHNAME
+      Commit: $COMMIT_SHA
+      Deploy Time: $DEPLOY_TIME
+      
+      👤 Author: $COMMIT_AUTHOR
+      💬 Message: $COMMIT_MESSAGE
+      
+      🔗 Pipeline: $BUILD_BUILDURI"
+      
+      curl -s -X POST \
+        -H 'Content-Type: application/json' \
+        -d "{\"chat_id\": \"$TELEGRAM_CHAT_ID\", \"text\": \"$MSG\"}" \
+        https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage || echo "Telegram notification failed"
+  env:
+    TELEGRAM_BOT_TOKEN: $(TELEGRAM_BOT_TOKEN)
+    TELEGRAM_CHAT_ID: $(TELEGRAM_CHAT_ID)
+    BUILD_BUILDSTATUS: $(Build.Status)
+    BUILD_DEFINITIONNAME: $(Build.DefinitionName)
+    BUILD_SOURCEBRANCHNAME: $(Build.SourceBranchName)
+    BUILD_REQUESTEDFOR: $(Build.RequestedFor)
+    BUILD_BUILDURI: $(Build.BuildUri)
+  condition: always()
+
+- script: |
+    echo "Pipeline completed successfully! Artifacts ready for Azure App Service deployment."
+  displayName: 'Finish: Log pipeline completion'
+  condition: succeeded()

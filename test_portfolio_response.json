@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "response": "Looking at your portfolio risks, it’s important to ensure you're not overly concentrated in any single sector or asset class. Diversification could be a key focus here. For instance, if your portfolio leans heavily toward high-growth stocks, consider reallocating some funds to more defensive sectors like utilities or consumer staples. Adding some exposure to bonds or dividend-paying stocks might also help reduce volatility. Monitoring recent market trends can further guide these adjustments, as certain sectors may be poised for a rebound. Let me know if you’d like specific breakdowns or a visual analysis of your holdings.",
+  "chartData": null,
+  "symbol": null,
+  "type": "portfolio_query",
+  "showChart": true,
+  "suggestions": [
+    "Would you like sector-specific recommendations?",
+    "Should we dive deeper into asset allocation?",
+    "Want a visual breakdown of your portfolio?"
+  ],
+  "metadata": {
+    "symbol": null,
+    "hasPortfolio": true
+  }
+}

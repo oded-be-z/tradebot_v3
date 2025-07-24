@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-07-22T11:04:03.022Z",
+  "results": {
+    "variety": true,
+    "portfolio": false,
+    "performance": false,
+    "charts": null,
+    "errors": true
+  },
+  "allPassed": false
+}

@@ -1,0 +1,35 @@
+/* Z-Index Hierarchy for FinanceBot Pro */
+
+/* Level 1: Base content (z-index: 1) */
+.chat-container: 1
+.message: 1
+
+/* Level 10: Loading indicators (z-index: 10) */
+.typing-indicator: 10
+.portfolio-loading: 10
+.chart-loading: 10
+
+/* Level 100: Desktop header (z-index: 100) */
+.desktop-header: 100
+
+/* Level 1000: Sticky input area (z-index: 1000) */
+.modern-input-area: 1000
+
+/* Level 1001-1002: Input area overlays (z-index: 1001-1002) */
+.modern-input-container: 1001
+.file-upload-indicator: 1002
+
+/* Level 10000: Debug overlay (z-index: 10000) */
+.debug-overlay: 10000
+
+/* Level 10001: API loading indicator (z-index: 10001) */
+.api-loading: 10001
+
+/* Summary of changes made:
+1. Increased message margin-bottom from 24px to 32px
+2. Added z-index: 1002 to file-upload-indicator
+3. Moved api-loading from top: 20px to top: 80px to avoid header overlap
+4. Added margin-bottom to all loading indicators (32px)
+5. Added fade-in animation to all messages
+6. Ensured proper z-index hierarchy throughout
+*/

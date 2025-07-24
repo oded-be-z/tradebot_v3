@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JSON Fix Demonstration</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #0A0E27; color: white; }
+        .test-case { margin: 20px 0; padding: 20px; border: 1px solid #333; background: #1a1a1a; }
+        .before { border-color: #FF3366; }
+        .after { border-color: #00FF88; }
+        h3 { margin-top: 0; }
+        pre { background: #000; padding: 10px; overflow-x: auto; }
+        .label { font-weight: bold; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <h1>JSON Fix Demonstration</h1>
+    
+    <div class="test-case before">
+        <h3>❌ BEFORE FIX - What users were seeing:</h3>
+        <div class="label">Raw API Response:</div>
+        <pre id="before-raw"></pre>
+        <div class="label">Displayed in UI:</div>
+        <pre id="before-display"></pre>
+    </div>
+    
+    <div class="test-case after">
+        <h3>✅ AFTER FIX - What users now see:</h3>
+        <div class="label">Same API Response:</div>
+        <pre id="after-raw"></pre>
+        <div class="label">Displayed in UI (with fix applied):</div>
+        <pre id="after-display"></pre>
+    </div>
+
+    <script>
+        // Simulate the problematic response
+        const apiResponse = {
+            success: true,
+            response: '"response": "* 🚀 You\'ve checked **AAPL** (Apple Inc.) - currently trading at $195.89\\n\\n* 📈 Today\'s performance: +2.34% ↑\\n* 💰 Volume: 52.3M shares\\n* 📊 Day range: $193.45 - $196.78\\n\\n**Key Insights:**\\n* Strong momentum continuing from yesterday\\n* Breaking above 50-day moving average\\n* Tech sector leading today\'s gains"',
+            chartData: { /* chart config */ },
+            symbols: ["AAPL"]
+        };
+
+        // Show BEFORE (without fix)
+        document.getElementById('before-raw').textContent = JSON.stringify(apiResponse, null, 2);
+        document.getElementById('before-display').textContent = apiResponse.response;
+
+        // Apply the fix
+        function handleNewResponse(data) {
+            let response = data.response;
+            
+            // Check if response contains JSON structure
+            if (typeof response === 'string' && response.includes('"response":')) {
+                try {
+                    // Response is double-encoded, extract the actual text
+                    const match = response.match(/"response":\s*"(.*)"/s);
+                    if (match) {
+                        response = match[1]
+                            .replace(/\\n/g, '\n')
+                            .replace(/\\"/g, '"')
+                            .replace(/\\\\/g, '\\');
+                    }
+                } catch (e) {
+                    console.error('[Response Parser] Failed to extract response:', e);
+                }
+            }
+            
+            // Clean asterisk bullets
+            response = response.replace(/^\* /gm, '• ');
+            
+            return response;
+        }
+
+        // Show AFTER (with fix)
+        document.getElementById('after-raw').textContent = JSON.stringify(apiResponse, null, 2);
+        document.getElementById('after-display').textContent = handleNewResponse(apiResponse);
+    </script>
+</body>
+</html>

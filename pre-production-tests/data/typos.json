@@ -1,0 +1,27 @@
+{
+  "common_typos": {
+    "microsoft": ["microsft", "microsofy", "micorsoft", "microsfot", "mircosoft"],
+    "apple": ["aaple", "aple", "appl", "appel", "aplpe"],
+    "tesla": ["telsa", "tesle", "telas", "tasla", "tsela"],
+    "google": ["googl", "gogle", "googel", "goolge", "gooogle"],
+    "nvidia": ["nvdia", "nvidea", "nviida", "nvida", "nvidai"],
+    "amazon": ["amazn", "amazone", "amzon", "amazin", "amazno"],
+    "bitcoin": ["bitcon", "bitconi", "bitocin", "bitcoinn", "bitcion"],
+    "ethereum": ["etherium", "etherum", "ethirium", "eterium", "etherem"],
+    "meta": ["meat", "metta", "metaa", "mate", "meata"],
+    "price": ["prise", "pricee", "prce", "proce", "rpice"],
+    "stock": ["stok", "sotck", "stcock", "tsock", "stockk"],
+    "analysis": ["analisis", "analisys", "anlaysis", "analyiss", "anaylsis"],
+    "compare": ["comapre", "compair", "compre", "comparee", "compar"],
+    "trend": ["tren", "trendd", "trnd", "ternd", "tredn"],
+    "chart": ["chrat", "cahrt", "chartt", "chhart", "chrt"]
+  },
+  "action_typos": [
+    "wat is",
+    "whats",
+    "show me",
+    "gimme",
+    "giv me",
+    "tel me"
+  ]
+}

@@ -1,40 +1,109 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 require('dotenv').config();
+// Agent 1: Pipeline logging
+const pipelineLogger = require('../utils/pipelineLogger');
 
 class AzureOpenAIService {
-  constructor() {
-    this.endpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://brn-azai.cognitiveservices.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2025-01-01-preview';
+  constructor(rateLimiter = null) {
+    // Extract deployment and construct proper endpoint
+    const baseEndpoint = process.env.AZURE_OPENAI_BASE_URL || 'https://brn-azai.cognitiveservices.azure.com';
+    this.deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+    this.apiVersion = process.env.AZURE_OPENAI_API_VERSION || '2024-10-21';
+    
+    // Construct endpoint in proper format
+    this.endpoint = process.env.AZURE_OPENAI_ENDPOINT || 
+      `${baseEndpoint}/openai/deployments/${this.deployment}/chat/completions?api-version=${this.apiVersion}`;
+    
     this.apiKey = process.env.AZURE_OPENAI_KEY;
     this.timeout = 10000; // 10 second timeout
     this.maxRetries = 2;
     
+    // LLM-FIRST FIX: Accept rate limiter for controlled API calls
+    this.rateLimiter = rateLimiter;
+    
+    if (!this.apiKey) {
+      logger.warn('[AzureOpenAI] No API key found in AZURE_OPENAI_KEY environment variable');
+    }
+    
     logger.info('[AzureOpenAI] Service initialized');
+    logger.info('[AzureOpenAI] Endpoint:', this.endpoint);
+    logger.info('[AzureOpenAI] Using API version:', this.apiVersion);
+    logger.info('[AzureOpenAI] Deployment:', this.deployment);
+    if (this.rateLimiter) {
+      logger.info('[AzureOpenAI] Rate limiter configured');
+    }
   }
 
-  async makeRequest(messages, temperature = 0.1, maxTokens = 500) {
+  // LLM-FIRST FIX: Increased temperature from 0.1 to 0.7 for better creativity
+  async makeRequest(messages, temperature = 0.7, maxTokens = 500) {
     const startTime = Date.now();
     let lastError = null;
     
+    // LLM-FIRST: Warn about low temperatures that may produce lifeless responses
+    if (temperature < 0.5) {
+      logger.warn(`[LLM-FIRST] Low temperature detected: ${temperature} - this may produce lifeless responses`);
+    }
+    
+    // Validate messages array
+    if (!Array.isArray(messages) || messages.length === 0) {
+      throw new Error('[AzureOpenAI] Invalid messages array: must be non-empty array');
+    }
+    
+    // Validate each message has required fields
+    for (const msg of messages) {
+      if (!msg.role || !msg.content) {
+        logger.error('[AzureOpenAI] Invalid message format:', msg);
+        throw new Error('[AzureOpenAI] Each message must have role and content properties');
+      }
+      if (!['system', 'user', 'assistant'].includes(msg.role)) {
+        logger.error('[AzureOpenAI] Invalid role:', msg.role);
+        throw new Error(`[AzureOpenAI] Invalid role: ${msg.role}. Must be system, user, or assistant`);
+      }
+    }
+    
     for (let retry = 0; retry <= this.maxRetries; retry++) {
       try {
-        const response = await axios.post(
-          this.endpoint,
-          {
-            messages,
-            temperature,
-            max_tokens: maxTokens,
-            top_p: 0.95,
-            frequency_penalty: 0,
-            presence_penalty: 0
-          },
-          {
-            headers: {
-              'api-key': this.apiKey,
-              'Content-Type': 'application/json'
-            },
-            timeout: this.timeout
-          }
+        const requestBody = {
+          messages,
+          temperature,
+          max_tokens: maxTokens,
+          top_p: 0.95,
+          frequency_penalty: 0,
+          presence_penalty: 0
+          // Note: 'model' parameter not needed as it's in the deployment URL
+        };
+        
+        // Log request details for debugging
+        logger.debug(`[AzureOpenAI] Making request to: ${this.endpoint}`);
+        logger.debug(`[AzureOpenAI] API Key present:`, !!this.apiKey);
+        logger.debug(`[AzureOpenAI] Number of messages:`, messages.length);
+        logger.debug(`[AzureOpenAI] Request body: ${JSON.stringify(requestBody, null, 2)}`);
+        
+        // LLM-FIRST FIX: Use rate limiter if available to prevent 429 errors
+        const response = await (this.rateLimiter 
+          ? this.rateLimiter.schedule(() => axios.post(
+              this.endpoint,
+              requestBody,
+              {
+                headers: {
+                  'api-key': this.apiKey,
+                  'Content-Type': 'application/json'
+                },
+                timeout: this.timeout
+              }
+            ))
+          : axios.post(
+              this.endpoint,
+              requestBody,
+              {
+                headers: {
+                  'api-key': this.apiKey,
+                  'Content-Type': 'application/json'
+                },
+                timeout: this.timeout
+              }
+            )
         );
 
         const latency = Date.now() - startTime;
@@ -43,7 +112,31 @@ class AzureOpenAIService {
         return response.data.choices[0].message.content;
       } catch (error) {
         lastError = error;
+        
+        // Enhanced error logging
         logger.error(`[AzureOpenAI] Request failed (attempt ${retry + 1}/${this.maxRetries + 1}):`, error.message);
+        logger.error('[AzureOpenAI] Full error:', error.response?.data || error.message);
+        logger.error('[AzureOpenAI] Error status:', error.response?.status);
+        logger.error('[AzureOpenAI] Failed request body:', JSON.stringify({
+          messages,
+          temperature,
+          max_tokens: maxTokens,
+          top_p: 0.95,
+          frequency_penalty: 0,
+          presence_penalty: 0
+        }, null, 2));
+        
+        // Log specific Azure OpenAI error details
+        if (error.response?.data?.error) {
+          logger.error('[AzureOpenAI] Azure error details:', JSON.stringify(error.response.data.error, null, 2));
+          
+          // Handle content filter errors specifically
+          if (error.response.data.error.code === 'content_filter') {
+            logger.warn('[AzureOpenAI] Content filter triggered - will retry with simplified prompt');
+            // Don't retry with same prompt - it will fail again
+            throw new Error('CONTENT_FILTER_ERROR');
+          }
+        }
         
         if (retry < this.maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1)));
@@ -102,7 +195,8 @@ Respond with ONLY the category name, nothing else.`;
         { role: "user", content: userMessage }
       ];
 
-      const intent = await this.makeRequest(messages, 0.1, 20);
+      // LLM-FIRST FIX: Temperature 0.7 for natural classification
+      const intent = await this.makeRequest(messages, 0.7, 20);
       const cleanIntent = intent.trim().toLowerCase().replace(/['"]/g, '');
       
       logger.info(`[AzureOpenAI] Query: "${query}" classified as: ${cleanIntent}`);
@@ -182,7 +276,8 @@ Return ONLY a comma-separated list of symbols (e.g., "AAPL,MSFT") or "NONE" if n
         { role: "user", content: userMessage }
       ];
 
-      const response = await this.makeRequest(messages, 0.1, 50);
+      // LLM-FIRST FIX: Temperature 0.7 for symbol extraction
+      const response = await this.makeRequest(messages, 0.7, 50);
       const cleanResponse = response.trim().toUpperCase();
       
       if (cleanResponse === 'NONE' || !cleanResponse) {
@@ -216,7 +311,8 @@ Respond with only "YES" or "NO".`;
         { role: "user", content: query }
       ];
 
-      const response = await this.makeRequest(messages, 0.1, 10);
+      // LLM-FIRST FIX: Temperature 0.7 for chart decision
+      const response = await this.makeRequest(messages, 0.7, 10);
       const needsChart = response.trim().toUpperCase() === 'YES';
       
       logger.debug(`[AzureOpenAI] Chart needed for "${query}": ${needsChart}`);
@@ -228,59 +324,286 @@ Respond with only "YES" or "NO".`;
     }
   }
 
-  async enhanceResponse(rawData, queryType, originalQuery) {
+  // Pre-generation validation to ensure prompts will prevent banned phrases
+  validatePromptConfiguration(queryType, systemPrompt) {
+    const validation = {
+      isValid: true,
+      issues: [],
+      warnings: []
+    };
+    
+    // Check system prompt includes banned phrases list
+    const requiredBannedPhrases = [
+      'let me know',
+      'feel free',
+      'I\'m here to',
+      'Want me to',
+      'Curious about',
+      'Should I',
+      'Would you like',
+      'Interested in'
+    ];
+    
+    const promptLower = systemPrompt.toLowerCase();
+    const missingBannedPhrases = requiredBannedPhrases.filter(phrase => 
+      !promptLower.includes(phrase.toLowerCase())
+    );
+    
+    if (missingBannedPhrases.length > 0) {
+      validation.warnings.push(`System prompt missing banned phrases: ${missingBannedPhrases.join(', ')}`);
+    }
+    
+    // Check for guidelines section
+    if (!promptLower.includes('important guidelines')) {
+      validation.issues.push('System prompt missing guidelines section');
+      validation.isValid = false;
+    }
+    
+    // Check for NO QUESTIONS directive
+    if (!promptLower.includes('no questions')) {
+      validation.issues.push('System prompt missing NO QUESTIONS directive');
+      validation.isValid = false;
+    }
+    
+    // Validate temperature settings
+    const criticalTypes = ['greeting', 'portfolio_analysis', 'portfolio_query'];
+    if (criticalTypes.includes(queryType)) {
+      logger.debug(`[AzureOpenAI] Validation: ${queryType} requires ZERO temperature`);
+    }
+    
+    // Log validation results
+    if (!validation.isValid) {
+      logger.error('[AzureOpenAI] Prompt validation failed:', validation);
+    } else if (validation.warnings.length > 0) {
+      logger.warn('[AzureOpenAI] Prompt validation warnings:', validation.warnings);
+    }
+    
+    return validation;
+  }
+
+  async enhanceResponse(rawData, queryType, originalQuery, conversationHistory = [], portfolioContext = null, conversationState = null) {
     try {
-      // For simple responses, don't enhance
-      if (queryType === 'date_time_query' || queryType === 'general_question') {
+      logger.debug(`[AzureOpenAI] enhanceResponse called with queryType: ${queryType}, query: ${originalQuery}`);
+      
+      // LLM-FIRST FIX: Use consistent temperature 0.7 for all query types
+      // This allows the LLM to be more creative and natural
+      let temperature = 0.7; // Higher temperature for better creativity
+      
+      // No more query-type specific temperatures - trust the LLM!
+      // Previously we used 0.0-0.2 which made responses robotic
+      
+      // Dynamic token limits for concise responses
+      const tokenLimits = {
+        'greeting': 100,              // ~50-80 chars
+        'price_query': 100,           // ~100-150 chars  
+        'comparison': 200,            // ~200-300 chars
+        'comparison_query': 200,      // ~200-300 chars
+        'portfolio_analysis': 300,    // ~300-400 chars max
+        'portfolio_query': 300,       // ~300-400 chars max
+        'trend_query': 150,           // ~150-200 chars
+        'trend_analysis': 150,        // ~150-200 chars
+        'general_response': 150,      // ~150-200 chars
+        'date_time_query': 50,        // ~50 chars
+        'company_info': 150,          // ~150 chars
+        'standard_analysis': 150,     // ~150-200 chars
+        'investment_advice': 150,     // ~150-200 chars
+        'default': 150                // ~150 chars
+      };
+      
+      const maxTokens = tokenLimits[queryType] || tokenLimits['default'];
+      logger.debug(`[AzureOpenAI] Using temperature ${temperature} and max_tokens ${maxTokens} for queryType: ${queryType}`);
+      
+      // For simple date/time responses, don't enhance
+      if (queryType === 'date_time_query') {
         return rawData;
       }
 
-      const systemPrompt = `You are Max, a warm and knowledgeable financial assistant. Think of yourself as a friend who happens to be great at finance.
+      // Build comprehensive portfolio context if available
+      let portfolioPrompt = '';
+      if (portfolioContext && portfolioContext.portfolio && portfolioContext.portfolioMetrics) {
+        const holdings = portfolioContext.portfolio.map(h => {
+          const allocation = portfolioContext.portfolioMetrics.allocation.find(a => a.symbol === h.symbol);
+          return `- ${h.symbol}: ${h.shares} shares (${allocation?.percent || '0'}% of portfolio, worth $${h.currentPrice.toFixed(2)} each, ${h.changePercent >= 0 ? '+' : ''}${h.changePercent}% ${h.changePercent >= 0 ? 'gain' : 'loss'})`;
+        }).join('\n');
+        
+        portfolioPrompt = `User has this portfolio:
+${holdings}
+Total value: $${portfolioContext.portfolioMetrics.totalValue.toLocaleString()}
+Total return: ${portfolioContext.portfolioMetrics.totalGainPercent >= 0 ? '+' : ''}${portfolioContext.portfolioMetrics.totalGainPercent}%
 
-CONVERSATIONAL STYLE RULES:
-1. START with acknowledgment:
-   - "Let me check that for you..."
-   - "Great question about [ASSET]!"
-   - "I'm on it! Looking at [ASSET] now..."
-   - "Interesting choice! Let me pull up [ASSET]..."
+`;
+      }
 
-2. USE transition phrases:
-   - "Here's what I'm seeing..."
-   - "Interestingly..."
-   - "The story here is..."
-   - "What stands out is..."
+      // Special handling for portfolio analysis
+      const isPortfolioQuery = queryType === 'portfolio_query' || 
+                              originalQuery.toLowerCase().includes('portfolio') ||
+                              originalQuery.toLowerCase().includes('holdings') ||
+                              originalQuery.toLowerCase().includes('my investments') ||
+                              (portfolioContext && originalQuery.toLowerCase().includes('my'));
 
-3. MINIMIZE bullets - use flowing paragraphs:
-   - Instead of "• Support at $X • Resistance at $Y"
-   - Write: "The key levels to watch are support at $X and resistance at $Y"
-   - Only use bullets for 3+ items that truly need listing
+      // Build conversation memory context
+      let memoryContext = '';
+      if (conversationState) {
+        memoryContext = '\n\nCONVERSATION CONTEXT:\n';
+        
+        // Last discussed symbol and topic
+        if (conversationState.conversationFlow?.lastDiscussedSymbol) {
+          memoryContext += `- Last discussed: ${conversationState.conversationFlow.lastDiscussedSymbol}\n`;
+          memoryContext += `- Previous topic: "${conversationState.conversationFlow.lastDiscussedTopic}"\n`;
+        }
+        
+        // Charts shown
+        if (conversationState.conversationFlow?.shownCharts && conversationState.conversationFlow.shownCharts.size > 0) {
+          memoryContext += `- Charts shown: ${Array.from(conversationState.conversationFlow.shownCharts).join(', ')}\n`;
+        }
+        
+        // Discussed symbols with details
+        const discussedSymbols = Object.entries(conversationState.discussedSymbols);
+        if (discussedSymbols.length > 0) {
+          memoryContext += '\nDETAILED HISTORY:\n';
+          discussedSymbols.forEach(([symbol, info]) => {
+            memoryContext += `- ${symbol}: Price $${info.priceDiscussed}`;
+            if (info.chartShown) memoryContext += ', chart shown';
+            if (info.analysisGiven) memoryContext += `, ${info.analysisGiven} analysis`;
+            memoryContext += '\n';
+          });
+        }
+        
+        memoryContext += `\nCAPABILITIES: You have ${conversationState.capabilities.historicalDataDays} days of historical data.\n`;
+        memoryContext += '\nUSE THIS CONTEXT: If user says "trend", "longer term", "more info" - assume they mean about ' + 
+                        (conversationState.conversationFlow?.lastDiscussedSymbol || 'the last discussed topic') + '.';
+      }
+      
+      // ULTRA STRICT FORMATTING PROMPT
+      const ULTRA_STRICT_PROMPT = `SYSTEM CRITICAL: You are Max, FinanceBot Pro premium assistant.${memoryContext}
 
-4. END with engagement:
-   - "Curious about [related topic]?"
-   - "Want me to dig deeper into [aspect]?"
-   - "Should I compare this with [similar asset]?"
-   - "Interested in the technical analysis?"
+⚠️ MANDATORY COMPLIANCE CHECKLIST - YOUR RESPONSE WILL BE REJECTED UNLESS IT HAS ALL:
 
-5. Keep ALL numerical data exactly as provided
-6. Be concise but warm (2-3 short paragraphs max)
-7. Use simple language - no jargon unless necessary`;
+□ 1. Start with emoji: 📊 (prices) 📈 (trends) 💰 (portfolio) 🎯 (analysis) ⚔️ (comparison)
+□ 2. Make ALL stock symbols **BOLD** (e.g., **AAPL**, **BTC**, **MSFT**)
+□ 3. Include at least ONE bullet point using • character
+□ 4. End with EXACTLY: "Want me to [specific action]?"
+□ 5. Keep main response under 150 characters
 
-      const userMessage = `Query: "${originalQuery}"
-Data: ${JSON.stringify(rawData, null, 2)}
+VALID RESPONSE TEMPLATE:
+📊 **{SYMBOL}** trading at $[PRICE], [CHANGE]% [EMOJI]
+• [KEY_INSIGHT]
+• [TECHNICAL_SIGNAL]
+Want me to [SPECIFIC_ACTION]?
 
-Provide a warm, enhanced response that feels like it's from a helpful friend.`;
+EXAMPLES OF COMPLIANT RESPONSES:
+✓ "📊 **AAPL** at $180.25, up 2.3% 📈\\n• Volume: 58M (above avg)\\n• RSI: 68 (overbought)\\nWant me to set price alerts?"
+✓ "💰 Portfolio up 12.5% ($45,230) 📈\\n• **NVDA** leading (+45%)\\n• **CASH** too high (40%)\\nWant me to suggest rebalancing?"
+✓ "📈 **BTC** broke $45K resistance 🔥\\n• Next target: $47K\\n• Support: $43.5K\\nWant me to analyze the trend?"
 
+INVALID RESPONSES (WILL BE REJECTED):
+❌ "AAPL is at $180" (missing emoji, bold, bullets, proper ending)
+❌ "The stock is up. Let me know..." (wrong format entirely)
+❌ Any response without ALL 5 checkboxes checked
+
+PENALTY: Non-compliant responses will be automatically reformatted.`;
+      
+      const systemPrompt = isPortfolioQuery ? 
+        ULTRA_STRICT_PROMPT + `\n\nPortfolio context: ${portfolioPrompt}\nFocus on their actual holdings with specific percentages and recommendations.` :
+        ULTRA_STRICT_PROMPT + `\n\n${portfolioPrompt ? 'The user has a portfolio that you should consider when responding.' : ''}`;
+
+      // Validate prompt configuration
+      const validation = this.validatePromptConfiguration(queryType, systemPrompt);
+      if (!validation.isValid) {
+        logger.error(`[AzureOpenAI] Critical prompt validation failure for ${queryType}`);
+      }
+
+      // Check if a chart was recently shown
+      let chartContext = '';
+      if (conversationHistory && conversationHistory.length > 0) {
+        const recentChart = conversationHistory.slice(-3).find(msg => 
+          msg.role === 'assistant' && 
+          msg.content && 
+          msg.content.includes('[Chart displayed:')
+        );
+        
+        if (recentChart && originalQuery.toLowerCase().includes('chart')) {
+          const chartMatch = recentChart.content.match(/\[Chart displayed: ([^\]]+)\]/);
+          if (chartMatch) {
+            chartContext = `\n\nContext: A chart for ${chartMatch[1]} was recently displayed.`;
+          }
+        }
+      }
+      
+      const userMessage = portfolioPrompt ? 
+        `${portfolioPrompt}User asks: "${originalQuery}"${chartContext}
+
+Answer in 1-2 short sentences (under 150 chars total). Be specific about their holdings.` :
+        `Query: "${originalQuery}"
+Data: ${JSON.stringify(rawData, null, 2)}${chartContext}
+
+Answer in 1-2 short sentences (under 150 chars total). Be direct and helpful.`;
+
+      // Build messages array with full conversation history
       const messages = [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage }
+        { role: "system", content: systemPrompt }
       ];
+      
+      // Add conversation history if available
+      if (conversationHistory && conversationHistory.length > 0) {
+        // Include only last 3 messages to avoid content filter issues
+        const recentHistory = conversationHistory.slice(-3).map(msg => {
+          // Clean up chart metadata before sending to API
+          if (msg.role === 'assistant' && msg.content) {
+            const cleanContent = msg.content.replace(/\n\[Chart displayed:[^\]]+\]/g, '');
+            return { ...msg, content: cleanContent };
+          }
+          return msg;
+        });
+        messages.push(...recentHistory);
+      }
+      
+      // Add current query
+      messages.push({ role: "user", content: userMessage });
+      
+      // Add debug logging
+      logger.debug(`[AzureOpenAI] Enhancing response with conversation history: ${conversationHistory.length} messages`);
+      logger.debug(`[AzureOpenAI] Enhancing response with portfolio context: ${!!portfolioPrompt}`);
 
-      const enhanced = await this.makeRequest(messages, 0.3, 400);
+      const enhanced = await this.makeRequest(messages, temperature, maxTokens);
+      
+      // Enforce brevity and remove banned phrases
+      const cleanedResponse = this.enforceResponseBrevity(enhanced, queryType);
       
       logger.debug(`[AzureOpenAI] Response enhanced with personality for query type: ${queryType}`);
-      return enhanced;
+      return cleanedResponse;
     } catch (error) {
       logger.error('[AzureOpenAI] Response enhancement failed:', error.message);
+      
+      // If content filter error, try with simplified approach
+      if (error.message === 'CONTENT_FILTER_ERROR') {
+        logger.warn('[AzureOpenAI] Attempting simplified response generation');
+        try {
+          // Create a minimal prompt without conversation history
+          const simplifiedMessages = [
+            { 
+              role: "system", 
+              content: "You are Max, a financial advisor. Keep responses brief and factual. No questions at the end."
+            },
+            { 
+              role: "user", 
+              content: `${originalQuery}\nData: ${JSON.stringify(rawData)}\nRespond in 1-2 sentences.`
+            }
+          ];
+          
+          // LLM-FIRST FIX: Temperature 0.7 even for fallback
+          const fallbackResponse = await this.makeRequest(simplifiedMessages, 0.7, 100);
+          return this.enforceResponseBrevity(fallbackResponse, queryType);
+        } catch (fallbackError) {
+          logger.error('[AzureOpenAI] Fallback also failed:', fallbackError.message);
+          // Return a safe local response
+          if (rawData && typeof rawData === 'string') {
+            return rawData.substring(0, 150);
+          }
+          return "Market data available. Please try again.";
+        }
+      }
+      
       return rawData; // Return original if enhancement fails
     }
   }
@@ -297,7 +620,8 @@ Generate a clarifying question to ask the user. Be brief and specific.`;
         { role: "user", content: "Generate clarification question" }
       ];
 
-      const response = await this.makeRequest(messages, 0.3, 100);
+      // LLM-FIRST FIX: Temperature 0.7 for comparisons
+      const response = await this.makeRequest(messages, 0.7, 100);
       return response.trim();
     } catch (error) {
       logger.error('[AzureOpenAI] Ambiguity resolution failed:', error.message);
@@ -306,12 +630,30 @@ Generate a clarifying question to ask the user. Be brief and specific.`;
   }
 
   // NEW COMPREHENSIVE ANALYZER - THE PRIMARY BRAIN OF THE SYSTEM
-  async analyzeQuery(query, conversationHistory = []) {
-    const systemPrompt = `You are Max, a warm and helpful financial assistant. Analyze queries and return JSON while understanding the user's emotional context and needs.
+  async analyzeQuery(query, conversationHistory = [], conversationState = null) {
+    // Build memory context for analysis
+    let memoryContext = '';
+    if (conversationState && conversationState.discussedSymbols) {
+      const symbols = Object.keys(conversationState.discussedSymbols);
+      if (symbols.length > 0) {
+        memoryContext = `\nREMEMBER: Already discussed ${symbols.join(', ')} in this conversation.`;
+      }
+    }
+    
+    // CRITICAL: Add last discussed symbol context for vague queries
+    if (conversationState && conversationState.conversationFlow && conversationState.conversationFlow.lastDiscussedSymbol) {
+      memoryContext += `\nLAST DISCUSSED SYMBOL: ${conversationState.conversationFlow.lastDiscussedSymbol}`;
+      memoryContext += `\nIMPORTANT: For vague queries like "what's the trend?", "should I buy?", "show me more", ALWAYS refer to ${conversationState.conversationFlow.lastDiscussedSymbol}`;
+    }
+    
+    const systemPrompt = `You are Max, a warm and helpful financial assistant. Analyze queries and return JSON while understanding the user's emotional context and needs. Be friendly and conversational while maintaining accuracy.${memoryContext}
 
-CRITICAL RULES:
+CRITICAL VAGUE QUERY HANDLING:
+If the query is vague (like "what's the trend?", "should I buy?", "how is it doing?") and does NOT explicitly mention a specific symbol, you MUST return an empty symbols array []. DO NOT infer symbols from conversation history for vague queries. The system handles context automatically.
 
-1. GREETINGS ARE FINANCIAL SERVICES - CHECK THESE FIRST!
+Important classification rules:
+
+1. Greetings are part of financial service:
    - "hi", "hello", "hey" → isFinancial: true, intent: "greeting"
    - "good morning", "good afternoon", "good evening" → isFinancial: true, intent: "greeting"
    - "hi!", "hello!", "hey there" → isFinancial: true, intent: "greeting"
@@ -330,38 +672,102 @@ CRITICAL RULES:
    - "current date" → isFinancial: true, intent: "date_time_query"
    - These are FINANCIAL SERVICES we provide to traders
 
-3. COMPANY QUESTIONS ARE FINANCIAL
+4. PRICE QUERIES - SIMPLE PRICE REQUESTS
+   - "AAPL price" → intent: "analysis_query", symbols: ["AAPL"]
+   - "what is AAPL" → intent: "analysis_query", symbols: ["AAPL"]
+   - "AAPL stock price" → intent: "analysis_query", symbols: ["AAPL"]
+   - "price of AAPL" → intent: "analysis_query", symbols: ["AAPL"]
+   - "how much is AAPL" → intent: "analysis_query", symbols: ["AAPL"]
+   - "AAPL current price" → intent: "analysis_query", symbols: ["AAPL"]
+   - "show me AAPL" → intent: "analysis_query", symbols: ["AAPL"]
+   - "AAPL quote" → intent: "analysis_query", symbols: ["AAPL"]
+   - "AAPL at?" → intent: "analysis_query", symbols: ["AAPL"]
+   - "AAPL trading at" → intent: "analysis_query", symbols: ["AAPL"]
+   - Keywords: price, quote, "at?", "trading at", "how much", "show me" → ALL map to analysis_query
+
+5. TREND QUERIES - MUST RECOGNIZE VARIOUS PHRASINGS
+   - "apple direction" → intent: "trend_query", symbols: ["AAPL"]
+   - "AAPL movement" → intent: "trend_query", symbols: ["AAPL"]
+   - "apple outlook" → intent: "trend_query", symbols: ["AAPL"]
+   - "apple momentum" → intent: "trend_query", symbols: ["AAPL"]
+   - "where is apple going" → intent: "trend_query", symbols: ["AAPL"]
+   - "apple future" → intent: "trend_query", symbols: ["AAPL"]
+   - "AAPL trend" → intent: "trend_query", symbols: ["AAPL"]
+   - Keywords: direction, movement, outlook, momentum, future, trajectory, trend → ALL map to trend_query
+
+6. ANALYSIS QUERIES - RECOGNIZE PERFORMANCE QUESTIONS
+   - "how's apple doing" → intent: "analysis_query", symbols: ["AAPL"]
+   - "apple performance" → intent: "analysis_query", symbols: ["AAPL"]
+   - "how is AAPL performing" → intent: "analysis_query", symbols: ["AAPL"]
+   - "AAPL status" → intent: "analysis_query", symbols: ["AAPL"]
+   - "AAPL analysis" → intent: "analysis_query", symbols: ["AAPL"]
+   - Keywords: how's, doing, performance, performing, status, analysis → ALL map to analysis_query
+
+7. COMPARISON QUERIES - VARIOUS FORMATS
+   - "AAPL or MSFT" → intent: "comparison_query", symbols: ["AAPL", "MSFT"]
+   - "apple versus microsoft" → intent: "comparison_query", symbols: ["AAPL", "MSFT"]
+   - "better: AAPL MSFT" → intent: "comparison_query", symbols: ["AAPL", "MSFT"]
+   - "AAPL/MSFT" → intent: "comparison_query", symbols: ["AAPL", "MSFT"]
+   - "AAPL v MSFT" → intent: "comparison_query", symbols: ["AAPL", "MSFT"]
+   - "apple > microsoft?" → intent: "comparison_query", symbols: ["AAPL", "MSFT"]
+   - Keywords: or, versus, vs, better, /, v, > → ALL indicate comparison_query
+
+8. COMPANY QUESTIONS ARE FINANCIAL (BUT NOT CRYPTO!)
    - "who is the CEO of Apple?" → isFinancial: true, intent: "company_info", symbols: ["AAPL"]
    - "who runs Microsoft?" → isFinancial: true, intent: "company_info", symbols: ["MSFT"]
    - "when was Amazon founded?" → isFinancial: true, intent: "company_info", symbols: ["AMZN"]
-   - ANY question about a company → extract the company's ticker
+   - IMPORTANT: Crypto (BTC, ETH, etc) are NOT companies! Use "investment_advice" or "trend_query"
+   - "tell me about bitcoin" → intent: "investment_advice", NOT company_info!
 
-4. COMMODITY SYMBOL MAPPING - CRITICAL
+9. COMMODITY SYMBOL MAPPING - CRITICAL
    - "gold" → symbols: ["GC"] (NEVER XAU)
    - "silver" → symbols: ["SI"] (NEVER XAG)
    - "oil" → symbols: ["CL"]
    - These are the ONLY correct commodity symbols to use
 
-5. CONTEXT UNDERSTANDING - CRITICAL
+10. CONTEXT UNDERSTANDING - CRITICAL
    - "compare them" → Look at conversation history for last 2 mentioned symbols
    - "show me their trends" → Extract symbols from recent context
    - ALWAYS check conversation history for "them", "it", "these", "those"
    - If symbols were mentioned in previous messages, extract them!
 
-6. CHART DETECTION - MUST RECOGNIZE
+11. CHART DETECTION - MUST RECOGNIZE
    - "show me NVDA chart" → intent: "trend_query", requiresChart: true
    - "Bitcoin trends" → intent: "trend_query", requiresChart: true
    - Keywords: chart, trend, graph, history, show → Always set requiresChart: true
    - "show me X chart" ALWAYS means trend_query with requiresChart: true
 
-7. GROUP QUERIES - EXACT MAPPINGS
+12. GROUP QUERIES - EXACT MAPPINGS
    - "FAANG stocks" → intent: "group_analysis", symbols: ["META","AAPL","AMZN","NFLX","GOOGL"]
    - "tech stocks comparison" → intent: "comparison_query", symbols: ["AAPL","MSFT","GOOGL","AMZN","META","NVDA"]
    - "analyze FAANG stocks" → intent: "group_analysis", symbols: ["META","AAPL","AMZN","NFLX","GOOGL"]
    - "tech stocks" → intent: "group_analysis", symbols: ["AAPL","MSFT","GOOGL","AMZN","META","NVDA"]
 
-8. INVESTMENT QUESTIONS ARE FINANCIAL
+13. PORTFOLIO QUERIES - CRITICAL
+   - "analyze my portfolio" → isFinancial: true, intent: "portfolio_query"
+   - "review my holdings" → isFinancial: true, intent: "portfolio_query"
+   - "how is my portfolio doing?" → isFinancial: true, intent: "portfolio_query"
+   - "portfolio performance" → isFinancial: true, intent: "portfolio_query"
+   - "my investments" → isFinancial: true, intent: "portfolio_query"
+   - "upgrade my portfolio" → isFinancial: true, intent: "portfolio_query"
+   - "help me with my portfolio" → isFinancial: true, intent: "portfolio_query"
+   - "portfolio insights" → isFinancial: true, intent: "portfolio_query"
+   - ANY mention of "my portfolio", "my holdings", "my investments" → portfolio_query
+
+14. MARKET OVERVIEW QUERIES - GENERAL MARKET STATUS
+   - "market overview" → isFinancial: true, intent: "market_overview", symbols: []
+   - "how is the market" → isFinancial: true, intent: "market_overview", symbols: []
+   - "market summary" → isFinancial: true, intent: "market_overview", symbols: []
+   - "market status" → isFinancial: true, intent: "market_overview", symbols: []
+   - "what's happening in the market" → isFinancial: true, intent: "market_overview", symbols: []
+   - "market conditions" → isFinancial: true, intent: "market_overview", symbols: []
+   - Keywords: market overview, market summary, market status → ALL map to market_overview
+
+15. INVESTMENT QUESTIONS ARE FINANCIAL
    - "is bitcoin a good investment?" → isFinancial: true, intent: "investment_advice", symbols: ["BTC"]
+   - "tell me about bitcoin" → isFinancial: true, intent: "investment_advice", symbols: ["BTC"]
+   - "bitcoin?" → isFinancial: true, intent: "investment_advice", symbols: ["BTC"]
+   - "what's ethereum?" → isFinancial: true, intent: "investment_advice", symbols: ["ETH"]
    - Always extract the symbol being asked about!
 
 ONLY mark isFinancial: false for TRULY UNRELATED queries:
@@ -390,6 +796,15 @@ Response: {"intent": "help_query", "symbols": [], "isFinancial": true, "requires
 Query: "what date is it now?"
 Response: {"intent": "date_time_query", "symbols": [], "isFinancial": true, "requiresChart": false}
 
+Query: "AAPL price"
+Response: {"intent": "analysis_query", "symbols": ["AAPL"], "isFinancial": true, "requiresChart": false}
+
+Query: "what is AAPL"
+Response: {"intent": "analysis_query", "symbols": ["AAPL"], "isFinancial": true, "requiresChart": false}
+
+Query: "AAPL stock price"
+Response: {"intent": "analysis_query", "symbols": ["AAPL"], "isFinancial": true, "requiresChart": false}
+
 Query: "who is the CEO of Apple?"  
 Response: {"intent": "company_info", "symbols": ["AAPL"], "isFinancial": true, "companyInfoRequest": "CEO"}
 
@@ -405,12 +820,52 @@ Response: {"intent": "comparison_query", "symbols": ["GC", "SI"], "isFinancial":
 Query: "what's the weather?"
 Response: {"intent": "non_financial", "symbols": [], "isFinancial": false, "requiresChart": false}
 
+Query: "analyze my portfolio"
+Response: {"intent": "portfolio_query", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+Query: "can u help me upgrade my portfolio?"
+Response: {"intent": "portfolio_query", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+Query: "how are my investments doing?"
+Response: {"intent": "portfolio_query", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+VAGUE QUERIES - CRITICAL (when no symbol is specified, leave symbols empty):
+Query: "what's the trend?"
+Response: {"intent": "trend_query", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+Query: "should I buy?"
+Response: {"intent": "investment_advice", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+Query: "what do you think?"
+Response: {"intent": "investment_advice", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+Query: "show me more"
+Response: {"intent": "trend_query", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+Query: "how is it doing?"
+Response: {"intent": "trend_query", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+Query: "what's happening?"
+Response: {"intent": "trend_query", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+Query: "market overview"
+Response: {"intent": "market_overview", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+Query: "how is the market"
+Response: {"intent": "market_overview", "symbols": [], "isFinancial": true, "requiresChart": false}
+
+CRITICAL RULE: For vague queries without explicit symbol mentions, ALWAYS return an empty symbols array [], even if symbols were discussed earlier in the conversation. The system will handle context automatically. DO NOT try to infer symbols from conversation history for vague queries.
+
 Return ONLY valid JSON, no explanation.`;
 
-    const conversationContext = conversationHistory.slice(-6).map(msg => 
+    // Get formatted conversation with portfolio context
+    const formattedHistory = this.formatConversationHistory(conversationHistory, true);
+    
+    // Build conversation context string
+    const conversationContext = formattedHistory.map(msg => 
       `${msg.role}: ${msg.content}`
     ).join('\n');
-
+    
     const userMessage = conversationContext 
       ? `Recent conversation:\n${conversationContext}\n\nCurrent query: ${query}`
       : query;
@@ -421,7 +876,8 @@ Return ONLY valid JSON, no explanation.`;
     ];
 
     try {
-      const content = await this.makeRequest(messages, 0.3, 150); // Reduced tokens for faster response
+      // LLM-FIRST FIX: Temperature 0.7 for natural analysis
+      const content = await this.makeRequest(messages, 0.7, 150);
       
       // Try to parse JSON response
       try {
@@ -488,11 +944,108 @@ Return ONLY valid JSON, no explanation.`;
   }
 
   // Helper method to format conversation history consistently
-  formatConversationHistory(history) {
-    return history.slice(-6).map(msg => ({
-      role: msg.role || 'user',
-      content: msg.content || msg.message || msg
-    }));
+  formatConversationHistory(history, includePortfolioContext = false) {
+    const messages = history.slice(-10).map(msg => {
+      // Handle new format with role and content
+      if (msg.role && msg.content) {
+        return { role: msg.role, content: msg.content };
+      }
+      // Handle old format
+      return {
+        role: msg.role || 'user',
+        content: msg.content || msg.message || msg
+      };
+    });
+    
+    // Add portfolio context if available
+    if (includePortfolioContext) {
+      const portfolioMsg = history.slice().reverse().find(msg => msg.portfolio);
+      if (portfolioMsg && portfolioMsg.portfolio) {
+        const p = portfolioMsg.portfolio;
+        const holdings = p.topHoldings?.map(h => `${h.symbol} (${h.percent}%)`).join(', ') || '';
+        messages.unshift({
+          role: 'system',
+          content: `User's portfolio: $${p.totalValue} total, ${p.holdings} holdings. Top positions: ${holdings}. Keep this context in mind.`
+        });
+      }
+    }
+    
+    return messages;
+  }
+
+  enforceResponseBrevity(response, queryType) {
+    if (!response) return response;
+    
+    // Log original response for debugging
+    const originalLength = response.length;
+    
+    // Remove banned phrases - AGGRESSIVE enforcement
+    const bannedPhrases = [
+      /let me know how you'd like to proceed/gi,
+      /let me know.*proceed/gi,
+      /let me know[^.?]*/gi,
+      /feel free to ask[^.?]*/gi,
+      /i'm here to help[^.?]*/gi,
+      /i'm here to[^.?]*/gi,
+      /want me to\s*[^.?]*/gi,
+      /curious about\s*[^.?]*/gi,
+      /should i\s*[^.?]*\?/gi,
+      /interested in\s*[^.?]*\?/gi,
+      /would you like me to\s*[^.?]*\?/gi,
+      /would you like[^.?]*\?/gi,
+      /what's on your mind[^.?]*/gi,
+      /anything else[^.?]*/gi,
+      /any other[^.?]*\?/gi,
+      /what would you[^.?]*\?/gi
+    ];
+    
+    let cleaned = response;
+    let phrasesRemoved = 0;
+    bannedPhrases.forEach(phrase => {
+      const beforeLength = cleaned.length;
+      cleaned = cleaned.replace(phrase, '').trim();
+      if (cleaned.length < beforeLength) {
+        phrasesRemoved++;
+      }
+    });
+    
+    // Remove multiple spaces and clean up
+    cleaned = cleaned.replace(/\s+/g, ' ').replace(/\.\s*\./g, '.').trim();
+    
+    // Fix price formatting (remove spaces in prices like "$158. 17")
+    cleaned = cleaned.replace(/\$(\d+)\.\s+(\d+)/g, '$$$1.$2');
+    cleaned = cleaned.replace(/\$(\d+),\s+(\d+)/g, '$$$1,$2');
+    
+    // Log if banned phrases were removed
+    if (phrasesRemoved > 0) {
+      logger.warn(`[AzureOpenAI] Removed ${phrasesRemoved} banned phrases from ${queryType} response`);
+      logger.debug(`[AzureOpenAI] Original: "${response.substring(0, 100)}..."`);
+      logger.debug(`[AzureOpenAI] Cleaned: "${cleaned.substring(0, 100)}..."`);
+    }
+    
+    // Check sentence count for non-portfolio queries
+    if (queryType !== 'portfolio_analysis' && queryType !== 'portfolio_query') {
+      const sentences = cleaned.split(/[.!?]+/).filter(s => s.trim().length > 0);
+      
+      const sentenceLimits = {
+        'greeting': 2,
+        'price_query': 4,
+        'comparison': 6,
+        'trend_query': 5,
+        'general_response': 5,
+        'default': 6
+      };
+      
+      const limit = sentenceLimits[queryType] || sentenceLimits['default'];
+      
+      if (sentences.length > limit) {
+        // Keep only the allowed number of sentences
+        cleaned = sentences.slice(0, limit).join('. ') + '.';
+        logger.debug(`[AzureOpenAI] Truncated response from ${sentences.length} to ${limit} sentences for ${queryType}`);
+      }
+    }
+    
+    return cleaned;
   }
 }
 

@@ -34,6 +34,7 @@ const portfolioManager = require("./services/portfolioManager");
 const intelligentResponse = require("./services/intelligentResponse");
 const responseFormatter = require("./services/responseFormatter");
 const chartGenerator = require("./services/chartGenerator");
+const dualLLMOrchestrator = require("./services/dualLLMOrchestrator");
 
 // Initialize services
 const intentClassifier = new IntentClassifier();
@@ -202,8 +203,29 @@ class SessionManager {
       id: sessionId,
       portfolio: null,
       conversationHistory: [],
-      lastTopic: null,
+      lastTopic: null,  // Keep for backward compatibility
       lastAnalysis: null,
+      
+      // Add conversation state directly to session
+      conversationState: {
+        discussedSymbols: {},
+        lastDiscussedSymbol: null,
+        lastIntent: null,
+        expectingFollowUp: false,
+        context: null,
+        lastQueryTime: null,
+        shownCharts: [],  // Using array instead of Set for JSON serialization
+        activeSymbol: null,
+        conversationFlow: {
+          lastIntent: null,
+          lastDiscussedSymbol: null,
+          lastDiscussedTopic: null,
+          lastQueryTime: null,
+          shownCharts: []  // Using array instead of Set
+        },
+        promisesMade: []
+      },
+      
       disclaimerShown: false,
       preferences: {
         theme: "dark",
@@ -235,7 +257,13 @@ class SessionManager {
     if (!sessionId) return null;
 
     const session = this.storage.get(sessionId);
-    if (!session) return null;
+    if (!session) {
+      logger.debug('[SessionManager] Session not found:', {
+        sessionId,
+        totalSessions: this.storage.size
+      });
+      return null;
+    }
 
     const now = Date.now();
 
@@ -250,17 +278,51 @@ class SessionManager {
     session.metadata.accessCount++;
     this.accessOrder.set(sessionId, now);
 
+    // Debug log portfolio status when retrieved
+    logger.debug('[SessionManager] Retrieved session:', {
+      sessionId,
+      hasPortfolio: !!session.portfolio,
+      portfolioLength: session.portfolio?.length,
+      hasMetrics: !!session.portfolioMetrics,
+      totalValue: session.portfolioMetrics?.totalValue,
+      accessCount: session.metadata.accessCount
+    });
+
     return session;
   }
 
   update(sessionId, updates) {
     const session = this.get(sessionId);
-    if (!session) return false;
+    if (!session) {
+      logger.error('[SessionManager] Cannot update - session not found:', sessionId);
+      return false;
+    }
+
+    // Debug logging for portfolio updates
+    if (updates.portfolio || updates.portfolioMetrics) {
+      logger.info('[SessionManager] Updating session with portfolio data:', {
+        sessionId,
+        hasPortfolio: !!updates.portfolio,
+        portfolioSize: updates.portfolio?.length,
+        hasMetrics: !!updates.portfolioMetrics,
+        totalValue: updates.portfolioMetrics?.totalValue
+      });
+    }
 
     Object.assign(session, updates);
     session.metadata.lastAccessed = Date.now();
     this.accessOrder.set(sessionId, Date.now());
     this.updateMemoryUsage();
+    
+    // Verify update
+    if (updates.portfolio) {
+      logger.info('[SessionManager] Portfolio update verified:', {
+        sessionId,
+        portfolioStored: !!session.portfolio,
+        portfolioLength: session.portfolio?.length
+      });
+    }
+    
     return true;
   }
 
@@ -348,6 +410,10 @@ class SessionManager {
     };
   }
 
+  getAllSessionIds() {
+    return Array.from(this.storage.keys());
+  }
+
   shutdown() {
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
@@ -363,6 +429,10 @@ const sessions = new SessionManager();
 
 // Initialize portfolio manager with sessions reference
 portfolioManager.initializeSessions(sessions);
+
+// Wire SessionManager into IntelligentResponse
+intelligentResponse.setSessionManager(sessions);
+logger.info('[Server] SessionManager wired into IntelligentResponse');
 
 // ================================================================
 // PORTFOLIO ANALYZER
@@ -2428,11 +2498,29 @@ Using real-time market data.
   }
 }
 
+// LLM-FIRST FIX: Enhanced rate limiting to prevent 429 errors
 // Initialize rate limiter for API calls
 const apiLimiter = new Bottleneck({
-  minTime: 1000, // Min 1 second between requests
-  maxConcurrent: 5, // Max 5 concurrent requests
+  minTime: 2000, // 2 seconds between requests (increased from 1s)
+  maxConcurrent: 1, // Sequential only (reduced from 5)
+  reservoir: 20, // Max 20 requests per minute
+  reservoirRefreshAmount: 20,
+  reservoirRefreshInterval: 60 * 1000 // Refresh every minute
 });
+
+// LLM-FIRST FIX: Separate rate limiter for Azure OpenAI with more generous limits
+const azureLimiter = new Bottleneck({
+  minTime: 1500, // 1.5 seconds between Azure calls
+  maxConcurrent: 1, // Sequential only
+  reservoir: 30, // 30 requests per minute (more generous than Perplexity)
+  reservoirRefreshAmount: 30,
+  reservoirRefreshInterval: 60 * 1000 // Refresh every minute
+});
+
+// LLM-FIRST FIX: Inject rate limiter into existing Azure OpenAI singleton
+const azureOpenAI = require('./services/azureOpenAI');
+azureOpenAI.rateLimiter = azureLimiter;
+logger.info('[Server] Azure OpenAI rate limiter injected (1.5s between calls, max 30/min)');
 
 // Initialize enhanced components
 const queryAnalyzer = new EnhancedQueryAnalyzer();
@@ -2608,49 +2696,49 @@ Current query: ${topic}`;
     ];
 
     try {
-      const rawResponse = await this.makeRequest(messages, {
-        ...options,
-        maxTokens: 400,
-        temperature: 0.4, // Balanced for natural yet informative responses
-      });
+      // OPTIMIZATION: Use passed options, fallback to defaults only if not provided
+      const requestOptions = {
+        maxTokens: options.max_tokens || options.maxTokens || 400,
+        temperature: options.temperature || 0.4,
+        model: options.model || 'sonar', // Allow model selection
+        search_recency_filter: options.search_recency_filter,
+        search_domain_filter: options.search_domain_filter,
+        return_citations: options.return_citations ?? true,
+        return_images: options.return_images ?? false,
+        response_format: options.response_format,
+        ...options
+      };
+      
+      const rawResponse = await this.makeRequest(messages, requestOptions);
+
+      // ERROR HANDLING: Check if response contains error indicators
+      if (rawResponse.answer && (
+        rawResponse.answer.includes('no data available') ||
+        rawResponse.answer.includes('unable to find') ||
+        rawResponse.answer.includes('not found') ||
+        rawResponse.answer.includes('invalid symbol') ||
+        rawResponse.answer.includes('verify the symbol')
+      )) {
+        return {
+          success: false,
+          answer: "Unable to find data for this symbol. Please verify the symbol is correct.",
+          error: true,
+          sources: []
+        };
+      }
 
       return {
         success: true,
-        data: rawResponse,
-        metadata: {
-          timestamp: new Date().toISOString(),
-        },
+        answer: rawResponse.answer || 'No data available',
+        sources: rawResponse.sources || []
       };
     } catch (error) {
-      logger.error("[Enhanced Perplexity Client] Error:", error);
-
-      // Fallback mechanism - provide useful response with real-time data
-      logger.debug(
-        "[Enhanced Perplexity Client] Using fallback mode due to API failure",
-      );
-
-      const fallbackResponse = this.generateFallbackResponse(
-        topic,
-        realTimeData,
-      );
-
+      logger.error(`[Perplexity] API error: ${error.message}`);
       return {
         success: false,
-        data: {
-          choices: [
-            {
-              message: {
-                content: fallbackResponse,
-                role: "assistant",
-              },
-            },
-          ],
-        },
-        metadata: {
-          timestamp: new Date().toISOString(),
-          fallback: true,
-          error: error.message,
-        },
+        answer: "Unable to fetch market data at this time.",
+        error: true,
+        sources: []
       };
     }
   }
@@ -2751,6 +2839,14 @@ try {
   logger.debug(
     `✅ Enhanced Perplexity AI client initialized - ${perplexityClient.isConfigured ? "Configured" : "Fallback Mode"}`,
   );
+  
+  // Wire Perplexity client into DualLLMOrchestrator
+  dualLLMOrchestrator.setPerplexityClient(perplexityClient);
+  logger.info('[Server] DualLLMOrchestrator wired with Perplexity client');
+  
+  // Wire API rate limiter into DualLLMOrchestrator
+  dualLLMOrchestrator.setApiLimiter(apiLimiter);
+  logger.info('[Server] DualLLMOrchestrator wired with API rate limiter');
 } catch (error) {
   logger.error("❌ Failed to initialize Perplexity client:", error.message);
   process.exit(1);
@@ -2841,7 +2937,7 @@ app.post("/api/debug/extract-context", async (req, res) => {
     // Test Azure OpenAI symbol extraction with context
     let symbols = [];
     try {
-      const azureOpenAI = require('./services/azureOpenAI');
+      // LLM-FIRST FIX: Use singleton instance with rate limiter
       symbols = await azureOpenAI.extractStockSymbols(query, formattedHistory);
     } catch (error) {
       logger.error('[Debug] Azure OpenAI extraction failed:', error.message);
@@ -2878,7 +2974,7 @@ app.post("/api/debug/diagnose", async (req, res) => {
   
   // Check LLM analysis
   try {
-    const azureOpenAI = require('./services/azureOpenAI');
+    // LLM-FIRST FIX: Use singleton instance with rate limiter
     const llmAnalysis = await azureOpenAI.analyzeQuery(message, []);
     console.log('LLM analysis:', JSON.stringify(llmAnalysis, null, 2));
   } catch (e) {
@@ -2900,7 +2996,7 @@ app.post("/api/debug/classify-intent", async (req, res) => {
     // Test Azure OpenAI classification if available
     let azureIntent = null;
     try {
-      const azureOpenAI = require('./services/azureOpenAI');
+      // LLM-FIRST FIX: Use singleton instance with rate limiter
       const formattedHistory = intelligentResponse.formatConversationHistory(history || []);
       azureIntent = await azureOpenAI.classifyIntent(query, formattedHistory);
     } catch (error) {
@@ -3070,11 +3166,61 @@ app.post("/api/portfolio/upload", upload.single("file"), async (req, res) => {
 
     if (result.success) {
       logger.debug(`[Portfolio Upload] Success: ${result.message}`);
+      
+      // Generate auto-analysis before sending response
+      let autoAnalysis = null;
+      try {
+        logger.info('[Portfolio Upload] Triggering auto-analysis');
+        
+        // Get the session to build context
+        const session = sessions.get(sessionId);
+        if (session) {
+          // Build context for analysis
+          const context = {
+            sessionId,
+            portfolio: session.portfolio,
+            portfolioMetrics: session.portfolioMetrics,
+            conversationHistory: session.conversationHistory || [],
+            topic: session.lastTopic,
+            timestamp: Date.now(),
+          };
+          
+          // Generate portfolio analysis
+          const orchestratorResult = await dualLLMOrchestrator.processQuery(
+            "analyze my portfolio",
+            context
+          );
+          const analysisResponse = {
+            response: orchestratorResult.response,
+            type: orchestratorResult.understanding?.intent || 'portfolio_analysis',
+            data: orchestratorResult.data,
+            symbol: orchestratorResult.understanding?.symbols?.[0] || null,
+            showChart: true, // Portfolio analysis always shows chart
+            chartData: orchestratorResult.chartData,
+            requestId: orchestratorResult.requestId
+          };
+          
+          logger.info('[Portfolio Upload] Auto-analysis generated:', analysisResponse.type || 'portfolio_analysis');
+          
+          // Prepare analysis for response
+          autoAnalysis = {
+            response: analysisResponse.response,
+            chartData: analysisResponse.chartData,
+            type: analysisResponse.type
+          };
+        }
+      } catch (error) {
+        logger.error('[Portfolio Upload] Auto-analysis failed:', error);
+        // Don't fail the upload, just skip auto-analysis
+      }
+      
+      // Send response with auto-analysis included
       res.json({
         success: true,
         message: result.message,
         holdings: result.holdings,
         metrics: result.metrics,
+        autoAnalysis: autoAnalysis
       });
     } else {
       logger.error(`[Portfolio Upload] Error: ${result.error}`);
@@ -3092,13 +3238,42 @@ app.post("/api/portfolio/upload", upload.single("file"), async (req, res) => {
   }
 });
 
+// Test endpoint for symbols
+app.post("/api/test-symbols", (req, res) => {
+  res.json({
+    success: true,
+    message: "Test response",
+    symbols: ["AAPL", "MSFT"],
+    emptyArray: [],
+    nullValue: null,
+    undefinedValue: undefined
+  });
+});
+
 // Enhanced chat endpoint
 app.post("/api/chat", async (req, res) => {
+  // Agent 1: Pipeline logging
+  const pipelineLogger = require('./utils/pipelineLogger');
+  
   try {
     const { message, sessionId } = req.body;
 
-    if (!message || !sessionId) {
-      return res.status(400).json({ error: "Message and sessionId required" });
+    if (!sessionId) {
+      return res.json({
+        success: true,
+        response: "I'd be happy to help you with financial analysis! Please ask me about stocks, crypto, or your portfolio.",
+        type: "greeting",
+        chartData: null
+      });
+    }
+    
+    if (!message || message.trim() === '') {
+      return res.json({
+        success: true,
+        response: "I'd be happy to help you with financial analysis! Please ask me about stocks, crypto, or your portfolio.",
+        type: "greeting",
+        chartData: null
+      });
     }
 
     // Get or create session
@@ -3124,22 +3299,170 @@ app.post("/api/chat", async (req, res) => {
       portfolioMetrics: session.portfolioMetrics,
       conversationHistory: session.conversationHistory || [],
       topic: session.lastTopic,
+      lastDiscussedSymbol: session.lastTopic, // Pass last discussed symbol for chart context
       timestamp: Date.now(),
     };
+    
+    // Agent 1: Log query start
+    pipelineLogger.logQueryStart(message, sessionId, context);
+    
+    // Add portfolio context to conversation history if portfolio exists
+    if (session.portfolio && session.portfolioMetrics) {
+      logger.info('[Server] Portfolio context available for injection', {
+        holdings: session.portfolio.length,
+        totalValue: session.portfolioMetrics.totalValue
+      });
+    }
 
     // LLM-FIRST APPROACH: Let the LLM decide everything first
     logger.info(`[LLM-FIRST] Processing query with intelligent response: "${message}"`);
     
     let response;
     let intentClassification = null;
+    let symbols = []; // Agent 2: Declare at top level for scope access
     
     try {
       // Skip ALL local classification initially - go straight to intelligent response
-      response = await intelligentResponse.generateResponse(
+      const orchestratorResult = await dualLLMOrchestrator.processQuery(
         message,
-        context,
+        context
       );
-      logger.info(`[LLM-FIRST] Response generated - Type: ${response.type}`);
+      // Agent 2: Fix 3 - Extract symbols from all possible sources
+      symbols = orchestratorResult.symbols || 
+                orchestratorResult.symbolsUsed || 
+                orchestratorResult.understanding?.symbols || 
+                [];
+      
+      response = {
+        response: orchestratorResult.response, // Now this is the actual string
+        type: orchestratorResult.understanding?.intent || 'general',
+        data: orchestratorResult.data,
+        symbol: symbols[0] || null, // Backward compatibility
+        symbols: symbols, // ALWAYS INCLUDE SYMBOLS
+        showChart: orchestratorResult.showChart, // Use dualLLMOrchestrator's intelligent auto-chart decision only
+        chartData: orchestratorResult.chartData,
+        suggestions: orchestratorResult.suggestions || [],
+        requestId: orchestratorResult.requestId
+      };
+      
+      
+      logger.info(`[Debug] After assignment - response.symbols: ${JSON.stringify(response.symbols)}, orchestratorResult.symbols: ${JSON.stringify(orchestratorResult.symbols)}`);
+      logger.info(`[Debug] Response object type check - has symbols property: ${'symbols' in response}`);
+      
+      // Agent 1: Log response building
+      pipelineLogger.logResponseBuilding(orchestratorResult, response);
+      
+      // CHART FIX: Generate chart data if needed
+      if (response.showChart && (response.symbols?.length > 0 || response.symbol)) {
+        try {
+          const chartSymbols = response.symbols || [response.symbol];
+          
+          // Validate symbols before chart generation - prevent fake data for invalid symbols
+          const validSymbols = chartSymbols.filter(symbol => {
+            if (!symbol) return false;
+            const upperSymbol = symbol.toUpperCase().trim();
+            // Basic validation rules
+            if (upperSymbol.length < 1 || upperSymbol.length > 5) return false;
+            if (!/^[A-Z]+$/.test(upperSymbol)) return false;
+            // Check if symbol looks like a test/invalid symbol
+            if (upperSymbol.includes('INVALID') || upperSymbol.includes('FAKE') || upperSymbol.includes('TEST')) return false;
+            return true;
+          });
+          
+          // If no valid symbols, skip chart generation
+          if (validSymbols.length === 0) {
+            logger.info(`[Chart Fix] Skipping chart generation - no valid symbols in: ${chartSymbols.join(', ')}`);
+            response.showChart = false;
+            response.chartData = null;
+          } else {
+            const isComparison = orchestratorResult.understanding?.intent === 'comparison_query' && validSymbols.length > 1;
+          
+            if (isComparison) {
+              logger.info(`[Chart Fix] Generating COMPARISON chart for ${validSymbols.join(' vs ')}`);
+            } else {
+              logger.info(`[Chart Fix] Generating single chart for ${validSymbols[0]}`);
+            }
+            
+            // SIMPLIFIED APPROACH: Direct call with timeout handling
+            const startTime = Date.now();
+            let chartResult = null;
+            
+            try {
+              if (isComparison) {
+                chartResult = await Promise.race([
+                  chartGenerator.generateComparisonChart(validSymbols),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000))
+                ]);
+              } else {
+                chartResult = await Promise.race([
+                  chartGenerator.generateSmartChart(validSymbols[0], "trend"),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000))
+                ]);
+              }
+            
+              const duration = Date.now() - startTime;
+              logger.info(`[Chart Fix] Chart completed in ${duration}ms for ${isComparison ? validSymbols.join(' vs ') : validSymbols[0]}`);
+            } catch (error) {
+              const duration = Date.now() - startTime;
+              if (error.message === 'timeout') {
+                logger.warn(`[Chart Fix] Chart timeout after ${duration}ms for ${isComparison ? validSymbols.join(' vs ') : validSymbols[0]}`);
+              } else {
+                logger.warn(`[Chart Fix] Chart error after ${duration}ms for ${response.symbol}: ${error.message}`);
+              }
+              chartResult = null;
+            }
+          
+          if (chartResult) {
+            logger.info(`[Chart Fix] Chart SUCCESS for ${response.symbol}`);
+            response.chartData = chartResult;
+            response.showChart = true; // Ensure showChart is true when we have chart data
+            logger.info(`[Chart Fix] SUCCESS - Chart data SET on response object: ${response.chartData ? 'YES' : 'NO'}`);
+            // Agent 1: Log successful chart generation
+            pipelineLogger.logChartGeneration(isComparison ? 'comparison' : 'single', symbols, true);
+            } else {
+              logger.info(`[Chart Fix] Chart timeout/fail for ${response.symbol}, continuing without chart`);
+              response.chartData = null;
+              // Agent 1: Log failed chart generation
+              pipelineLogger.logChartGeneration(isComparison ? 'comparison' : 'single', symbols, false);
+            }
+          }
+        } catch (error) {
+          logger.warn(`[Chart Fix] Chart error for ${response.symbol}: ${error.message}`);
+          response.chartData = null;
+        }
+      }
+      
+      // Generate portfolio charts if it's a portfolio query
+      if (orchestratorResult.understanding?.intent === 'portfolio_query' && context.portfolio) {
+        try {
+          const portfolioChartGen = require('./utils/portfolioChartGenerator');
+          
+          logger.info('[Portfolio Charts] Generating portfolio visualizations');
+          
+          // Generate both charts in parallel
+          const [allocationChart, performanceChart] = await Promise.all([
+            portfolioChartGen.generateAllocationChart(context.portfolio),
+            portfolioChartGen.generatePerformanceChart(context.portfolio)
+          ]);
+          
+          if (allocationChart) {
+            // Primary chart is allocation
+            response.chartData = allocationChart;
+            response.showChart = true;
+            
+            // Store performance chart for potential follow-up
+            response.additionalCharts = { performance: performanceChart };
+            
+            logger.info('[Portfolio Charts] Successfully generated allocation and performance charts');
+          } else {
+            logger.warn('[Portfolio Charts] Failed to generate charts');
+          }
+        } catch (error) {
+          logger.error('[Portfolio Charts] Generation failed:', error);
+        }
+      }
+      
+      logger.info(`[LLM-FIRST] Response generated - Type: ${response.type}, Symbol: ${response.symbol}`);
       
       // The LLM will determine if it's financial or not - trust its judgment completely
       if (response.type === 'non_financial_refusal') {
@@ -3163,6 +3486,7 @@ app.post("/api/chat", async (req, res) => {
     } catch (error) {
       // ONLY use local classification as emergency fallback
       logger.error('[LLM-FIRST] Primary LLM classification failed, falling back to local:', error.message);
+      logger.error('[LLM-FIRST] Going through ERROR PATH');
       
       // Emergency fallback to local classification
       intentClassification = intentClassifier.classifyIntent(
@@ -3193,17 +3517,68 @@ app.post("/api/chat", async (req, res) => {
       }
       
       // If fallback isn't sure, try to generate a response anyway
-      response = await intelligentResponse.generateResponse(
+      const fallbackResult = await dualLLMOrchestrator.processQuery(
         message,
-        context,
+        context
       );
+      // Agent 2: Extract symbols for fallback path
+      symbols = fallbackResult.symbols || 
+                fallbackResult.symbolsUsed || 
+                fallbackResult.understanding?.symbols || 
+                [];
+      
+      response = {
+        response: fallbackResult.response,
+        type: fallbackResult.understanding?.intent || 'general',
+        data: fallbackResult.data,
+        symbol: fallbackResult.symbol || fallbackResult.understanding?.symbols?.[0] || fallbackResult.understanding?.actualSymbol || null,
+        symbols: symbols, // Agent 2: Use extracted symbols
+        showChart: fallbackResult.showChart, // Use dualLLMOrchestrator's intelligent auto-chart decision only
+        chartData: fallbackResult.chartData,
+        suggestions: fallbackResult.suggestions || [],
+        requestId: fallbackResult.requestId
+      };
+      
+      // CHART FIX: Generate chart data if needed (fallback path)
+      if (response.showChart && response.symbol) {
+        // Validate symbol before chart generation - prevent fake data for invalid symbols
+        const symbol = response.symbol;
+        const upperSymbol = symbol ? symbol.toUpperCase().trim() : '';
+        const isValidSymbol = symbol && 
+          upperSymbol.length >= 1 && upperSymbol.length <= 5 &&
+          /^[A-Z]+$/.test(upperSymbol) &&
+          !upperSymbol.includes('INVALID') && 
+          !upperSymbol.includes('FAKE') && 
+          !upperSymbol.includes('TEST');
+          
+        if (isValidSymbol) {
+          try {
+            logger.info(`[Chart Fix Fallback] Generating chart for ${response.symbol}`);
+            response.chartData = await chartGenerator.generateSmartChart(
+              response.symbol,
+              "trend", // type
+              null, // will fetch historical data
+              null // will fetch current price
+            );
+          } catch (error) {
+            logger.error(`[Chart Fix Fallback] Failed to generate chart: ${error.message}`);
+            response.chartData = null;
+          }
+        } else {
+          logger.info(`[Chart Fix Fallback] Skipping chart generation for invalid symbol: ${response.symbol}`);
+          response.showChart = false;
+          response.chartData = null;
+        }
+      }
     }
     logger.info(`[INTENT-CHAIN] Response generated - Type: ${response.type}`);
 
     // Format response based on type
     let formattedResponse;
-    let chartData = null;
+    // REMOVED: let chartData = null; // This conflicted with response.chartData
 
+    logger.info(`[Response Formatting] Type: ${response.type}, Symbols: ${JSON.stringify(response.symbols)}`);
+    
     switch (response.type) {
       case "greeting":
         formattedResponse = response.response;
@@ -3231,28 +3606,41 @@ app.post("/api/chat", async (req, res) => {
             
             const historicalDataArrays = await Promise.all(historicalDataPromises);
             
-            // Ensure we have data for both symbols
-            if (historicalDataArrays.every(data => data && data.length > 0)) {
-              // Format data for chart generator
-              const dataArray = historicalDataArrays.map((data, index) => ({
-                symbol: response.symbols[index],
-                dates: data.map(d => d.date),
-                prices: data.map(d => d.close || d.price),
-                currentPrice: response.comparisonData?.[index]?.price || data[data.length - 1]?.close || data[data.length - 1]?.price
+            // PRODUCTION FIX: Use partial success instead of requiring all symbols
+            const validData = historicalDataArrays
+              .map((data, index) => ({ data, symbol: response.symbols[index], index }))
+              .filter(item => item.data && item.data.length > 0);
+            
+            if (validData.length >= 2) {  // Need at least 2 for comparison
+              // Log which symbols failed
+              const failedSymbols = response.symbols.filter(
+                (sym, idx) => !historicalDataArrays[idx] || historicalDataArrays[idx].length === 0
+              );
+              if (failedSymbols.length > 0) {
+                logger.warn(`[Server] Failed to fetch data for: ${failedSymbols.join(', ')}, continuing with ${validData.length} symbols`);
+              }
+              
+              // Format data for chart generator with valid symbols only
+              const dataArray = validData.map(item => ({
+                symbol: item.symbol,
+                dates: item.data.map(d => d.date),
+                prices: item.data.map(d => d.close || d.price),
+                currentPrice: response.comparisonData?.[item.index]?.price || item.data[item.data.length - 1]?.close || item.data[item.data.length - 1]?.price
               }));
               
-              logger.debug(`[Server] Generating comparison chart for ${response.symbols.join(' vs ')}`);
-              chartData = await chartGenerator.generateComparisonChart(
-                response.symbols,
+              const validSymbols = validData.map(item => item.symbol);
+              logger.debug(`[Server] Generating comparison chart for ${validSymbols.join(' vs ')}`);
+              response.chartData = await chartGenerator.generateComparisonChart(
+                validSymbols,
                 dataArray
               );
             } else {
-              logger.error("[Server] Missing historical data for one or more symbols");
-              chartData = null;
+              logger.error(`[Server] Not enough valid data for comparison (only ${validData.length} symbols have data)`);
+              response.chartData = null;
             }
           } catch (error) {
             logger.error("[Server] Failed to fetch comparison data:", error.message);
-            chartData = null;
+            response.chartData = null;
           }
         }
         break;
@@ -3275,7 +3663,7 @@ app.post("/api/chat", async (req, res) => {
                 currentPrice: response.currentPrice
               };
               
-              chartData = await chartGenerator.generateSmartChart(
+              response.chartData = await chartGenerator.generateSmartChart(
                 response.symbol,
                 "trend",
                 formattedData,
@@ -3283,11 +3671,11 @@ app.post("/api/chat", async (req, res) => {
               );
             } else {
               logger.error("[Server] No historical data available for chart");
-              chartData = null;
+              response.chartData = null;
             }
           } catch (error) {
             logger.error("[Server] Failed to fetch historical data:", error.message);
-            chartData = null;
+            response.chartData = null;
           }
         }
         break;
@@ -3295,7 +3683,7 @@ app.post("/api/chat", async (req, res) => {
       case "portfolio_analysis":
         formattedResponse = responseFormatter.formatPortfolioAnalysis(response);
         if (response.needsChart) {
-          chartData = await chartGenerator.generatePortfolioChart(
+          response.chartData = await chartGenerator.generatePortfolioChart(
             response.metrics,
           );
         }
@@ -3325,7 +3713,7 @@ app.post("/api/chat", async (req, res) => {
               data: allHistoricalData[index] || []
             }));
             
-            chartData = await chartGenerator.generateMultiLineChart(datasets, 'Group Analysis - 30 Day Performance');
+            response.chartData = await chartGenerator.generateMultiLineChart(datasets, 'Group Analysis - 30 Day Performance');
             
           } catch (error) {
             logger.error('[Server] Failed to generate group analysis chart:', error.message);
@@ -3338,9 +3726,14 @@ app.post("/api/chat", async (req, res) => {
         break;
 
       default:
-        formattedResponse = responseFormatter.formatStandardMessage(
-          response.analysis || response.response,
-        );
+        // Ensure we're passing a string to formatStandardMessage
+        const messageToFormat = response.analysis || response.response || "";
+        if (typeof messageToFormat !== 'string') {
+          logger.warn(`[Server] formatStandardMessage received non-string:`, typeof messageToFormat, messageToFormat);
+          formattedResponse = String(messageToFormat);
+        } else {
+          formattedResponse = responseFormatter.formatStandardMessage(messageToFormat);
+        }
         if (response.needsChart && response.symbol) {
           // CRITICAL: Fetch real historical data for chart
           try {
@@ -3357,7 +3750,7 @@ app.post("/api/chat", async (req, res) => {
                 currentPrice: response.data && response.data.price ? response.data.price : null
               };
               
-              chartData = await chartGenerator.generateSmartChart(
+              response.chartData = await chartGenerator.generateSmartChart(
                 response.symbol,
                 "price",
                 formattedData,
@@ -3365,46 +3758,293 @@ app.post("/api/chat", async (req, res) => {
               );
             } else {
               logger.error("[Server] No historical data available for chart");
-              chartData = null;
+              response.chartData = null;
             }
           } catch (error) {
             logger.error("[Server] Failed to fetch historical data:", error.message);
-            chartData = null;
+            response.chartData = null;
           }
         }
     }
 
     // Update session - only update lastTopic if a new symbol was extracted from current query
     const extractedSymbol = queryAnalyzer.extractTopic(message);
+    
+    // Get the last discussed symbol from the intelligent response's conversation state
+    const responseLastSymbol = response.conversationState?.conversationFlow?.lastDiscussedSymbol;
+    
+    logger.debug('[Chat] Context update:', {
+      extractedSymbol,
+      responseLastSymbol,
+      responseSymbol: response.symbol,
+      currentLastTopic: session.lastTopic,
+      message: message.substring(0, 50)
+    });
+    
+    // Priority: 1) Extracted symbol from current query, 2) Response's lastDiscussedSymbol, 3) response.symbol, 4) Keep existing
     const newLastTopic =
       extractedSymbol ||
+      responseLastSymbol ||
       (response.symbol !== session.lastTopic
         ? response.symbol
         : session.lastTopic);
 
+    // Add chart metadata to the response if a chart was displayed
+    let assistantContent = formattedResponse;
+    if (response.chartData && response.symbol) {
+      assistantContent += `\n[Chart displayed: ${response.symbol} ${response.type === 'trend_analysis' ? 'trend analysis' : response.type}]`;
+    } else if (response.chartData && response.symbols && response.symbols.length > 1) {
+      assistantContent += `\n[Chart displayed: ${response.symbols.join(' vs ')} comparison]`;
+    } else if (response.chartData && response.type === 'portfolio_analysis') {
+      assistantContent += `\n[Chart displayed: Portfolio allocation]`;
+    }
+    
+    logger.info('[Chat] Updating session lastTopic:', {
+      sessionId,
+      oldLastTopic: session.lastTopic,
+      newLastTopic,
+      fromExtracted: !!extractedSymbol,
+      fromResponse: !!responseLastSymbol
+    });
+    
     sessions.update(sessionId, {
       conversationHistory: [
         ...(session.conversationHistory || []),
-        { query: message, response: formattedResponse, timestamp: Date.now() },
+        { 
+          role: 'user', 
+          content: message, 
+          timestamp: Date.now() 
+        },
+        { 
+          role: 'assistant', 
+          content: assistantContent, 
+          timestamp: Date.now(),
+          portfolio: session.portfolio ? {
+            totalValue: session.portfolioMetrics?.totalValue,
+            holdings: session.portfolio.length,
+            topHoldings: session.portfolioMetrics?.allocation?.slice(0, 3)
+          } : null
+        }
       ],
       lastTopic: newLastTopic,
     });
 
     // Send response with suggestions
-    res.json({
+    logger.info('[API Response Debug]', {
+      responseSymbol: response.symbol,
+      responseShowChart: response.showChart,
+      responseType: response.type,
+      formattedResponseLength: formattedResponse.length
+    });
+    
+    // Chart data is now consistently in response.chartData
+    logger.info(`[API Response] Chart data: ${response.chartData ? 'PRESENT' : 'NULL'}, type: ${typeof response.chartData}`);
+    logger.info(`[API Response] response.chartData: ${response.chartData ? 'PRESENT' : 'NULL'}`);
+    
+    // Agent 1: Log pipeline completion
+    pipelineLogger.logQueryComplete(true);
+    
+    // Agent 2: Enhanced debugging for symbol propagation
+    logger.info(`[Symbol Debug] response.symbols: ${JSON.stringify(response.symbols)}`);
+    logger.info(`[Symbol Debug] response.symbol: ${response.symbol}`);
+    logger.info(`[Symbol Debug] symbols variable: ${JSON.stringify(symbols)}`);
+    logger.info(`[Symbol Debug] response type: ${response.type}`);
+    
+    // Ensure symbols is populated for comparison queries
+    if (response.type === 'comparison_query' && (!symbols || symbols.length === 0)) {
+      logger.warn('[Symbol Debug] Comparison query but no symbols array!');
+      // Try to extract from response
+      if (response.symbols) {
+        symbols = response.symbols;
+      }
+    }
+    
+    // MIDDLEWARE: Apply format enforcement to final formatted response
+    logger.info(`[FORMAT-MIDDLEWARE] Checking final response for format enforcement`);
+    logger.info(`[FORMAT-MIDDLEWARE] formattedResponse type: ${typeof formattedResponse}, length: ${formattedResponse?.length}`);
+    
+    if (formattedResponse && typeof formattedResponse === 'string') {
+      logger.info('[FORMAT-MIDDLEWARE] Applying guaranteed format enforcement to final response');
+      
+      const understanding = {
+        intent: response.type,
+        symbols: symbols || response.symbols || []
+      };
+      
+      try {
+        const originalResponse = formattedResponse;
+        formattedResponse = dualLLMOrchestrator.enforceResponseFormat(formattedResponse, understanding);
+        logger.info('[FORMAT-MIDDLEWARE] Format enforcement applied successfully');
+        logger.info(`[FORMAT-MIDDLEWARE] Response changed: ${originalResponse !== formattedResponse}`);
+        
+        // PHASE 3: Apply Visual Response Builder AFTER format enforcement
+        const visualBuilder = require('./services/visualResponseBuilder');
+        const conversationContext = require('./services/conversationContext');
+        const userLevel = conversationContext.getUserExpertiseLevel(sessionId);
+        logger.info('[VisualBuilder] Applying visual enhancement in middleware:', {
+          intent: response.type,
+          userLevel,
+          hasData: !!response.data,
+          dataKeys: response.data ? Object.keys(response.data) : []
+        });
+        
+        // Debug: Log actual data content
+        if (response.data && response.data.AAPL_market) {
+          logger.info('[VisualBuilder] AAPL_market data:', {
+            hasPrice: !!response.data.AAPL_market.price,
+            price: response.data.AAPL_market.price,
+            hasAnswer: !!response.data.AAPL_market.answer,
+            keys: Object.keys(response.data.AAPL_market)
+          });
+        }
+        
+        formattedResponse = visualBuilder.enhanceResponse(
+          formattedResponse,
+          response.data || {},
+          response.type,
+          userLevel
+        );
+        logger.info('[VisualBuilder] Visual enhancement applied');
+        
+      } catch (formatError) {
+        logger.error('[FORMAT-MIDDLEWARE] Format enforcement failed:', formatError);
+        // Continue with original response if format enforcement fails
+      }
+    } else {
+      logger.warn(`[FORMAT-MIDDLEWARE] Cannot apply format enforcement - formattedResponse is not a string: ${typeof formattedResponse}`);
+    }
+    
+    // QUICK WIN: Emergency format enforcer before sending response
+    const emergencyFormatter = (text, understanding) => {
+      if (!text || typeof text !== 'string') return text;
+      
+      let formatted = text;
+      
+      // Force emoji if missing
+      if (!/[📊📈📉💰🎯⚠️🔍🔥]/.test(formatted)) {
+        const emoji = understanding?.intent === 'price_query' ? '📊' :
+                     understanding?.intent === 'trend_query' ? '📈' :
+                     understanding?.intent === 'portfolio_query' ? '💰' :
+                     understanding?.intent === 'comparison_query' ? '⚔️' : '📊';
+        formatted = `${emoji} ${formatted}`;
+        logger.info('[EMERGENCY-FORMAT] Added missing emoji:', emoji);
+      }
+      
+      // Force bold on first symbol mention
+      const symbols = understanding?.symbols || response.symbols || [];
+      
+      // Special handling for portfolio responses
+      if ((understanding?.intent === 'portfolio_query' || formatted.includes('Portfolio') || formatted.includes('portfolio')) && symbols.length === 0) {
+        // Extract symbols from portfolio response text
+        const commonStockSymbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'BTC', 'ETH', 'SPY', 'QQQ', 'VOO', 'VTI'];
+        commonStockSymbols.forEach(symbol => {
+          const regex = new RegExp(`\\b${symbol}\\b(?!\\*\\*)`, 'g');
+          if (regex.test(formatted)) {
+            formatted = formatted.replace(regex, `**${symbol}**`);
+            logger.info('[EMERGENCY-FORMAT] Added bold to portfolio symbol:', symbol);
+          }
+        });
+      } else if (symbols.length > 0) {
+        symbols.forEach(symbol => {
+          const regex = new RegExp(`\\b${symbol}\\b(?!\\*\\*)`, 'g');
+          if (regex.test(formatted)) {
+            formatted = formatted.replace(regex, `**${symbol}**`);
+            logger.info('[EMERGENCY-FORMAT] Added bold to symbol:', symbol);
+          }
+        });
+      }
+      
+      // Force actionable ending if missing
+      if (!formatted.toLowerCase().includes('want me to')) {
+        const actions = {
+          'price_query': 'analyze the technicals',
+          'portfolio_query': 'optimize your holdings',
+          'comparison_query': 'show detailed comparison',
+          'trend_query': 'track this trend',
+          'market_overview': 'dive deeper into any stock'
+        };
+        const action = actions[understanding?.intent] || 'help with more analysis';
+        formatted += `\n\nWant me to ${action}?`;
+        logger.info('[EMERGENCY-FORMAT] Added actionable ending');
+      }
+      
+      return formatted;
+    };
+    
+    // Apply emergency formatting with monitoring
+    if (formattedResponse && typeof formattedResponse === 'string') {
+      const understanding = response.understanding || { 
+        intent: response.type, 
+        symbols: symbols || response.symbols || [] 
+      };
+      
+      // Track format score before emergency formatting
+      const { FormatMonitor, formatMonitor } = require('./monitoring/FormatMonitor');
+      const preScore = FormatMonitor.calculateFormatScore(formattedResponse);
+      
+      formattedResponse = emergencyFormatter(formattedResponse, understanding);
+      
+      // Track format score after emergency formatting
+      const postScore = FormatMonitor.calculateFormatScore(formattedResponse);
+      formatMonitor.trackFormatting(message, preScore, postScore);
+      
+      if (postScore < 100) {
+        logger.error('[EMERGENCY-FORMAT] Still non-compliant after emergency formatting:', postScore);
+        formatMonitor.trackFailure(message, formattedResponse, 'EMERGENCY_FORMAT_INSUFFICIENT');
+      }
+      
+      logger.info('[EMERGENCY-FORMAT] Applied emergency formatting - Score:', preScore, '→', postScore);
+    }
+    
+    // DEBUG: Log exact values being sent
+    const responsePayload = {
       success: true,
       response: formattedResponse,
-      chartData: chartData,
-      symbols: response.symbols, // Include symbols array for testing
+      chartData: response.chartData || null,
+      symbol: response.symbol,
+      symbols: symbols || response.symbols || [], // Agent 2: Include symbols
       type: response.type,
-      suggestions: response.suggestions || [], // Include follow-up suggestions
+      showChart: response.showChart,
+      suggestions: response.suggestions || [],
       metadata: {
         symbol: response.symbol,
         hasPortfolio: !!session.portfolio,
+        symbols: symbols || response.symbols || [] // Agent 2: Also include in metadata
       },
-    });
+    };
+    
+    logger.info(`[DEBUG] Sending response with symbols: ${JSON.stringify(responsePayload.symbols)}`);
+    logger.info(`[DEBUG] Full responsePayload keys: ${Object.keys(responsePayload).join(', ')}`);
+    logger.info(`[DEBUG] responsePayload.symbols type: ${typeof responsePayload.symbols}, length: ${responsePayload.symbols?.length}`);
+    
+    res.json(responsePayload);
   } catch (error) {
     logger.error("[Chat] Error:", error);
+    
+    // Agent 1: Log pipeline error
+    pipelineLogger.logError('CHAT_ENDPOINT', error);
+    pipelineLogger.logQueryComplete(false);
+    
+    // Handle rate limiting gracefully
+    if (error.response?.status === 429 || error.message?.includes('429') || error.message?.includes('Too Many Requests')) {
+      return res.json({
+        success: true,
+        response: "📊 I'm experiencing high demand right now. Please wait a moment and try again. I'm here to help with your financial analysis! 💡",
+        type: "rate_limit",
+        chartData: null
+      });
+    }
+    
+    // Handle other API errors gracefully
+    if (error.response?.status >= 400) {
+      return res.json({
+        success: true,
+        response: "📊 I encountered a temporary issue accessing market data. Please try your question again. I'm ready to help with stocks, crypto, or portfolio analysis! 💰",
+        type: "api_error",
+        chartData: null
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: "Failed to process chat message",

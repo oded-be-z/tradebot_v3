@@ -1,0 +1,154 @@
+{
+  "conversationMemory": {
+    "passed": 2,
+    "failed": 2,
+    "tests": [
+      {
+        "name": "Bitcoin query shows price and chart",
+        "passed": false,
+        "details": {
+          "hasPrice": true,
+          "hasChart": false,
+          "responseLength": 68
+        },
+        "timestamp": "2025-07-21T09:25:28.446Z"
+      },
+      {
+        "name": "Bot acknowledges chart was shown",
+        "passed": true,
+        "details": {
+          "acknowledges": true,
+          "responseLength": 68,
+          "isTemplate": false
+        },
+        "timestamp": "2025-07-21T09:25:35.488Z"
+      },
+      {
+        "name": "Context switches to oil cleanly",
+        "passed": true,
+        "details": {
+          "mentionsOil": true,
+          "noBitcoin": true
+        },
+        "timestamp": "2025-07-21T09:25:43.706Z"
+      },
+      {
+        "name": "Understands vague query refers to oil",
+        "passed": false,
+        "details": {
+          "contextual": false,
+          "mentionsLimits": true
+        },
+        "timestamp": "2025-07-21T09:25:47.309Z"
+      }
+    ]
+  },
+  "portfolioIntelligence": {
+    "passed": 0,
+    "failed": 1,
+    "tests": [
+      {
+        "name": "Portfolio upload",
+        "passed": false,
+        "details": {
+          "error": "Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"
+        },
+        "timestamp": "2025-07-21T09:26:10.161Z"
+      }
+    ]
+  },
+  "nlpUnderstanding": {
+    "passed": 3,
+    "failed": 0,
+    "tests": [
+      {
+        "name": "Understands casual language",
+        "passed": true,
+        "details": {
+          "understood": true,
+          "responseType": "company_info"
+        },
+        "timestamp": "2025-07-21T09:25:48.101Z"
+      },
+      {
+        "name": "Handles typos and poor grammar",
+        "passed": true,
+        "details": {
+          "understood": true,
+          "hasPrice": true
+        },
+        "timestamp": "2025-07-21T09:25:51.175Z"
+      },
+      {
+        "name": "Handles comparison without perfect syntax",
+        "passed": true,
+        "details": {
+          "mentionsBoth": true,
+          "isComparison": false
+        },
+        "timestamp": "2025-07-21T09:25:53.559Z"
+      }
+    ]
+  },
+  "chartGeneration": {
+    "passed": 1,
+    "failed": 2,
+    "tests": [
+      {
+        "name": "Auto-generates chart on first mention",
+        "passed": false,
+        "details": {},
+        "timestamp": "2025-07-21T09:25:54.464Z"
+      },
+      {
+        "name": "Avoids duplicate chart generation",
+        "passed": true,
+        "details": {
+          "acknowledges": false
+        },
+        "timestamp": "2025-07-21T09:25:58.384Z"
+      },
+      {
+        "name": "Generates comparison charts",
+        "passed": false,
+        "details": {
+          "mentionsBoth": false
+        },
+        "timestamp": "2025-07-21T09:26:10.154Z"
+      }
+    ]
+  },
+  "responseVariety": {
+    "passed": 1,
+    "failed": 1,
+    "tests": [
+      {
+        "name": "Generates varied responses for same query",
+        "passed": false,
+        "details": {
+          "totalResponses": 3,
+          "uniqueResponses": 1,
+          "lengths": [
+            443,
+            443,
+            443
+          ]
+        },
+        "timestamp": "2025-07-21T09:26:20.821Z"
+      },
+      {
+        "name": "No template phrases in responses",
+        "passed": true,
+        "details": {
+          "hasTemplates": false,
+          "sampleResponse": "SPY is currently priced at $627.58, showing no change today (0.00%), with a trading volume of 65.6 m"
+        },
+        "timestamp": "2025-07-21T09:26:20.821Z"
+      }
+    ]
+  },
+  "overallHealth": {
+    "issues": [],
+    "warnings": []
+  }
+}

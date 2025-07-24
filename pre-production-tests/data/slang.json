@@ -1,0 +1,55 @@
+{
+  "slang_variations": {
+    "price_queries": [
+      "yo what's SYMBOL at",
+      "SYMBOL mooning?",
+      "is SYMBOL bussin fr",
+      "SYMBOL to the moon?",
+      "SYMBOL stonks?",
+      "SYMBOL go brrr?",
+      "SYMBOL lambo when?",
+      "SYMBOL diamond hands?",
+      "SYMBOL wen moon",
+      "gimme SYMBOL deets",
+      "SYMBOL vibing?",
+      "SYMBOL slaps?",
+      "how's SYMBOL doing fam",
+      "SYMBOL lit?",
+      "SYMBOL fire or nah"
+    ],
+    "comparison_queries": [
+      "SYMBOL1 or SYMBOL2 better?",
+      "SYMBOL1 vs SYMBOL2 who wins",
+      "SYMBOL1 > SYMBOL2?",
+      "pick one: SYMBOL1 SYMBOL2",
+      "SYMBOL1 crushing SYMBOL2?",
+      "SYMBOL1 v SYMBOL2 showdown"
+    ],
+    "trend_queries": [
+      "SYMBOL going up or down",
+      "SYMBOL bullish af?",
+      "SYMBOL bearish rn?",
+      "SYMBOL pump or dump",
+      "SYMBOL rocket ship?",
+      "SYMBOL heading where"
+    ],
+    "portfolio_queries": [
+      "check my bags",
+      "how my portfolio looking",
+      "am i rich yet",
+      "portfolio check vibe",
+      "my stonks good?",
+      "portfolio moon status"
+    ]
+  },
+  "emoji_queries": [
+    "SYMBOL 🚀",
+    "SYMBOL 📈?",
+    "SYMBOL 📉?",
+    "SYMBOL 💎🙌",
+    "SYMBOL 🔥",
+    "SYMBOL 🌙",
+    "SYMBOL 💰",
+    "SYMBOL 🐂 or 🐻"
+  ]
+}

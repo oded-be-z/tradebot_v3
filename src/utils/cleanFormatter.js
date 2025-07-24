@@ -2,6 +2,12 @@ class CleanFormatter {
   static removeAllMarkdown(text) {
     if (!text) return '';
     
+    // Ensure text is a string
+    if (typeof text !== 'string') {
+      console.warn('[CleanFormatter] removeAllMarkdown: Non-string input received:', typeof text, text);
+      text = typeof text === 'object' ? JSON.stringify(text) : String(text);
+    }
+    
     // Remove all bold markdown
     text = text.replace(/\*\*(.*?)\*\*/g, '$1');
     
@@ -99,6 +105,12 @@ class CleanFormatter {
   
   static processResponse(response) {
     if (!response) return '';
+    
+    // Ensure response is a string
+    if (typeof response !== 'string') {
+      console.warn('[CleanFormatter] processResponse: Non-string input received:', typeof response, response);
+      response = typeof response === 'object' ? JSON.stringify(response) : String(response);
+    }
     
     let cleanedResponse = response;
     

@@ -1,0 +1,16 @@
+{
+  "timestamp": "2025-07-24T08:50:47.630Z",
+  "categories": {},
+  "totalTests": 0,
+  "passed": 0,
+  "failed": 0,
+  "responseMetrics": {
+    "avgLength": 0,
+    "minLength": null,
+    "maxLength": 0,
+    "avgResponseTime": 0
+  },
+  "failures": [],
+  "criticalIssues": [],
+  "fatalError": "connect ECONNREFUSED 127.0.0.1:3000"
+}
