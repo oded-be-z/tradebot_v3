@@ -98,6 +98,240 @@ class DualLLMOrchestrator {
     logger.info('[DualLLMOrchestrator] API rate limiter injected');
   }
 
+  // PARALLEL PROCESSING: Prepare data requirements concurrently with understanding
+  async prepareDataRequirements(query, context = {}) {
+    const prepStart = Date.now();
+    
+    try {
+      // Quick symbol extraction using regex patterns
+      const symbols = this.extractSymbolsQuick(query);
+      
+      // Quick query type detection
+      const queryType = this.detectQueryTypeQuick(query);
+      
+      // Check cache status for known symbols
+      const cacheStatus = this.checkSymbolCacheStatus(symbols);
+      
+      // Determine data freshness requirements
+      const freshnessRequirements = this.determineFreshnessRequirements(queryType, symbols);
+      
+      // Pre-validate symbols to avoid API calls for invalid symbols
+      const validSymbols = symbols.filter(symbol => this.isValidSymbol(symbol));
+      const invalidSymbols = symbols.filter(symbol => !this.isValidSymbol(symbol));
+      
+      if (invalidSymbols.length > 0) {
+        logger.warn(`[DataPrep] Invalid symbols detected: ${invalidSymbols.join(', ')}`);
+      }
+      
+      const result = {
+        symbols: validSymbols,
+        invalidSymbols,
+        queryType,
+        cacheStatus,
+        freshnessRequirements,
+        preparationTime: Date.now() - prepStart,
+        canSkipDataFetch: cacheStatus.allCached && freshnessRequirements.priority === 'low'
+      };
+      
+      logger.debug(`[DataPrep] Completed in ${result.preparationTime}ms: ${validSymbols.length} valid symbols, type: ${queryType}`);
+      return result;
+      
+    } catch (error) {
+      logger.error('[DataPrep] Error in data preparation:', error);
+      return {
+        symbols: [],
+        queryType: 'unknown',
+        error: error.message,
+        preparationTime: Date.now() - prepStart
+      };
+    }
+  }
+
+  // PARALLEL PROCESSING: Merge understanding with data preparation results
+  mergeUnderstandingWithPreparation(understanding, dataRequirements) {
+    try {
+      // Start with original understanding
+      const merged = { ...understanding };
+      
+      // Enhance with preparation results
+      if (dataRequirements.symbols && dataRequirements.symbols.length > 0) {
+        // Use prepared symbols if they're more accurate
+        merged.symbols = dataRequirements.symbols;
+        merged.primarySymbol = dataRequirements.symbols[0];
+      }
+      
+      // Add query type if not present or if preparation is more specific
+      if (dataRequirements.queryType && dataRequirements.queryType !== 'unknown') {
+        merged.queryType = dataRequirements.queryType;
+      }
+      
+      // Add optimization hints
+      merged.optimization = {
+        canSkipDataFetch: dataRequirements.canSkipDataFetch || false,
+        cacheStatus: dataRequirements.cacheStatus || {},
+        freshnessRequirements: dataRequirements.freshnessRequirements || {},
+        invalidSymbols: dataRequirements.invalidSymbols || []
+      };
+      
+      // Add preparation metadata
+      merged.parallelProcessing = {
+        dataPreparationTime: dataRequirements.preparationTime || 0,
+        merged: true,
+        timestamp: Date.now()
+      };
+      
+      logger.debug(`[Merge] Enhanced understanding with ${dataRequirements.symbols?.length || 0} symbols and optimization hints`);
+      return merged;
+      
+    } catch (error) {
+      logger.error('[Merge] Error merging understanding with preparation:', error);
+      return understanding; // Fallback to original understanding
+    }
+  }
+
+  // OPTIMIZATION: Quick symbol extraction without heavy processing
+  extractSymbolsQuick(query) {
+    const symbols = [];
+    const queryUpper = query.toUpperCase();
+    
+    // Known symbol patterns
+    const symbolPatterns = [
+      /\b[A-Z]{1,5}\b/g, // Basic stock symbols (1-5 characters)
+      /\$[A-Z]{1,5}\b/g, // Symbols with $ prefix
+    ];
+    
+    symbolPatterns.forEach(pattern => {
+      const matches = queryUpper.match(pattern) || [];
+      matches.forEach(match => {
+        const cleaned = match.replace('$', '');
+        if (this.isValidSymbol(cleaned)) {
+          symbols.push(cleaned);
+        }
+      });
+    });
+    
+    // Add common name mappings
+    const nameMappings = {
+      'APPLE': 'AAPL',
+      'MICROSOFT': 'MSFT',
+      'GOOGLE': 'GOOGL',
+      'AMAZON': 'AMZN',
+      'TESLA': 'TSLA',
+      'BITCOIN': 'BTC',
+      'ETHEREUM': 'ETH'
+    };
+    
+    Object.entries(nameMappings).forEach(([name, symbol]) => {
+      if (queryUpper.includes(name) && !symbols.includes(symbol)) {
+        symbols.push(symbol);
+      }
+    });
+    
+    return [...new Set(symbols)]; // Remove duplicates
+  }
+
+  // OPTIMIZATION: Quick query type detection
+  detectQueryTypeQuick(query) {
+    const queryLower = query.toLowerCase();
+    
+    // Priority-ordered detection (most specific first)
+    if (/price|cost|worth|\$/.test(queryLower)) return 'price';
+    if (/compare|vs|versus|better/.test(queryLower)) return 'compare';
+    if (/news|earnings|report/.test(queryLower)) return 'news';
+    if (/chart|graph|visualization/.test(queryLower)) return 'chart';
+    if (/forecast|prediction|outlook/.test(queryLower)) return 'forecast';
+    if (/analysis|technical|fundamental/.test(queryLower)) return 'analysis';
+    if (/portfolio|allocation|diversification/.test(queryLower)) return 'portfolio';
+    if (/should.*buy|should.*sell|recommend/.test(queryLower)) return 'advice';
+    if (/info|about|what.*is/.test(queryLower)) return 'info';
+    
+    return 'general';
+  }
+
+  // OPTIMIZATION: Check cache status for symbols
+  checkSymbolCacheStatus(symbols) {
+    const status = {
+      cached: [],
+      missing: [],
+      expired: [],
+      allCached: false
+    };
+    
+    symbols.forEach(symbol => {
+      // Check price cache
+      const priceKey = `price:${symbol}`;
+      const priceEntry = this.priceCache.get(priceKey);
+      
+      if (priceEntry && !this.isCacheExpired(priceEntry, 'price')) {
+        status.cached.push(symbol);
+      } else {
+        status.missing.push(symbol);
+        if (priceEntry) status.expired.push(symbol);
+      }
+    });
+    
+    status.allCached = symbols.length > 0 && status.missing.length === 0;
+    
+    return status;
+  }
+
+  // OPTIMIZATION: Determine data freshness requirements
+  determineFreshnessRequirements(queryType, symbols) {
+    const requirements = {
+      priority: 'medium',
+      maxAge: 30000, // 30 seconds default
+      realTimeRequired: false
+    };
+    
+    switch (queryType) {
+      case 'price':
+        requirements.priority = 'high';
+        requirements.maxAge = 10000; // 10 seconds for prices
+        requirements.realTimeRequired = true;
+        break;
+        
+      case 'news':
+        requirements.priority = 'high';
+        requirements.maxAge = 60000; // 1 minute for news
+        requirements.realTimeRequired = true;
+        break;
+        
+      case 'analysis':
+      case 'forecast':
+        requirements.priority = 'medium';
+        requirements.maxAge = 300000; // 5 minutes for analysis
+        break;
+        
+      case 'info':
+      case 'general':
+        requirements.priority = 'low';
+        requirements.maxAge = 600000; // 10 minutes for general info
+        break;
+    }
+    
+    // Adjust for symbol volatility (crypto needs fresher data)
+    const hasVolatileSymbols = symbols.some(symbol => 
+      ['BTC', 'ETH', 'BNB', 'ADA', 'SOL'].includes(symbol)
+    );
+    
+    if (hasVolatileSymbols && requirements.priority !== 'low') {
+      requirements.maxAge = Math.min(requirements.maxAge, 15000); // 15 seconds max for crypto
+      requirements.realTimeRequired = true;
+    }
+    
+    return requirements;
+  }
+
+  // OPTIMIZATION: Helper to check if cache entry is expired
+  isCacheExpired(entry, cacheType) {
+    if (!entry || !entry.timestamp) return true;
+    
+    const age = Date.now() - entry.timestamp;
+    const ttl = this.CACHE_TTL[cacheType] || 30000;
+    
+    return age > ttl;
+  }
+
   // ERROR HANDLING: Symbol validation
   isValidSymbol(symbol) {
     if (!symbol) return false;
@@ -139,8 +373,8 @@ class DualLLMOrchestrator {
   }
 
   /**
-   * Main entry point - orchestrates the entire LLM flow
-   * Flow: Query → Azure (understand) → Perplexity (fetch data) → Azure (synthesize) → Response
+   * Main entry point - orchestrates the entire LLM flow with parallel processing
+   * Optimized Flow: Query → [Azure (understand) || Data preparation] → Azure (synthesize) → Response
    */
   async processQuery(query, context = {}) {
     const startTime = Date.now();
@@ -155,31 +389,56 @@ class DualLLMOrchestrator {
     let symbolsUsed = [];
 
     try {
-      // Step 1: Understand the query with Azure OpenAI
-      const understandingStart = Date.now();
-      understanding = await this.understandQuery(query, context);
-      const understandingTime = Date.now() - understandingStart;
-      
-      logger.info(`[DualLLMOrchestrator] Azure Understanding (${understandingTime}ms): ${JSON.stringify(understanding)}`);
-      
-      // Phase 2: Update conversation context and resolve pronouns
+      // Phase 1: Resolve pronouns first (quick operation)
       const sessionId = context.sessionId || 'default';
       const resolvedQuery = conversationContext.resolvePronounReference(sessionId, query);
+      const finalQuery = resolvedQuery !== query ? resolvedQuery : query;
+      
       if (resolvedQuery !== query) {
         logger.info(`[Context] Resolved pronouns: "${query}" -> "${resolvedQuery}"`);
-        // Re-understand the resolved query if changed
-        understanding = await this.understandQuery(resolvedQuery, context);
+      }
+      
+      // Phase 2: PARALLEL PROCESSING - Run understanding and data preparation concurrently
+      const parallelStart = Date.now();
+      
+      const [understandingResult, dataPreparationResult] = await Promise.allSettled([
+        // Parallel Task 1: Understanding with Azure OpenAI
+        this.understandQuery(finalQuery, context),
+        
+        // Parallel Task 2: Quick data preparation (extract symbols, check cache, etc.)
+        this.prepareDataRequirements(finalQuery, context)
+      ]);
+      
+      const parallelTime = Date.now() - parallelStart;
+      
+      // Handle understanding result
+      if (understandingResult.status === 'fulfilled') {
+        understanding = understandingResult.value;
+        logger.info(`[DualLLMOrchestrator] Azure Understanding (parallel, ${parallelTime}ms): ${JSON.stringify(understanding)}`);
+      } else {
+        logger.error('[DualLLMOrchestrator] Understanding failed:', understandingResult.reason);
+        throw understandingResult.reason;
+      }
+      
+      // Handle data preparation result
+      let dataRequirements = {};
+      if (dataPreparationResult.status === 'fulfilled') {
+        dataRequirements = dataPreparationResult.value;
+        logger.info(`[DualLLMOrchestrator] Data preparation (parallel, ${parallelTime}ms): ${Object.keys(dataRequirements).join(', ')}`);
+      } else {
+        logger.warn('[DualLLMOrchestrator] Data preparation failed, continuing with understanding only:', dataPreparationResult.reason);
       }
       
       // Agent 1: Log understanding
       pipelineLogger.logUnderstanding(understanding, 'Azure');
-      
-      // NOTE: Context update moved to after data fetch to include price data
 
-      // Step 2: Fetch real-time data with Perplexity
+      // Phase 3: Fetch real-time data based on understanding and preparation
       pipelineLogger.logDataFetchStart(understanding);
       const dataStart = Date.now();
-      const dataResult = await this.fetchRealtimeData(understanding, query, context);
+      
+      // Combine understanding with data preparation for optimized fetching
+      const enhancedUnderstanding = this.mergeUnderstandingWithPreparation(understanding, dataRequirements);
+      const dataResult = await this.fetchRealtimeData(enhancedUnderstanding, finalQuery, context);
       const dataTime = Date.now() - dataStart;
       
       // Extract the actual data and symbols used
@@ -191,27 +450,31 @@ class DualLLMOrchestrator {
       // Agent 1: Log data fetch result
       pipelineLogger.logDataFetchResult(realtimeData, symbolsUsed);
 
-      // Step 3: Synthesize response with Azure OpenAI
+      // Phase 4: Synthesize response with Azure OpenAI
       pipelineLogger.logSynthesisStart(understanding, realtimeData);
       const synthesisStart = Date.now();
-      // Pass the actual symbols used for context queries
-      const enhancedUnderstanding = {
-        ...understanding,
+      
+      // Create final enhanced understanding with all available data
+      const finalEnhancedUnderstanding = {
+        ...enhancedUnderstanding,
         symbols: symbolsUsed.length > 0 ? symbolsUsed : understanding.symbols,
-        actualSymbol: symbolsUsed[0] || understanding.symbols?.[0]
+        actualSymbol: symbolsUsed[0] || understanding.symbols?.[0],
+        dataRequirements,
+        parallelProcessed: true
       };
       
       // Update context with current query, understanding, and real-time data
       logger.info(`[Context Update] Updating context for session ${sessionId}`);
-      logger.info(`[Context Update] Enhanced Understanding symbols: ${JSON.stringify(enhancedUnderstanding.symbols)}`);
+      logger.info(`[Context Update] Enhanced Understanding symbols: ${JSON.stringify(finalEnhancedUnderstanding.symbols)}`);
       logger.info(`[Context Update] Real-time data keys: ${Object.keys(realtimeData).join(', ')}`);
       
-      conversationContext.updateFromQuery(sessionId, query, enhancedUnderstanding, realtimeData);
+      conversationContext.updateFromQuery(sessionId, finalQuery, finalEnhancedUnderstanding, realtimeData);
       
       // Verify context was updated
       const updatedContext = conversationContext.getContext(sessionId);
       logger.info(`[Context Update] After update - symbols tracked: ${updatedContext.recentSymbols.size}`);
-      const synthesisResult = await this.synthesizeResponse(enhancedUnderstanding, realtimeData, query, context);
+      
+      const synthesisResult = await this.synthesizeResponse(finalEnhancedUnderstanding, realtimeData, finalQuery, context);
       const synthesisTime = Date.now() - synthesisStart;
       
       // Agent 1: Log synthesis result
