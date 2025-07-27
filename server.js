@@ -2624,15 +2624,16 @@ class EnhancedPerplexityClient {
   async getFinancialAnalysis(topic, options = {}) {
     // First, try to get real price data
     let realTimeData = null;
-    const symbol = this.extractTopic(topic);
+    // Use explicitly passed symbol if available, otherwise try to extract from topic
+    const symbol = options.symbol || this.extractTopic(topic);
 
     if (symbol) {
+      logger.info(`[FinancialAnalysis] Symbol detected: ${symbol} (from ${options.symbol ? 'options' : 'extraction'})`);
       try {
         // Use the enhanced fetchMarketData that handles normalization
         realTimeData = await marketDataService.fetchMarketData(symbol, "auto");
-        logger.debug(
-          `[FinancialAnalysis] Got real-time data for ${symbol}:`,
-          realTimeData,
+        logger.info(
+          `[FinancialAnalysis] Got real-time data for ${symbol}: $${realTimeData?.price} (${realTimeData?.changePercent}%)`,
         );
       } catch (e) {
         logger.debug(
@@ -2727,11 +2728,27 @@ Current query: ${topic}`;
         };
       }
 
-      return {
+      // CRITICAL FIX: Include realTimeData in response when available
+      const baseResponse = {
         success: true,
         answer: rawResponse.answer || 'No data available',
         sources: rawResponse.sources || []
       };
+      
+      // Merge real market data into response
+      if (realTimeData && realTimeData.price) {
+        return {
+          ...baseResponse,
+          price: realTimeData.price,
+          changePercent: realTimeData.changePercent,
+          volume: realTimeData.volume,
+          quote: realTimeData,  // Include full market data
+          source: 'market_data_enhanced',
+          timestamp: realTimeData.timestamp || Date.now()
+        };
+      }
+      
+      return baseResponse;
     } catch (error) {
       logger.error(`[Perplexity] API error: ${error.message}`);
       return {
@@ -2923,6 +2940,125 @@ app.get("/api/health", (req, res) => {
   };
 
   res.json(healthData);
+});
+
+// Performance metrics endpoint for optimization monitoring
+app.get("/api/performance/metrics", (req, res) => {
+  try {
+    // Import optimization services (with fallback if not available)
+    let routerStats = {};
+    let cacheStats = {};
+    let costStats = {};
+    
+    try {
+      const intelligentQueryRouter = require('./services/intelligentQueryRouter');
+      routerStats = intelligentQueryRouter.getStats();
+    } catch (error) {
+      routerStats = { error: 'Router not available', totalQueries: 0 };
+    }
+    
+    try {
+      const intelligentCache = require('./services/intelligentCache');
+      cacheStats = intelligentCache.getStats();
+    } catch (error) {
+      cacheStats = { error: 'Cache not available', performance: { hitRate: '0%' } };
+    }
+    
+    try {
+      const costOptimizer = require('./services/costOptimizer');
+      costStats = costOptimizer.getStats();
+    } catch (error) {
+      costStats = { error: 'Cost optimizer not available', current: { daily: '0.00' } };
+    }
+    
+    // Process memory usage
+    const memUsage = process.memoryUsage();
+    const processMetrics = {
+      heapUsedMB: (memUsage.heapUsed / 1024 / 1024).toFixed(2),
+      heapTotalMB: (memUsage.heapTotal / 1024 / 1024).toFixed(2),
+      rssMB: (memUsage.rss / 1024 / 1024).toFixed(2),
+      externalMB: (memUsage.external / 1024 / 1024).toFixed(2),
+      uptime: (process.uptime() / 3600).toFixed(2) + ' hours'
+    };
+    
+    // Calculate overall efficiency scores
+    const cacheHitRate = parseFloat(cacheStats.performance?.hitRate?.replace('%', '') || '0');
+    const costSavingsRate = parseFloat(costStats.optimization?.savingsPercent?.replace('%', '') || '0');
+    
+    const efficiencyScore = ((cacheHitRate + costSavingsRate) / 2).toFixed(1);
+    
+    const performanceData = {
+      status: "OK",
+      timestamp: new Date().toISOString(),
+      
+      // Cost optimization metrics
+      costs: {
+        current: {
+          hourly: costStats.current?.hourly || '0.0000',
+          daily: costStats.current?.daily || '0.00',
+          requests: costStats.current?.requests || 0
+        },
+        predictions: {
+          dailyProjection: costStats.predictions?.dailyProjection || '0.00',
+          weeklyProjection: costStats.predictions?.weeklyProjection || '0.00'
+        },
+        optimization: {
+          savingsPercent: costStats.optimization?.savingsPercent || '0%',
+          totalSaved: costStats.optimization?.totalSavings || '0.00'
+        }
+      },
+      
+      // Query routing metrics
+      routing: {
+        totalQueries: routerStats.totalQueries || 0,
+        costSavings: {
+          percentSaved: routerStats.costSavings?.percentSaved || '0%',
+          totalSaved: routerStats.costSavings?.totalSaved || '0.0000'
+        },
+        routeDistribution: routerStats.routePercentages || {},
+        efficiency: routerStats.performance?.avgLatencyReduction || '0.00s'
+      },
+      
+      // Caching metrics
+      caching: {
+        performance: {
+          hitRate: cacheStats.performance?.hitRate || '0%',
+          totalRequests: cacheStats.performance?.totalRequests || 0
+        },
+        hitsByLevel: cacheStats.hitsByLevel || {},
+        memory: {
+          sizeMB: cacheStats.memory?.sizeMB || '0.00',
+          entriesByLevel: cacheStats.memory?.entriesByLevel || {}
+        }
+      },
+      
+      // System performance
+      system: {
+        process: processMetrics,
+        sessions: sessions.getStats(),
+        overallEfficiency: efficiencyScore + '%'
+      },
+      
+      // Health indicators
+      health: {
+        routerWorking: !routerStats.error,
+        cacheWorking: !cacheStats.error,
+        costTrackerWorking: !costStats.error,
+        optimizationActive: efficiencyScore > 10
+      }
+    };
+    
+    res.json(performanceData);
+    
+  } catch (error) {
+    logger.error('[Performance API] Error generating metrics:', error);
+    res.status(500).json({
+      status: "ERROR",
+      message: "Failed to generate performance metrics",
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Debug endpoints for testing fixes
@@ -3314,19 +3450,170 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    // LLM-FIRST APPROACH: Let the LLM decide everything first
-    logger.info(`[LLM-FIRST] Processing query with intelligent response: "${message}"`);
+    // INTELLIGENT ROUTING: Optimize cost and performance through smart routing
+    logger.info(`[IntelligentRouting] Processing query with optimization: "${message}"`);
     
     let response;
     let intentClassification = null;
     let symbols = []; // Agent 2: Declare at top level for scope access
+    let routingDecision = null;
+    let cacheResult = null;
+    let costApproval = null;
     
     try {
-      // Skip ALL local classification initially - go straight to intelligent response
-      const orchestratorResult = await dualLLMOrchestrator.processQuery(
-        message,
-        context
-      );
+      // Step 1: Load optimization services
+      const intelligentQueryRouter = require('./services/intelligentQueryRouter');
+      const intelligentCache = require('./services/intelligentCache');
+      const costOptimizer = require('./services/costOptimizer');
+      
+      // Step 2: Check cache first (fastest path)
+      const cacheStartTime = Date.now();
+      cacheResult = await intelligentCache.get(message, {
+        sessionId,
+        userTier: session.userTier || 'free',
+        symbols: context.conversationHistory?.map(m => m.symbols).flat().filter(Boolean) || []
+      });
+      const cacheTime = Date.now() - cacheStartTime;
+      
+      if (cacheResult) {
+        logger.info(`[Cache] Hit! Serving from ${cacheResult.cacheLevel} cache (${cacheTime}ms)`);
+        
+        // Return cached response immediately
+        response = {
+          response: cacheResult.response,
+          type: cacheResult.context?.type || 'cached',
+          data: cacheResult.context?.data || {},
+          symbol: cacheResult.symbols?.[0] || null,
+          symbols: cacheResult.symbols || [],
+          showChart: cacheResult.context?.showChart || false,
+          chartData: cacheResult.context?.chartData || null,
+          suggestions: cacheResult.context?.suggestions || [],
+          requestId: `cache_${Date.now()}`,
+          cached: true,
+          cacheLevel: cacheResult.cacheLevel,
+          cacheTime
+        };
+        
+        // Record cost savings
+        await costOptimizer.recordActualCost(
+          'CACHE_HIT',
+          'CACHE_HIT',
+          {},
+          sessionId,
+          session.userTier || 'free'
+        );
+        
+        // Skip to response sending
+        symbols = response.symbols;
+        
+      } else {
+        // Step 3: No cache hit - use intelligent routing
+        const routingStartTime = Date.now();
+        routingDecision = await intelligentQueryRouter.routeQuery(message, {
+          sessionId,
+          userTier: session.userTier || 'free',
+          portfolio: session.portfolio,
+          conversationHistory: context.conversationHistory
+        });
+        const routingTime = Date.now() - routingStartTime;
+        
+        logger.info(`[Routing] Decision: ${routingDecision.route} (confidence: ${routingDecision.confidence}, cost: $${routingDecision.estimatedCost}, ${routingTime}ms)`);
+        
+        // Step 4: Check budget and approve cost
+        costApproval = await costOptimizer.checkBudgetAndEstimate(
+          routingDecision.route,
+          session.userTier || 'free',
+          sessionId
+        );
+        
+        if (!costApproval.allowed) {
+          logger.warn(`[Budget] Request blocked: ${costApproval.reason}`);
+          return res.json({
+            success: false,
+            response: "I'd love to help, but you've reached your usage limit for now. Please try again later or upgrade your plan for higher limits.",
+            type: "budget_limit",
+            budgetInfo: costApproval.details,
+            chartData: null
+          });
+        }
+        
+        // Step 5: Process based on routing decision
+        let orchestratorResult;
+        
+        switch (routingDecision.route) {
+          case 'QUICK_AZURE':
+            // Optimized path: Azure only for simple queries
+            logger.info('[Routing] Using optimized Azure-only path');
+            orchestratorResult = await global.processQuickAzureQuery(message, context);
+            break;
+            
+          case 'PERPLEXITY_SEARCH':
+            // Research path: Perplexity for real-time data
+            logger.info('[Routing] Using Perplexity research path');
+            orchestratorResult = await global.processPerplexityQuery(message, context);
+            break;
+            
+          case 'BATCH_QUEUE':
+            // Batch path: Optimize multiple similar queries
+            logger.info('[Routing] Using batch processing path');
+            orchestratorResult = await global.processBatchQuery(message, context, routingDecision);
+            break;
+            
+          case 'FULL_ORCHESTRATION':
+          default:
+            // Full path: Complete LLM orchestration (parallel optimized)
+            logger.info('[Routing] Using full orchestration path (parallel optimized)');
+            orchestratorResult = await dualLLMOrchestrator.processQuery(message, context);
+            break;
+        }
+        
+        // Step 6: Record actual costs
+        await costOptimizer.recordActualCost(
+          routingDecision.route,
+          routingDecision.route,
+          orchestratorResult.tokens || {},
+          sessionId,
+          session.userTier || 'free'
+        );
+        
+        // Step 7: Cache the result for future use
+        if (orchestratorResult.response && orchestratorResult.response.length > 10) {
+          await intelligentCache.set(message, orchestratorResult.response, {
+            sessionId,
+            userTier: session.userTier || 'free',
+            symbols: orchestratorResult.symbols || [],
+            type: orchestratorResult.understanding?.intent || 'general',
+            data: orchestratorResult.data,
+            showChart: orchestratorResult.showChart,
+            chartData: orchestratorResult.chartData,
+            suggestions: orchestratorResult.suggestions
+          });
+        }
+        
+        // Step 8: Format response
+        symbols = orchestratorResult.symbols || 
+                  orchestratorResult.symbolsUsed || 
+                  orchestratorResult.understanding?.symbols || 
+                  [];
+        
+        response = {
+          response: orchestratorResult.response,
+          type: orchestratorResult.understanding?.intent || 'general',
+          data: orchestratorResult.data,
+          symbol: symbols[0] || null,
+          symbols: symbols,
+          showChart: orchestratorResult.showChart,
+          chartData: orchestratorResult.chartData,
+          suggestions: orchestratorResult.suggestions || [],
+          requestId: orchestratorResult.requestId,
+          routing: {
+            decision: routingDecision.route,
+            confidence: routingDecision.confidence,
+            estimatedCost: routingDecision.estimatedCost,
+            reasoning: routingDecision.reasoning
+          }
+        };
+      }
       // Agent 2: Fix 3 - Extract symbols from all possible sources
       symbols = orchestratorResult.symbols || 
                 orchestratorResult.symbolsUsed || 
@@ -4053,6 +4340,279 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 });
+
+// ================================================================
+// INTELLIGENT ROUTING METHODS
+// ================================================================
+
+// Route-specific processing methods for optimized performance
+const processQuickAzureQuery = async function(message, context) {
+  const requestId = `quick_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  try {
+    logger.info(`[QuickAzure] Processing query: "${message}" | RequestID: ${requestId}`);
+    
+    // Use Azure OpenAI directly for simple, fast queries
+    const azureOpenAI = require('./services/azureOpenAI');
+    
+    // Build optimized prompt for quick responses
+    const quickPrompt = `You are a financial assistant. Provide a concise, helpful response to this query: "${message}"
+    
+    Keep your response:
+    - Under 100 words
+    - Professional and accurate
+    - Include specific numbers when relevant
+    - End with a brief actionable suggestion
+    
+    Format with bullet points if multiple pieces of information.`;
+
+    const azureResponse = await azureOpenAI.getChatCompletion([
+      { role: 'system', content: quickPrompt },
+      { role: 'user', content: message }
+    ], {
+      temperature: 0.7,
+      max_tokens: 200,
+      sessionId: context.sessionId
+    });
+
+    // Extract symbols from query for context
+    const symbols = extractSymbolsFromQuery(message);
+    
+    return {
+      response: azureResponse,
+      symbols: symbols,
+      understanding: {
+        intent: 'quick_query',
+        symbols: symbols,
+        confidence: 0.8
+      },
+      data: {},
+      showChart: symbols.length > 0 && symbols.length <= 2,
+      chartData: null,
+      suggestions: ['Get detailed analysis', 'View chart', 'Set price alert'],
+      requestId: requestId
+    };
+    
+  } catch (error) {
+    logger.error(`[QuickAzure] Error processing query: ${error.message}`);
+    return {
+      response: "I encountered an issue getting that information quickly. Let me try a more detailed approach.",
+      symbols: [],
+      understanding: { intent: 'error', symbols: [] },
+      data: {},
+      showChart: false,
+      chartData: null,
+      suggestions: ['Try again', 'Ask for specific stock price'],
+      requestId: requestId,
+      error: true
+    };
+  }
+};
+
+const processPerplexityQuery = async function(message, context) {
+  const requestId = `perp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  try {
+    logger.info(`[Perplexity] Processing research query: "${message}" | RequestID: ${requestId}`);
+    
+    // Get understanding from Azure first
+    const azureOpenAI = require('./services/azureOpenAI');
+    const dualLLMOrchestrator = require('./services/dualLLMOrchestrator');
+    
+    // Quick understanding analysis
+    const understanding = await dualLLMOrchestrator.understandQuery(message, context);
+    
+    // Use Perplexity for real-time research
+    const perplexityPrompt = `Research and analyze: ${message}
+    
+    Focus on:
+    - Latest news and developments
+    - Current market conditions
+    - Real-time data and trends
+    - Expert opinions and analysis
+    
+    Provide accurate, up-to-date information with sources.`;
+
+    const perplexityResult = await dualLLMOrchestrator.callPerplexity(
+      perplexityPrompt,
+      understanding.priority === 'high' ? 'sonar-pro' : 'sonar',
+      {
+        max_tokens: 400,
+        temperature: 0.6,
+        search_recency_filter: 'day'
+      }
+    );
+
+    return {
+      response: perplexityResult.answer || perplexityResult,
+      symbols: understanding.symbols || [],
+      understanding: understanding,
+      data: { perplexity_research: perplexityResult },
+      showChart: understanding.symbols && understanding.symbols.length > 0,
+      chartData: null,
+      suggestions: ['Get technical analysis', 'Compare with peers', 'Set alerts'],
+      requestId: requestId
+    };
+    
+  } catch (error) {
+    logger.error(`[Perplexity] Error processing query: ${error.message}`);
+    
+    // Fallback to Azure if Perplexity fails
+    try {
+      const fallbackResponse = await processQuickAzureQuery(message, context);
+      fallbackResponse.requestId = requestId;
+      fallbackResponse.fallback = true;
+      return fallbackResponse;
+    } catch (fallbackError) {
+      return {
+        response: "I'm having trouble accessing real-time market data right now. Please try again in a moment.",
+        symbols: [],
+        understanding: { intent: 'error', symbols: [] },
+        data: {},
+        showChart: false,
+        chartData: null,
+        suggestions: ['Try again', 'Ask about general market trends'],
+        requestId: requestId,
+        error: true
+      };
+    }
+  }
+};
+
+const processBatchQuery = async function(message, context, routingDecision) {
+  const requestId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  try {
+    logger.info(`[Batch] Processing batch query: "${message}" | RequestID: ${requestId}`);
+    
+    // Check if this is part of a batch or should start one
+    const sessionId = context.sessionId || 'default';
+    const batchKey = `batch_${sessionId}`;
+    
+    // Simple batch processing - queue similar queries and process together
+    if (!global.batchQueue) {
+      global.batchQueue = new Map();
+    }
+    
+    if (!global.batchQueue.has(batchKey)) {
+      global.batchQueue.set(batchKey, {
+        queries: [],
+        startTime: Date.now(),
+        timeout: null
+      });
+    }
+    
+    const batch = global.batchQueue.get(batchKey);
+    batch.queries.push({ message, context, requestId });
+    
+    // Process immediately if batch is full or this is a single query
+    if (batch.queries.length >= 3 || routingDecision.immediate) {
+      return await processBatchNow(batch, batchKey);
+    }
+    
+    // Set timeout to process batch after delay
+    if (batch.timeout) {
+      clearTimeout(batch.timeout);
+    }
+    
+    batch.timeout = setTimeout(async () => {
+      try {
+        await processBatchNow(batch, batchKey);
+      } catch (error) {
+        logger.error(`[Batch] Timeout processing error: ${error.message}`);
+      }
+    }, 2000); // 2 second batch window
+    
+    // Return immediate response for current query
+    const dualLLMOrchestrator = require('./services/dualLLMOrchestrator');
+    return await dualLLMOrchestrator.processQuery(message, context);
+    
+  } catch (error) {
+    logger.error(`[Batch] Error processing query: ${error.message}`);
+    
+    // Fallback to full orchestration
+    const dualLLMOrchestrator = require('./services/dualLLMOrchestrator');
+    return await dualLLMOrchestrator.processQuery(message, context);
+  }
+};
+
+const processBatchNow = async function(batch, batchKey) {
+  try {
+    logger.info(`[Batch] Processing ${batch.queries.length} queries together`);
+    
+    const dualLLMOrchestrator = require('./services/dualLLMOrchestrator');
+    
+    // Process all queries in parallel for efficiency
+    const results = await Promise.allSettled(
+      batch.queries.map(({ message, context }) => 
+        dualLLMOrchestrator.processQuery(message, context)
+      )
+    );
+    
+    // Clear the batch
+    global.batchQueue.delete(batchKey);
+    
+    logger.info(`[Batch] Completed processing ${results.length} queries`);
+    
+    // Return the first successful result (this is simplified - in practice you'd cache all results)
+    const firstSuccess = results.find(r => r.status === 'fulfilled');
+    return firstSuccess ? firstSuccess.value : null;
+    
+  } catch (error) {
+    logger.error(`[Batch] Error in batch processing: ${error.message}`);
+    throw error;
+  }
+};
+
+// Utility function to extract symbols from query text
+const extractSymbolsFromQuery = function(query) {
+  const symbols = [];
+  
+  // Common stock symbol patterns
+  const stockPattern = /\b[A-Z]{1,5}\b/g;
+  const stockMatches = query.match(stockPattern) || [];
+  
+  // Known symbols
+  const knownSymbols = new Set([
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'SPY', 'QQQ',
+    'BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'DOT', 'LINK', 'UNI'
+  ]);
+  
+  // Company name mappings
+  const companyNames = {
+    'apple': 'AAPL',
+    'microsoft': 'MSFT',
+    'google': 'GOOGL',
+    'amazon': 'AMZN',
+    'tesla': 'TSLA',
+    'facebook': 'META',
+    'nvidia': 'NVDA',
+    'bitcoin': 'BTC',
+    'ethereum': 'ETH'
+  };
+  
+  // Extract from stock patterns
+  stockMatches.forEach(match => {
+    if (knownSymbols.has(match)) {
+      symbols.push(match);
+    }
+  });
+  
+  // Extract from company names
+  const queryLower = query.toLowerCase();
+  Object.entries(companyNames).forEach(([name, symbol]) => {
+    if (queryLower.includes(name)) {
+      symbols.push(symbol);
+    }
+  });
+  
+  return [...new Set(symbols)]; // Remove duplicates
+};
+
+// Bind the methods to the global scope so they can be called with 'this'
+global.processQuickAzureQuery = processQuickAzureQuery;
+global.processPerplexityQuery = processPerplexityQuery;  
+global.processBatchQuery = processBatchQuery;
 
 // Root route
 app.get("/", (req, res) => {

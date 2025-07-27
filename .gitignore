@@ -39,3 +39,46 @@ build/
 # Temporary files
 tmp/
 temp/.env
+
+# Test files
+test_*.js
+*test*.js
+*-test*.js
+test-*.js
+
+# Test results and logs
+*_results*.json
+*test*.json
+*.log
+*.pid
+server_*.log
+debug_*.log
+
+# Documentation and reports
+*REPORT*.md
+*IMPLEMENTATION*.md
+*AUDIT*.md
+ATTACK_VECTORS.md
+CRITICAL_VULNERABILITIES.md
+REMEDIATION_ROADMAP.md
+TEST_SUITE_REQUIREMENTS.md
+TRADING_LOGIC_AUDIT.md
+LLM_*.md
+SECURITY_*.md
+SYSTEM_*.md
+
+# Test data
+*.csv
+test*.txt
+
+# Debug and diagnostic files
+debug_*.js
+diagnostic_*.js
+continuous_test_runner.js
+comprehensive-test-suite.js
+generate-comprehensive-test-report.js
+load-test.js
+quick-test*.js
+
+# Cleanup script (keep for maintenance)
+# cleanup_before_push.sh

@@ -4,6 +4,9 @@ const logger = require('../utils/logger');
 const azureOpenAI = require('./azureOpenAI');
 // Agent 1: Pipeline logging
 const pipelineLogger = require('../utils/pipelineLogger');
+// Market data service for direct price fetching
+const MarketDataService = require('../src/knowledge/market-data-service');
+const marketDataService = new MarketDataService();
 // Response Templates for enhanced UX
 const ResponseTemplates = require('./responseTemplates');
 // Phase 2: Conversation Context for memory and personalization
@@ -43,7 +46,7 @@ class DualLLMOrchestrator {
     this.perplexityConfig = {
       price_queries: {
         model: 'sonar-pro',
-        max_tokens: 50, // Ultra-minimal for speed
+        max_tokens: 250, // FIXED: Increased from 50 to allow real data in responses
         temperature: 0.05, // Lowest for factual data
         timeout: 5000, // 5 second timeout - increased from 1.5s to prevent timeouts
         search_recency_filter: 'hour',
@@ -57,7 +60,7 @@ class DualLLMOrchestrator {
       },
       analysis_queries: {
         model: 'sonar',
-        max_tokens: 300,
+        max_tokens: 500, // Increased from 300 for better analysis
         temperature: 0.3,
         timeout: 10000, // 10 second timeout - increased from 3s for reliability
         search_recency_filter: 'hour',
@@ -410,6 +413,7 @@ class DualLLMOrchestrator {
       ]);
       
       const parallelTime = Date.now() - parallelStart;
+      const understandingTime = parallelTime; // Understanding is part of parallel processing
       
       // Handle understanding result
       if (understandingResult.status === 'fulfilled') {
@@ -545,6 +549,33 @@ class DualLLMOrchestrator {
   }
 
   /**
+   * Smart Routing: Determine if we should bypass Perplexity for simple price queries
+   */
+  async shouldBypassPerplexity(understanding, query) {
+    // Simple price query patterns
+    const simplePricePatterns = [
+      /^[A-Z]{1,5}\?$/,  // "TSLA?" - single symbol with question mark
+      /^(what['']?s|what is) (the )?price of/i,  // "what's the price of..."
+      /^(how much is|price of)/i,  // "how much is..." or "price of..."
+      /^show me [A-Z]{1,5} (stock )?price/i,  // "show me TSLA price"
+      /^[A-Z]{1,5} (stock )?price\??$/i  // "TSLA price" or "TSLA stock price?"
+    ];
+    
+    const isSimplePrice = simplePricePatterns.some(pattern => pattern.test(query.trim()));
+    const hasSingleSymbol = understanding.symbols?.length === 1;
+    const isPriceRelated = ['price_query', 'analysis_query', 'investment_advice'].includes(understanding.intent);
+    
+    // Bypass if it's a simple price query with a single symbol
+    const shouldBypass = isSimplePrice && hasSingleSymbol && isPriceRelated;
+    
+    if (shouldBypass) {
+      logger.info(`[SMART-ROUTING] Bypassing Perplexity for simple price query: ${understanding.symbols[0]}`);
+    }
+    
+    return shouldBypass;
+  }
+
+  /**
    * Step 1: Use Azure OpenAI to understand query intent and extract entities
    */
   async understandQuery(query, context) {
@@ -612,10 +643,46 @@ class DualLLMOrchestrator {
   }
 
   /**
-   * Step 2: Use Perplexity to fetch ALL real-time market data
+   * Step 2: Use Perplexity to fetch ALL real-time market data (or bypass for simple queries)
    */
   async fetchRealtimeData(understanding, originalQuery, context) {
-    logger.debug(`[DualLLMOrchestrator] Fetching real-time data with Perplexity`);
+    logger.debug(`[DualLLMOrchestrator] Fetching real-time data`);
+    
+    // SMART ROUTING: Bypass Perplexity for simple price queries
+    if (await this.shouldBypassPerplexity(understanding, originalQuery)) {
+      const symbol = understanding.symbols[0];
+      
+      try {
+        // Fetch market data directly
+        const marketData = await marketDataService.fetchMarketData(symbol);
+        
+        if (marketData && marketData.price) {
+          logger.info(`[SMART-ROUTING] Direct market data for ${symbol}: $${marketData.price} (${marketData.changePercent}%)`);
+          
+          // Format response to match Perplexity's expected structure
+          return {
+            data: {
+              [`${symbol}_market`]: {
+                answer: `${symbol} is trading at $${marketData.price} (${marketData.changePercent >= 0 ? '+' : ''}${marketData.changePercent}%)`,
+                success: true,
+                price: marketData.price,
+                changePercent: marketData.changePercent,
+                volume: marketData.volume,
+                dayHigh: marketData.dayHigh,
+                dayLow: marketData.dayLow,
+                quote: marketData,
+                source: 'direct_market_data',
+                timestamp: marketData.timestamp || Date.now()
+              }
+            },
+            symbolsUsed: [symbol]
+          };
+        }
+      } catch (error) {
+        logger.warn(`[SMART-ROUTING] Direct fetch failed for ${symbol}, falling back to Perplexity: ${error.message}`);
+        // Continue to Perplexity fallback
+      }
+    }
     
     if (!this.perplexityClient) {
       throw new Error('Perplexity client not initialized');
@@ -669,13 +736,22 @@ class DualLLMOrchestrator {
 
     // OPTIMIZED: Use fast combined data fetching
     if (symbolsToFetch.length > 0) {
-      // For single symbol, use fast combined fetch
-      if (symbolsToFetch.length === 1) {
+      // For single symbol, use fast combined fetch (but NOT for comparison queries)
+      if (symbolsToFetch.length === 1 && understanding.intent !== 'comparison_query') {
         try {
           const symbol = symbolsToFetch[0];
           const fastData = await this.fetchAllDataFast(symbol, understanding);
+          
+          // CRITICAL FIX: Ensure consistent data structure
+          // fastData is already { BTC_market: {...} }, don't double-wrap
+          logger.info(`[fetchRealtimeData] Single symbol data structure:`, {
+            symbol,
+            dataKeys: Object.keys(fastData),
+            hasMarketKey: !!fastData[`${symbol}_market`]
+          });
+          
           return {
-            data: fastData,
+            data: { ...fastData },  // Spread to ensure flat structure
             symbolsUsed: symbolsToFetch
           };
         } catch (error) {
@@ -709,7 +785,15 @@ class DualLLMOrchestrator {
           try {
             // Schedule the promise through the rate limiter
             const result = await this.apiLimiter.schedule(() => dataPromises[i]);
-            data[dataLabels[i]] = result;
+            
+            // COMPARISON FIX: Properly merge fetchAllDataFast results
+            if (result && typeof result === 'object') {
+              // fetchAllDataFast returns { BTC_market: {...} } 
+              // We need to merge this into the main data object
+              Object.assign(data, result);
+            } else {
+              data[dataLabels[i]] = result;
+            }
           } catch (error) {
             logger.warn(`[DualLLMOrchestrator] Failed to fetch ${dataLabels[i]}: ${error.message}`);
             data[dataLabels[i]] = null;
@@ -721,7 +805,15 @@ class DualLLMOrchestrator {
         const results = await Promise.allSettled(dataPromises);
         results.forEach((result, index) => {
           if (result.status === 'fulfilled') {
-            data[dataLabels[index]] = result.value;
+            // COMPARISON FIX: Properly merge fetchAllDataFast results
+            const value = result.value;
+            if (value && typeof value === 'object') {
+              // fetchAllDataFast returns { BTC_market: {...} } 
+              // We need to merge this into the main data object
+              Object.assign(data, value);
+            } else {
+              data[dataLabels[index]] = value;
+            }
           } else {
             logger.warn(`[DualLLMOrchestrator] Failed to fetch ${dataLabels[index]}: ${result.reason}`);
             data[dataLabels[index]] = null;
@@ -817,6 +909,71 @@ class DualLLMOrchestrator {
       requiresChart: understanding.requiresChart
     })}`);
     logger.info(`[Synthesis] Context sessionId: ${context?.sessionId || 'none'}`);
+    
+    // ENHANCED VALIDATION: Robust data access with multiple patterns
+    if (understanding.symbols?.length > 0) {
+      // Log complete data structure for debugging
+      logger.info(`[VALIDATION] Data structure received:`, {
+        topLevelKeys: Object.keys(data),
+        hasNestedData: !!data.data,
+        nestedKeys: data.data ? Object.keys(data.data) : []
+      });
+      
+      for (const symbol of understanding.symbols) {
+        // Try multiple data access patterns defensively
+        let marketData = data[`${symbol}_market`] || 
+                        data[symbol] || 
+                        data.data?.[`${symbol}_market`] ||  // Handle nested structure
+                        data.data?.[symbol];
+        
+        // Log what we found
+        logger.info(`[VALIDATION] Checking ${symbol}:`, {
+          foundData: !!marketData,
+          accessPattern: marketData ? 
+            (data[`${symbol}_market`] ? 'direct_market' : 
+             data[symbol] ? 'direct_symbol' :
+             data.data?.[`${symbol}_market`] ? 'nested_market' :
+             'nested_symbol') : 'not_found',
+          dataKeys: marketData ? Object.keys(marketData).slice(0, 5) : []
+        });
+        
+        if (marketData) {
+          // Check if data has price information in various locations
+          if (!marketData.price) {
+            // Try to extract from quote
+            if (marketData.quote?.price) {
+              marketData.price = marketData.quote.price;
+              marketData.changePercent = marketData.quote.changePercent || marketData.quote.change;
+              marketData.volume = marketData.quote.volume;
+              logger.info(`[VALIDATION] Extracted price from quote for ${symbol}: $${marketData.price}`);
+            }
+            // Try to extract from nested answer (Perplexity response)
+            else if (marketData.answer && /\$[\d,]+\.?\d*/.test(marketData.answer)) {
+              const priceMatch = marketData.answer.match(/\$[\d,]+\.?\d*/);
+              if (priceMatch) {
+                const extractedPrice = parseFloat(priceMatch[0].replace(/[$,]/g, ''));
+                logger.info(`[VALIDATION] Extracted price from answer text for ${symbol}: $${extractedPrice}`);
+                // Don't modify original data, just log the finding
+              }
+            }
+          }
+          
+          // Final validation status
+          if (marketData.price) {
+            logger.info(`[VALIDATION] ✓ ${symbol} has valid price data: $${marketData.price}`);
+          } else {
+            logger.warn(`[VALIDATION] ✗ ${symbol} missing price data in synthesis`, {
+              hasAnswer: !!marketData.answer,
+              hasQuote: !!marketData.quote,
+              hasError: !!marketData.error,
+              source: marketData.source
+            });
+          }
+        } else {
+          logger.error(`[VALIDATION] ✗ No market data found for ${symbol} in any location`);
+        }
+      }
+    }
     
     // CRITICAL FIX: Don't bypass Azure OpenAI when data fails - we still want conversational responses!
     // Instead, let Azure OpenAI handle the error gracefully with natural language
@@ -1194,14 +1351,15 @@ Contextual insight: ${insightResult.insight}`;
       };
     }
     
-    // ULTRA-FAST PROMPT: Minimal request for maximum speed
-    const prompt = `${symbol}: price, % change, volume. Format: $XXX.XX, +X.X%, XXM`;
+    // ULTRA-FAST PROMPT: Request real-time actual data
+    const prompt = `What is ${symbol} current real-time stock price, percentage change today, and trading volume? Give me the actual numbers.`;
 
     try {
       // Try fast fetch with reasonable timeout
       const fetchFn = () => this.perplexityClient.getFinancialAnalysis(prompt, {
         ...this.perplexityConfig.price_queries,
-        requireNumbers: true
+        requireNumbers: true,
+        symbol: symbol  // Pass symbol explicitly so marketDataService can fetch real prices
       });
       
       const result = await this.fetchWithTimeout(
@@ -1209,8 +1367,58 @@ Contextual insight: ${insightResult.insight}`;
         5000 // 5 second timeout - matches config for reliability
       );
       
-      // Cache in price cache with short TTL
-      this.setTieredCache(this.priceCache, priceKey, result);
+      // Log the actual Perplexity response
+      logger.info(`[PERPLEXITY RESPONSE] ${symbol}:`, JSON.stringify(result, null, 2));
+      
+      // VALIDATION: Check if response contains real data
+      const hasRealPrice = result && result.answer && /\$[\d,]+\.?\d*/.test(result.answer);
+      const hasNoData = result && result.answer && 
+        (result.answer.includes('No data available') || 
+         result.answer.includes('no data available') ||
+         result.answer.length < 20);
+      
+      if (!hasRealPrice || hasNoData) {
+        logger.warn(`[VALIDATION] Perplexity response lacks real data for ${symbol}, using fallback`);
+        
+        // FALLBACK: Get data directly from market service
+        try {
+          const marketData = await marketDataService.fetchMarketData(symbol);
+          
+          if (marketData && marketData.price) {
+            const fallbackResult = {
+              answer: `${symbol} is trading at $${marketData.price} (${marketData.changePercent >= 0 ? '+' : ''}${marketData.changePercent}%)`,
+              success: true,
+              price: marketData.price,
+              changePercent: marketData.changePercent,
+              volume: marketData.volume,
+              quote: marketData,
+              source: 'fallback_market_data',
+              timestamp: Date.now()
+            };
+            
+            // Cache the successful fallback
+            this.setTieredCache(this.priceCache, priceKey, fallbackResult);
+            
+            return {
+              [`${symbol}_market`]: fallbackResult
+            };
+          }
+        } catch (fallbackError) {
+          logger.error(`[FALLBACK] Market data fetch also failed for ${symbol}: ${fallbackError.message}`);
+        }
+      }
+      
+      // Validate response before caching - don't cache templates or "no data"
+      if (result && result.answer && 
+          !result.answer.includes('XXX') && 
+          !result.answer.includes('$X') && 
+          !result.answer.includes('Format:') &&
+          !result.answer.includes('No data available') &&
+          hasRealPrice) {
+        this.setTieredCache(this.priceCache, priceKey, result);
+      } else {
+        logger.error(`[CACHE] Refusing to cache invalid response for ${symbol}: ${result?.answer}`);
+      }
       
       return {
         [`${symbol}_market`]: result
@@ -1219,7 +1427,36 @@ Contextual insight: ${insightResult.insight}`;
     } catch (error) {
       logger.warn(`[DualLLMOrchestrator] Fast fetch failed for ${symbol}: ${error.message}`);
       
-      // ERROR HANDLING: Proper fallback, no fake data
+      // ENHANCED FALLBACK: Try to get real data from market service
+      try {
+        const marketData = await marketDataService.fetchMarketData(symbol);
+        
+        if (marketData && marketData.price) {
+          logger.info(`[FALLBACK] Successfully fetched market data for ${symbol}: $${marketData.price}`);
+          
+          const fallbackResponse = {
+            answer: `${symbol} is trading at $${marketData.price} (${marketData.changePercent >= 0 ? '+' : ''}${marketData.changePercent}%)`,
+            success: true,
+            price: marketData.price,
+            changePercent: marketData.changePercent,
+            volume: marketData.volume,
+            quote: marketData,
+            source: 'error_fallback_market_data',
+            timestamp: Date.now()
+          };
+          
+          // Cache the successful fallback
+          this.setTieredCache(this.priceCache, priceKey, fallbackResponse);
+          
+          return {
+            [`${symbol}_market`]: fallbackResponse
+          };
+        }
+      } catch (fallbackError) {
+        logger.error(`[FALLBACK] Market data fetch also failed for ${symbol}: ${fallbackError.message}`);
+      }
+      
+      // Last resort: return error message
       return {
         [`${symbol}_market`]: this.getFallbackData(symbol)
       };
@@ -1227,21 +1464,23 @@ Contextual insight: ${insightResult.insight}`;
   }
 
   async fetchSymbolNews(symbol) {
-    const prompt = `Latest ${symbol} news: major headlines only, brief.`;
+    const prompt = `What are the latest real-time news headlines for ${symbol}? Give brief actual headlines.`;
 
     const fetchFn = () => this.perplexityClient.getFinancialAnalysis(prompt, {
-      maxTokens: 200 // Reduced for speed
+      maxTokens: 200, // Reduced for speed
+      symbol: symbol  // Pass symbol explicitly
     });
     
     return this.apiLimiter ? await this.apiLimiter.schedule(fetchFn) : await fetchFn();
   }
 
   async fetchTechnicalAnalysis(symbol) {
-    const prompt = `${symbol} technical: trend, RSI, support/resistance levels. Numbers only.`;
+    const prompt = `What are ${symbol} current technical indicators: trend direction, RSI value, support/resistance levels? Give actual numbers only.`;
 
     const fetchFn = () => this.perplexityClient.getFinancialAnalysis(prompt, {
       requireNumbers: true,
-      maxTokens: 150 // Reduced for speed
+      maxTokens: 150, // Reduced for speed
+      symbol: symbol  // Pass symbol explicitly
     });
     
     return this.apiLimiter ? await this.apiLimiter.schedule(fetchFn) : await fetchFn();
@@ -1332,6 +1571,7 @@ Return structured data with exact numbers for easy parsing.`;
           if (value.marketCap) formatted += `- Market Cap: $${value.marketCap}\n`;
           if (value.dayHigh) formatted += `- Day High: $${value.dayHigh}\n`;
           if (value.dayLow) formatted += `- Day Low: $${value.dayLow}\n`;
+          if (value.source) formatted += `- Data Source: ${value.source}\n`;
           formatted += '\n';
         }
       }
@@ -1584,20 +1824,36 @@ Do NOT use phrases like "I apologize", "sorry", "let me know", etc.`;
   
   // Prepare chart data based on intent
   prepareChartData(understanding, data) {
-    const symbol = understanding.actualSymbol || understanding.symbols?.[0];
+    const symbols = understanding.symbols || [];
     
-    if (!symbol || !data[`${symbol}_market`]) {
+    if (symbols.length === 0) {
+      return null;
+    }
+    
+    // For comparison queries, collect data for all symbols
+    const marketData = {};
+    let hasAnyData = false;
+    
+    symbols.forEach(symbol => {
+      if (data[`${symbol}_market`]) {
+        marketData[`${symbol}_market`] = data[`${symbol}_market`];
+        hasAnyData = true;
+      }
+    });
+    
+    if (!hasAnyData) {
       return null;
     }
     
     // Return data structure that chartGenerator expects
     return {
       type: understanding.intent,
-      symbol: symbol,
-      symbols: understanding.symbols || [symbol],
-      marketData: data[`${symbol}_market`],
-      technicalData: data[`${symbol}_technical`],
-      requiresChart: true
+      symbol: symbols[0],  // Primary symbol for backwards compatibility
+      symbols: symbols,    // All symbols for comparison charts
+      marketData: symbols.length === 1 ? data[`${symbols[0]}_market`] : marketData,
+      technicalData: data[`${symbols[0]}_technical`],
+      requiresChart: true,
+      isComparison: symbols.length > 1
     };
   }
 

@@ -40,9 +40,43 @@ class SmartChartGenerator {
     });
   }
 
-  async generateSmartChart(symbol, type = "price", historicalData = null, currentPrice = null) {
+  async generateSmartChart(symbols, type = "price", historicalData = null, currentPrice = null, marketData = {}) {
     try {
-      logger.info(`[ChartGenerator] START: Generating chart for ${symbol}, type: ${type}`);
+      // Handle both single symbol (string) and multiple symbols (array)
+      const symbolArray = Array.isArray(symbols) ? symbols : [symbols];
+      const isComparison = symbolArray.length > 1;
+      
+      logger.info(`[ChartGenerator] START: Generating chart for ${symbolArray.join(', ')}, type: ${type}, comparison: ${isComparison}`);
+      
+      // COMPARISON MODE: Use comparison chart generator for multiple symbols
+      if (isComparison) {
+        const comparisonChart = require('./comparisonChartGenerator');
+        logger.info(`[ChartGenerator] Using comparison chart for ${symbolArray.length} symbols`);
+        
+        try {
+          const comparisonResult = await comparisonChart.generateComparisonChart(symbolArray, type, marketData);
+          
+          return {
+            type: "comparison",
+            symbols: symbolArray,
+            chartType: type,
+            data: comparisonResult.data,
+            config: comparisonResult,
+            imageUrl: comparisonResult.buffer ? `data:image/png;base64,${comparisonResult.buffer.toString('base64')}` : null,
+            title: comparisonResult.title,
+            subtitle: comparisonResult.subtitle,
+            timestamp: Date.now(),
+            metadata: comparisonResult.metadata
+          };
+        } catch (comparisonError) {
+          logger.error(`[ChartGenerator] Comparison chart failed: ${comparisonError.message}`);
+          // Fall back to single chart for first symbol
+          logger.warn(`[ChartGenerator] Falling back to single chart for ${symbolArray[0]}`);
+        }
+      }
+      
+      // SINGLE SYMBOL MODE: Use existing logic
+      const symbol = symbolArray[0];
       
       // CRITICAL: Fetch real historical data if not provided
       let data;
